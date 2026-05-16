@@ -1,12 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Heart, CheckCircle } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
 import DonorLayout from '../components/DonorLayout';
 
 export default function DonorAdditionalDonationPage() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
   const [amount, setAmount] = useState<string>('');
   const [customAmount, setCustomAmount] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState(false);

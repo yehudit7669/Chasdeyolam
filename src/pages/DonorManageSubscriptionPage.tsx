@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, AlertTriangle, X, CheckCircle, ArrowRight } from 'lucide-react';
+import { Heart, AlertTriangle, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import DonorLayout from '../components/DonorLayout';
