@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
-import { MessageSquare, Send } from 'lucide-react';
+import { MessageSquare, Send, X, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import DonorLayout from '../components/DonorLayout';
 
@@ -103,6 +103,7 @@ export const SupportPage = () => {
         setNewThreadMessage('');
         setShowNewThread(false);
         await loadThreads();
+        setSelectedThread(thread.id);
       }
     } catch (error) {
       console.error('Error creating thread:', error);
@@ -134,11 +135,8 @@ export const SupportPage = () => {
   if (loading) {
     return (
       <DonorLayout>
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">טוען...</p>
-          </div>
+        <div className="flex items-center justify-center py-24">
+          <div className="w-12 h-12 border-2 border-[#E5E1D8] border-t-[#626D58] rounded-full animate-spin" />
         </div>
       </DonorLayout>
     );
@@ -146,54 +144,69 @@ export const SupportPage = () => {
 
   return (
     <DonorLayout>
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">תמיכה</h1>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-[#0A192F]">מרכז תמיכה</h1>
+            <p className="text-[#33332D]/50 text-sm mt-1 font-light">אנחנו כאן לכל שאלה או בקשה</p>
+          </div>
           <button
             onClick={() => setShowNewThread(!showNewThread)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#0A192F] text-white text-sm font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md"
           >
-            <MessageSquare size={20} />
-            פנייה חדשה
+            <Plus size={16} />
+            <span>פנייה חדשה</span>
           </button>
         </div>
 
+        {/* New thread form */}
         {showNewThread && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">פנייה חדשה</h2>
+          <div
+            className="bg-white rounded-[2rem] p-7 border border-[#E5E1D8]/60"
+            style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-black text-[#0A192F]">פנייה חדשה</h2>
+              <button
+                onClick={() => setShowNewThread(false)}
+                className="p-2 text-[#33332D]/40 hover:text-[#33332D] transition-colors rounded-xl hover:bg-[#F7F5F0]"
+              >
+                <X size={18} />
+              </button>
+            </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  נושא
-                </label>
+                <label className="block text-sm font-semibold text-[#33332D]/70 mb-2">נושא</label>
                 <input
                   type="text"
                   value={newThreadSubject}
                   onChange={(e) => setNewThreadSubject(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  className="w-full px-4 py-3 bg-[#F9F8F4] border border-[#E5E1D8] rounded-xl text-[#0A192F] placeholder-[#33332D]/30 focus:outline-none focus:ring-2 focus:ring-[#D4B483]/30 focus:border-[#D4B483] transition-all text-sm"
+                  placeholder="במה נוכל לעזור?"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  הודעה
-                </label>
+                <label className="block text-sm font-semibold text-[#33332D]/70 mb-2">הודעה</label>
                 <textarea
                   value={newThreadMessage}
                   onChange={(e) => setNewThreadMessage(e.target.value)}
                   rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  className="w-full px-4 py-3 bg-[#F9F8F4] border border-[#E5E1D8] rounded-xl text-[#0A192F] placeholder-[#33332D]/30 focus:outline-none focus:ring-2 focus:ring-[#D4B483]/30 focus:border-[#D4B483] transition-all text-sm resize-none"
+                  placeholder="פרט את שאלתך..."
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <button
                   onClick={createThread}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-[#0A192F] text-white text-sm font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all"
                 >
+                  <Send size={15} />
                   שלח
                 </button>
                 <button
                   onClick={() => setShowNewThread(false)}
-                  className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300"
+                  className="px-6 py-2.5 bg-[#F7F5F0] text-[#33332D] text-sm font-semibold rounded-xl hover:bg-[#E5E1D8] transition-colors"
                 >
                   ביטול
                 </button>
@@ -202,100 +215,138 @@ export const SupportPage = () => {
           </div>
         )}
 
-        <div className="grid md:grid-cols-3 gap-6">
+        {/* Threads + Messages */}
+        <div className="grid md:grid-cols-3 gap-5">
+          {/* Thread list */}
           <div className="md:col-span-1">
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="bg-blue-600 text-white px-4 py-3 font-medium">
-                פניות
+            <div
+              className="bg-white rounded-[2rem] overflow-hidden border border-[#E5E1D8]/60"
+              style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.06)' }}
+            >
+              <div className="px-5 py-4 border-b border-[#E5E1D8]/60">
+                <h3 className="text-sm font-black text-[#0A192F]">פניות אחרונות</h3>
               </div>
-              <div className="divide-y divide-gray-200">
-                {threads.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">
-                    אין פניות
-                  </div>
-                ) : (
-                  threads.map(thread => (
+
+              {threads.length === 0 ? (
+                <div className="px-5 py-10 text-center">
+                  <MessageSquare className="mx-auto text-[#33332D]/20 mb-3" size={28} />
+                  <p className="text-sm text-[#33332D]/40 font-light">אין פניות עדיין</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E5E1D8]/40">
+                  {threads.map(thread => (
                     <button
                       key={thread.id}
                       onClick={() => setSelectedThread(thread.id)}
-                      className={`w-full px-4 py-3 text-right hover:bg-gray-50 transition-colors ${
-                        selectedThread === thread.id ? 'bg-blue-50' : ''
+                      className={`w-full px-5 py-4 text-right hover:bg-[#F9F8F4] transition-colors ${
+                        selectedThread === thread.id ? 'bg-[#F9F8F4]' : ''
                       }`}
                     >
-                      <div className="font-medium text-gray-900 mb-1">{thread.subject}</div>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>{format(new Date(thread.created_at), 'dd/MM/yyyy')}</span>
-                        <span className={`px-2 py-1 rounded ${
-                          thread.status === 'open' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-[#0A192F] text-sm leading-snug">{thread.subject}</p>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap flex-shrink-0 ${
+                            thread.status === 'open'
+                              ? 'bg-[#626D58]/10 text-[#626D58]'
+                              : 'bg-[#F7F5F0] text-[#33332D]/40 border border-[#E5E1D8]'
+                          }`}
+                        >
                           {thread.status === 'open' ? 'פתוח' : 'סגור'}
                         </span>
                       </div>
+                      <p className="text-xs text-[#33332D]/40 mt-1.5">
+                        {format(new Date(thread.created_at), 'dd/MM/yyyy')}
+                      </p>
                     </button>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
+          {/* Thread messages */}
           <div className="md:col-span-2">
             {currentThread ? (
-              <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="bg-blue-600 text-white px-6 py-4">
-                  <h2 className="text-xl font-bold">{currentThread.subject}</h2>
+              <div
+                className="bg-white rounded-[2rem] overflow-hidden border border-[#E5E1D8]/60 flex flex-col"
+                style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.06)', minHeight: '400px' }}
+              >
+                {/* Thread header */}
+                <div className="px-6 py-4 border-b border-[#E5E1D8]/60 bg-[#F9F8F4]">
+                  <h2 className="font-black text-[#0A192F]">{currentThread.subject}</h2>
                 </div>
-                <div className="p-6">
-                  <div className="space-y-4 mb-6">
-                    {currentThread.messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`p-4 rounded-lg ${
-                          message.is_admin ? 'bg-blue-50' : 'bg-gray-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-gray-900">
-                            {message.profiles?.full_name || 'משתמש'}
-                            {message.is_admin && ' (תמיכה)'}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {format(new Date(message.created_at), 'dd/MM/yyyy HH:mm')}
-                          </span>
-                        </div>
-                        <p className="text-gray-700">{message.message}</p>
-                      </div>
-                    ))}
-                  </div>
 
-                  {currentThread.status === 'open' && (
-                    <div className="flex gap-2">
+                {/* Messages */}
+                <div className="flex-1 p-6 space-y-4 overflow-y-auto">
+                  {currentThread.messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex gap-3 ${message.is_admin ? '' : 'flex-row-reverse'}`}
+                    >
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+                        message.is_admin ? 'bg-[#0A192F] text-white' : 'bg-[#626D58]/10 text-[#626D58]'
+                      }`}>
+                        {message.is_admin ? 'T' : 'A'}
+                      </div>
+                      <div className={`flex-1 max-w-[80%] ${message.is_admin ? '' : 'text-right'}`}>
+                        <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                          message.is_admin
+                            ? 'bg-[#F9F8F4] text-[#33332D]'
+                            : 'bg-[#0A192F] text-white'
+                        }`}>
+                          {message.message}
+                        </div>
+                        <div className={`flex items-center gap-2 mt-1.5 text-xs text-[#33332D]/40 ${message.is_admin ? '' : 'flex-row-reverse'}`}>
+                          <span>{message.profiles?.full_name || 'משתמש'}</span>
+                          {message.is_admin && <span>· תמיכה</span>}
+                          <span>·</span>
+                          <span>{format(new Date(message.created_at), 'dd/MM HH:mm')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Reply input */}
+                {currentThread.status === 'open' && (
+                  <div className="p-4 border-t border-[#E5E1D8]/60">
+                    <div className="flex gap-3">
                       <input
                         type="text"
                         value={replyMessage}
                         onChange={(e) => setReplyMessage(e.target.value)}
                         placeholder="הקלד תשובה..."
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
+                        className="flex-1 px-4 py-3 bg-[#F9F8F4] border border-[#E5E1D8] rounded-xl text-[#0A192F] placeholder-[#33332D]/30 focus:outline-none focus:ring-2 focus:ring-[#D4B483]/30 focus:border-[#D4B483] transition-all text-sm"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
                             sendReply(currentThread.id);
                           }
                         }}
                       />
                       <button
                         onClick={() => sendReply(currentThread.id)}
-                        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                        disabled={!replyMessage.trim()}
+                        className="px-4 py-3 bg-[#0A192F] text-white rounded-xl hover:bg-[#0A192F]/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                       >
-                        <Send size={18} />
-                        שלח
+                        <Send size={16} />
                       </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                <MessageSquare className="mx-auto text-gray-400 mb-4" size={48} />
-                <p className="text-gray-600">בחר שיחה מהרשימה</p>
+              <div
+                className="bg-white rounded-[2rem] border border-[#E5E1D8]/60 flex flex-col items-center justify-center text-center p-16"
+                style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.06)', minHeight: '400px' }}
+              >
+                <div className="w-16 h-16 rounded-[1.5rem] bg-[#F7F5F0] flex items-center justify-center mb-4">
+                  <MessageSquare className="text-[#33332D]/20" size={28} />
+                </div>
+                <p className="font-bold text-[#0A192F] mb-2">בחר שיחה מהרשימה</p>
+                <p className="text-sm text-[#33332D]/40 font-light">
+                  תוכל לצפות בהיסטוריית ההודעות שלך או לפתוח פנייה חדשה
+                </p>
               </div>
             )}
           </div>

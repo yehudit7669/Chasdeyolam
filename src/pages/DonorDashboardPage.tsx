@@ -6,6 +6,7 @@ import {
   Calendar,
   CheckCircle,
   XCircle,
+  Hotel,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -35,7 +36,7 @@ interface Payment {
 
 export default function DonorDashboardPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,9 +75,7 @@ export default function DonorDashboardPage() {
           .eq('subscription_id', subData.id)
           .order('created_at', { ascending: false });
 
-        if (paymentsData) {
-          setPayments(paymentsData);
-        }
+        if (paymentsData) setPayments(paymentsData);
       }
     } catch (err) {
       console.error('Error loading data:', err);
@@ -88,10 +87,10 @@ export default function DonorDashboardPage() {
   if (loading) {
     return (
       <DonorLayout>
-        <div className="flex items-center justify-center py-20">
+        <div className="flex items-center justify-center py-24">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">טוען נתונים...</p>
+            <div className="w-12 h-12 border-2 border-[#E5E1D8] border-t-[#626D58] rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-[#33332D]/50 text-sm">טוען נתונים...</p>
           </div>
         </div>
       </DonorLayout>
@@ -101,13 +100,15 @@ export default function DonorDashboardPage() {
   if (!subscription) {
     return (
       <DonorLayout>
-        <div className="text-center py-20">
-          <Heart className="mx-auto mb-4 text-gray-400" size={64} />
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">עדיין אין לך מנוי פעיל</h2>
-          <p className="text-gray-600 mb-6">הצטרף עכשיו ותתחיל לתרום</p>
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="w-20 h-20 rounded-[1.5rem] bg-[#0A192F]/5 flex items-center justify-center mb-6">
+            <Heart className="text-[#33332D]/20" size={36} />
+          </div>
+          <h2 className="text-2xl font-black text-[#0A192F] mb-3">עדיין אין לך מנוי פעיל</h2>
+          <p className="text-[#33332D]/50 mb-8 max-w-xs font-light">הצטרף עכשיו ותתחיל לתרום לעתיד טוב יותר</p>
           <button
             onClick={() => navigate('/plans')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-8 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md"
           >
             בחר תוכנית תרומה
           </button>
@@ -116,84 +117,137 @@ export default function DonorDashboardPage() {
     );
   }
 
-  const progress = (subscription.successful_payments_count / subscription.plans.required_successful_payments) * 100;
+  const progress = Math.min(
+    (subscription.successful_payments_count / subscription.plans.required_successful_payments) * 100,
+    100
+  );
   const remainingPayments = subscription.plans.required_successful_payments - subscription.successful_payments_count;
   const totalPaid = subscription.successful_payments_count * subscription.plans.monthly_amount;
-  const totalRequired = subscription.plans.required_successful_payments * subscription.plans.monthly_amount;
 
   return (
     <DonorLayout>
       <div className="space-y-6">
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white">
-            <div className="flex items-center justify-between mb-4">
-              <Heart size={32} />
-              <span className="text-sm bg-white/20 px-3 py-1 rounded-full">תוכנית פעילה</span>
+        {/* Welcome */}
+        <div>
+          <h1 className="text-2xl font-black text-[#0A192F]">
+            שלום, {profile?.full_name || 'ידיד'}
+          </h1>
+          <p className="text-[#33332D]/50 text-sm mt-1 font-light">שמחים לראות אותך שוב בקהילת החסד שלנו</p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid md:grid-cols-3 gap-4">
+          {/* Featured dark card */}
+          <div
+            className="relative rounded-[2rem] p-7 overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #0A192F 0%, #2D3E40 100%)', boxShadow: '0 20px 60px rgba(10,25,47,0.15)' }}
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#D4B483]/10 blur-2xl pointer-events-none" />
+            <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#D4B483]/60 mb-4">התוכנית שלי</div>
+            <div className="text-xl font-bold text-white mb-1">{subscription.plans.name_he}</div>
+            <div className="text-[#D4B483] font-black text-2xl mt-3">
+              ₪{subscription.plans.monthly_amount.toLocaleString()}
+              <span className="text-sm font-normal text-white/40 mr-1">/ לחודש</span>
             </div>
-            <h3 className="text-2xl font-bold mb-2">{subscription.plans.name_he}</h3>
-            <p className="text-blue-100">₪{subscription.plans.monthly_amount.toLocaleString()} לחודש</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-green-200">
+          {/* Payments card */}
+          <div
+            className="rounded-[2rem] p-7 bg-white border border-[#E5E1D8]/60"
+            style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
+          >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle className="text-green-600" size={24} />
+              <div className="w-10 h-10 rounded-xl bg-[#626D58]/10 flex items-center justify-center">
+                <CheckCircle className="text-[#626D58]" size={20} />
               </div>
-              <span className="font-semibold text-gray-700">תשלומים שבוצעו</span>
+              <span className="text-sm font-semibold text-[#33332D]/60">תשלומים</span>
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-2">
+            <div className="text-4xl font-black text-[#0A192F] mb-1">
               {subscription.successful_payments_count}
             </div>
-            <p className="text-sm text-gray-600">
+            <div className="text-xs text-[#33332D]/40">
               מתוך {subscription.plans.required_successful_payments} נדרשים
-            </p>
+            </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-amber-200">
+          {/* Total card */}
+          <div
+            className="rounded-[2rem] p-7 bg-white border border-[#E5E1D8]/60"
+            style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
+          >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <TrendingUp className="text-amber-600" size={24} />
+              <div className="w-10 h-10 rounded-xl bg-[#D4B483]/10 flex items-center justify-center">
+                <TrendingUp className="text-[#B08D57]" size={20} />
               </div>
-              <span className="font-semibold text-gray-700">סה"כ תרומה</span>
+              <span className="text-sm font-semibold text-[#33332D]/60">סה"כ תרומות</span>
             </div>
-            <div className="text-3xl font-bold text-gray-900">
+            <div className="text-4xl font-black text-[#0A192F] mb-1">
               ₪{totalPaid.toLocaleString()}
             </div>
+            <div className="text-xs text-[#33332D]/40">השפעה מצטברת</div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">התקדמות לקראת זכאות</h3>
-          <div className="mb-4">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>התקדמות</span>
-              <span>{Math.round(progress)}%</span>
+        {/* Progress */}
+        <div
+          className="bg-white rounded-[2rem] p-8 border border-[#E5E1D8]/60"
+          style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
+        >
+          <h3 className="text-lg font-black text-[#0A192F] mb-6">התקדמות לקראת זכאות</h3>
+
+          <div className="mb-6">
+            <div className="flex justify-between text-sm mb-3">
+              <span className="text-[#33332D]/50 font-medium">
+                {subscription.successful_payments_count} מתוך {subscription.plans.required_successful_payments} תשלומים
+              </span>
+              <span className="font-bold text-[#0A192F]">{Math.round(progress)}%</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+            <div className="w-full h-3 bg-[#F7F5F0] rounded-full overflow-hidden border border-[#E5E1D8]/50">
               <div
-                className="bg-gradient-to-r from-blue-500 to-blue-600 h-full transition-all duration-500 rounded-full"
-                style={{ width: `${progress}%` }}
-              ></div>
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${progress}%`,
+                  background: 'linear-gradient(90deg, #626D58 0%, #D4B483 100%)',
+                }}
+              />
             </div>
           </div>
+
           {subscription.is_eligible ? (
-            <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <CheckCircle className="text-green-600" size={24} />
+            <div
+              className="flex items-start gap-4 p-5 rounded-2xl border border-[#626D58]/30"
+              style={{ backgroundColor: 'rgba(98,109,88,0.06)' }}
+            >
+              <div className="w-10 h-10 rounded-xl bg-[#626D58]/10 flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="text-[#626D58]" size={20} />
+              </div>
               <div>
-                <p className="font-semibold text-green-900">מזל טוב! אתה זכאי לשהייה</p>
-                <p className="text-sm text-green-700">
-                  ניתן להזמין מלון ברמה: {subscription.plans.hotel_level}
+                <p className="font-bold text-[#0A192F] mb-1">מזל טוב! אתה זכאי לשהייה</p>
+                <p className="text-sm text-[#33332D]/50 font-light">
+                  ניתן להזמין מלון ברמה {subscription.plans.hotel_level}
                 </p>
+                <button
+                  onClick={() => navigate('/donor/hotels')}
+                  className="flex items-center gap-2 text-sm font-semibold text-[#626D58] hover:text-[#626D58]/80 transition-colors mt-3"
+                >
+                  <Hotel size={16} />
+                  <span>צפה במלונות</span>
+                </button>
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <Calendar className="text-blue-600" size={24} />
+            <div
+              className="flex items-start gap-4 p-5 rounded-2xl border border-[#D4B483]/30"
+              style={{ backgroundColor: 'rgba(212,180,131,0.06)' }}
+            >
+              <div className="w-10 h-10 rounded-xl bg-[#D4B483]/10 flex items-center justify-center flex-shrink-0">
+                <Calendar className="text-[#B08D57]" size={20} />
+              </div>
               <div>
-                <p className="font-semibold text-blue-900">
+                <p className="font-bold text-[#0A192F] mb-1">
                   נותרו {remainingPayments} תשלומים לזכאות
                 </p>
-                <p className="text-sm text-blue-700">
+                <p className="text-sm text-[#33332D]/50 font-light">
                   המשך לתרום באופן קבוע כדי לפתוח את הזכאות למלונות
                 </p>
               </div>
@@ -201,35 +255,49 @@ export default function DonorDashboardPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">היסטוריית תשלומים</h3>
+        {/* Payment History */}
+        <div
+          className="bg-white rounded-[2rem] p-8 border border-[#E5E1D8]/60"
+          style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
+        >
+          <h3 className="text-lg font-black text-[#0A192F] mb-6">היסטוריית תשלומים</h3>
+
           {payments.length === 0 ? (
-            <p className="text-gray-600 text-center py-8">עדיין אין תשלומים</p>
+            <div className="text-center py-12">
+              <div className="w-12 h-12 rounded-2xl bg-[#F7F5F0] flex items-center justify-center mx-auto mb-4">
+                <Calendar className="text-[#33332D]/20" size={24} />
+              </div>
+              <p className="text-[#33332D]/40 text-sm">עדיין אין תשלומים</p>
+            </div>
           ) : (
             <div className="space-y-3">
               {payments.map((payment) => (
                 <div
                   key={payment.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
+                  className="flex items-center justify-between p-4 rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/50 hover:border-[#D4B483]/30 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    {payment.status === 'succeeded' ? (
-                      <CheckCircle className="text-green-600" size={20} />
-                    ) : (
-                      <XCircle className="text-red-600" size={20} />
-                    )}
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                      payment.status === 'succeeded' ? 'bg-[#626D58]/10' : 'bg-red-50'
+                    }`}>
+                      {payment.status === 'succeeded' ? (
+                        <CheckCircle className="text-[#626D58]" size={16} />
+                      ) : (
+                        <XCircle className="text-red-500" size={16} />
+                      )}
+                    </div>
                     <div>
-                      <p className="font-medium text-gray-900">₪{payment.amount.toLocaleString()}</p>
-                      <p className="text-sm text-gray-600">
+                      <p className="font-semibold text-[#0A192F] text-sm">₪{payment.amount.toLocaleString()}</p>
+                      <p className="text-xs text-[#33332D]/40">
                         {new Date(payment.paid_at || payment.created_at).toLocaleDateString('he-IL')}
                       </p>
                     </div>
                   </div>
                   <span
-                    className={`text-sm px-3 py-1 rounded-full ${
+                    className={`text-xs px-3 py-1.5 rounded-full font-semibold ${
                       payment.status === 'succeeded'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
+                        ? 'bg-[#626D58]/10 text-[#626D58]'
+                        : 'bg-red-50 text-red-600'
                     }`}
                   >
                     {payment.status === 'succeeded' ? 'בוצע' : 'נכשל'}

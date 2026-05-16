@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, ArrowRight, AlertTriangle, X } from 'lucide-react';
+import { Heart, AlertTriangle, X, CheckCircle, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import DonorLayout from '../components/DonorLayout';
 
 interface Subscription {
   id: string;
@@ -66,13 +67,8 @@ export default function DonorManageSubscriptionPage() {
         supabase.from('plans').select('*').eq('active', true).order('monthly_amount'),
       ]);
 
-      if (subRes.data) {
-        setSubscription(subRes.data as any);
-      }
-
-      if (plansRes.data) {
-        setAvailablePlans(plansRes.data);
-      }
+      if (subRes.data) setSubscription(subRes.data as any);
+      if (plansRes.data) setAvailablePlans(plansRes.data);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -125,114 +121,112 @@ export default function DonorManageSubscriptionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">טוען...</p>
+      <DonorLayout>
+        <div className="flex items-center justify-center py-24">
+          <div className="w-12 h-12 border-2 border-[#E5E1D8] border-t-[#626D58] rounded-full animate-spin" />
         </div>
-      </div>
+      </DonorLayout>
     );
   }
 
   if (!subscription) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center" dir="rtl">
-        <div className="text-center">
-          <Heart className="mx-auto mb-4 text-gray-400" size={64} />
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">אין לך מנוי פעיל</h2>
-          <p className="text-gray-600 mb-6">הצטרף עכשיו כדי לנהל מנוי</p>
+      <DonorLayout>
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="w-20 h-20 rounded-[1.5rem] bg-[#0A192F]/5 flex items-center justify-center mb-6">
+            <Heart className="text-[#33332D]/20" size={36} />
+          </div>
+          <h2 className="text-2xl font-black text-[#0A192F] mb-3">אין לך מנוי פעיל</h2>
+          <p className="text-[#33332D]/50 mb-8 font-light">הצטרף עכשיו כדי לנהל מנוי</p>
           <button
             onClick={() => navigate('/plans')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-8 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all"
           >
             בחר תוכנית תרומה
           </button>
         </div>
-      </div>
+      </DonorLayout>
     );
   }
 
   const otherPlans = availablePlans.filter(p => p.id !== subscription.plans.id);
 
   return (
-    <div className="min-h-screen bg-gray-50" dir="rtl">
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-            >
-              <ArrowRight size={20} />
-              <span>חזרה לדשבורד</span>
-            </button>
-            <div className="flex items-center gap-2">
-              <Heart className="text-blue-600" size={28} />
-              <h1 className="text-xl font-bold text-gray-900">ניהול תרומה</h1>
+    <DonorLayout>
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-black text-[#0A192F]">ניהול תרומה</h1>
+          <p className="text-[#33332D]/50 text-sm mt-1 font-light">נהל את המנוי והתוכנית שלך</p>
+        </div>
+
+        {/* Current plan card */}
+        <div
+          className="bg-white rounded-[2rem] overflow-hidden border border-[#E5E1D8]/60"
+          style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
+        >
+          {/* Dark header */}
+          <div
+            className="p-6 relative overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #0A192F 0%, #2D3E40 100%)' }}
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#D4B483]/10 blur-2xl pointer-events-none" />
+            <div className="relative">
+              <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#D4B483]/60 mb-2">המנוי הנוכחי שלי</div>
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-white">{subscription.plans.name_he}</h2>
+                  <div className="text-[#D4B483] font-bold mt-1">
+                    ₪{subscription.plans.monthly_amount.toLocaleString()}
+                    <span className="text-white/40 text-sm font-normal mr-1">/ לחודש</span>
+                  </div>
+                </div>
+                <span className="px-3 py-1.5 bg-[#626D58] text-white text-xs font-bold rounded-xl">פעיל</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="p-6">
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              {[
+                { label: 'תשלומים שבוצעו', value: `${subscription.successful_payments_count} / ${subscription.plans.required_successful_payments}` },
+                { label: 'רמת זכאות', value: subscription.plans.hotel_level },
+                { label: 'תאריך התחלה', value: new Date(subscription.started_at).toLocaleDateString('he-IL') },
+              ].map(({ label, value }) => (
+                <div key={label} className="p-4 rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/50">
+                  <div className="text-xs text-[#33332D]/40 mb-1">{label}</div>
+                  <div className="font-bold text-[#0A192F]">{value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => setShowChangePlanDialog(true)}
+                className="w-full py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md"
+              >
+                שנה תוכנית תרומה
+              </button>
+              <button
+                onClick={() => setShowCancelDialog(true)}
+                className="w-full py-3.5 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors border-2 border-red-100"
+              >
+                בטל מנוי
+              </button>
             </div>
           </div>
         </div>
-      </nav>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">התוכנית הנוכחית שלך</h2>
-
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-xl font-bold text-blue-900">{subscription.plans.name_he}</h3>
-                <p className="text-blue-700 mt-1">
-                  ₪{subscription.plans.monthly_amount.toLocaleString()} לחודש
-                </p>
-              </div>
-              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
-                פעיל
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-blue-700">תשלומים שבוצעו:</span>
-                <span className="font-semibold text-blue-900 mr-2">
-                  {subscription.successful_payments_count} / {subscription.plans.required_successful_payments}
-                </span>
-              </div>
-              <div>
-                <span className="text-blue-700">רמת זכאות:</span>
-                <span className="font-semibold text-blue-900 mr-2">{subscription.plans.hotel_level}</span>
-              </div>
-              <div>
-                <span className="text-blue-700">תאריך התחלה:</span>
-                <span className="font-semibold text-blue-900 mr-2">
-                  {new Date(subscription.started_at).toLocaleDateString('he-IL')}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <button
-              onClick={() => setShowChangePlanDialog(true)}
-              className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              שנה תוכנית תרומה
-            </button>
-
-            <button
-              onClick={() => setShowCancelDialog(true)}
-              className="w-full py-3 bg-red-50 text-red-600 font-semibold rounded-lg hover:bg-red-100 transition-colors border-2 border-red-200"
-            >
-              בטל מנוי
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertTriangle className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
-          <div className="text-sm text-amber-800">
-            <p className="font-semibold mb-1">חשוב לדעת:</p>
-            <ul className="list-disc mr-5 space-y-1">
+        {/* Info */}
+        <div
+          className="flex items-start gap-4 p-5 rounded-2xl border border-[#D4B483]/20"
+          style={{ backgroundColor: 'rgba(212,180,131,0.05)' }}
+        >
+          <AlertTriangle className="text-[#B08D57] flex-shrink-0 mt-0.5" size={18} />
+          <div className="text-sm text-[#33332D]/60">
+            <p className="font-semibold text-[#33332D]/80 mb-2">חשוב לדעת:</p>
+            <ul className="space-y-1 font-light">
               <li>שינוי תוכנית יבוטל את ההתקדמות הנוכחית שלך</li>
               <li>ביטול מנוי יבטל את כל הזכאויות למלונות</li>
               <li>תשלומים שכבר בוצעו לא יוחזרו</li>
@@ -241,40 +235,44 @@ export default function DonorManageSubscriptionPage() {
         </div>
       </div>
 
+      {/* Cancel Dialog */}
       {showCancelDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-gray-900">ביטול מנוי</h3>
+        <div className="fixed inset-0 bg-[#0A192F]/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div
+            className="bg-white rounded-[2rem] max-w-md w-full p-8 border border-[#E5E1D8]/60"
+            style={{ boxShadow: '0 24px 60px rgba(10,25,47,0.2)' }}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-black text-[#0A192F]">ביטול מנוי</h3>
               <button
                 onClick={() => setShowCancelDialog(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 text-[#33332D]/40 hover:text-[#33332D] transition-colors rounded-xl hover:bg-[#F7F5F0]"
               >
-                <X size={24} />
+                <X size={20} />
               </button>
             </div>
 
-            <div className="mb-6">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                <p className="text-red-800 font-semibold mb-2">האם אתה בטוח?</p>
-                <p className="text-sm text-red-700">
-                  ביטול המנוי יגרום לאובדן כל ההטבות והזכאויות למלונות. תשלומים שבוצעו לא יוחזרו.
-                </p>
-              </div>
+            <div className="p-5 rounded-2xl bg-red-50 border border-red-200 mb-6">
+              <p className="font-bold text-red-800 mb-2">האם אתה בטוח?</p>
+              <p className="text-sm text-red-700 font-light leading-relaxed">
+                ביטול המנוי יגרום לאובדן כל ההטבות והזכאויות למלונות. תשלומים שבוצעו לא יוחזרו.
+              </p>
             </div>
 
             <div className="flex gap-3">
               <button
                 onClick={handleCancelSubscription}
                 disabled={processing}
-                className="flex-1 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                className="flex-1 py-3.5 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center"
               >
-                {processing ? 'מבטל...' : 'כן, בטל מנוי'}
+                {processing ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : 'כן, בטל מנוי'}
               </button>
               <button
                 onClick={() => setShowCancelDialog(false)}
                 disabled={processing}
-                className="flex-1 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-colors"
+                className="flex-1 py-3.5 bg-[#F7F5F0] text-[#33332D] font-semibold rounded-xl hover:bg-[#E5E1D8] transition-colors"
               >
                 ביטול
               </button>
@@ -283,51 +281,52 @@ export default function DonorManageSubscriptionPage() {
         </div>
       )}
 
+      {/* Change Plan Dialog */}
       {showChangePlanDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl max-w-2xl w-full p-6 my-8">
+        <div className="fixed inset-0 bg-[#0A192F]/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div
+            className="bg-white rounded-[2rem] max-w-xl w-full p-8 my-8 border border-[#E5E1D8]/60"
+            style={{ boxShadow: '0 24px 60px rgba(10,25,47,0.2)' }}
+          >
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900">שינוי תוכנית תרומה</h3>
+              <h3 className="text-xl font-black text-[#0A192F]">שינוי תוכנית תרומה</h3>
               <button
-                onClick={() => {
-                  setShowChangePlanDialog(false);
-                  setSelectedPlan(null);
-                }}
-                className="text-gray-400 hover:text-gray-600"
+                onClick={() => { setShowChangePlanDialog(false); setSelectedPlan(null); }}
+                className="p-2 text-[#33332D]/40 hover:text-[#33332D] transition-colors rounded-xl hover:bg-[#F7F5F0]"
               >
-                <X size={24} />
+                <X size={20} />
               </button>
             </div>
 
-            <div className="space-y-4 mb-6">
+            <div className="space-y-3 mb-6">
               {otherPlans.length === 0 ? (
-                <p className="text-gray-600 text-center py-8">אין תוכניות אחרות זמינות כרגע</p>
+                <p className="text-[#33332D]/50 text-center py-8 font-light">אין תוכניות אחרות זמינות כרגע</p>
               ) : (
                 otherPlans.map((plan) => (
                   <div
                     key={plan.id}
                     onClick={() => setSelectedPlan(plan)}
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${
                       selectedPlan?.id === plan.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-300'
+                        ? 'border-[#626D58] bg-[#626D58]/5'
+                        : 'border-[#E5E1D8] hover:border-[#D4B483]/50'
                     }`}
                   >
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-center">
                       <div>
-                        <h4 className="font-bold text-gray-900">{plan.name_he}</h4>
-                        <p className="text-gray-600 mt-1">
+                        <h4 className="font-bold text-[#0A192F]">{plan.name_he}</h4>
+                        <p className="text-[#33332D]/60 text-sm mt-1">
                           ₪{plan.monthly_amount.toLocaleString()} לחודש
                         </p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {plan.required_successful_payments} תשלומים | רמה: {plan.hotel_level}
+                        <p className="text-xs text-[#33332D]/40 mt-0.5">
+                          {plan.required_successful_payments} תשלומים · רמה {plan.hotel_level}
                         </p>
                       </div>
                       <div
-                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
                           selectedPlan?.id === plan.id
-                            ? 'border-blue-500 bg-blue-500'
-                            : 'border-gray-300'
+                            ? 'border-[#626D58] bg-[#626D58]'
+                            : 'border-[#E5E1D8]'
                         }`}
                       >
                         {selectedPlan?.id === plan.id && (
@@ -345,17 +344,16 @@ export default function DonorManageSubscriptionPage() {
                 <button
                   onClick={handleChangePlan}
                   disabled={!selectedPlan || processing}
-                  className="flex-1 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
-                  {processing ? 'משנה...' : 'שנה תוכנית'}
+                  {processing ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : 'שנה תוכנית'}
                 </button>
                 <button
-                  onClick={() => {
-                    setShowChangePlanDialog(false);
-                    setSelectedPlan(null);
-                  }}
+                  onClick={() => { setShowChangePlanDialog(false); setSelectedPlan(null); }}
                   disabled={processing}
-                  className="flex-1 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-colors"
+                  className="flex-1 py-3.5 bg-[#F7F5F0] text-[#33332D] font-semibold rounded-xl hover:bg-[#E5E1D8] transition-colors"
                 >
                   ביטול
                 </button>
@@ -364,6 +362,6 @@ export default function DonorManageSubscriptionPage() {
           </div>
         </div>
       )}
-    </div>
+    </DonorLayout>
   );
 }

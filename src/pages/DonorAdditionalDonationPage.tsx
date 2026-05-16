@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DollarSign, Heart, CheckCircle } from 'lucide-react';
+import { Heart, CheckCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import DonorLayout from '../components/DonorLayout';
 
@@ -42,127 +42,131 @@ export default function DonorAdditionalDonationPage() {
 
   return (
     <DonorLayout>
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg p-8 text-white mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-white/20 rounded-full">
-              <Heart size={32} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">תרומה נוספת</h1>
-              <p className="text-blue-100">תרום סכום נוסף מעבר למנוי החודשי שלך</p>
-            </div>
-          </div>
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-black text-[#0A192F]">תרומה נוספת</h1>
+          <p className="text-[#33332D]/50 text-sm mt-1 font-light">
+            תרום סכום נוסף מעבר למנוי החודשי שלך
+          </p>
         </div>
 
+        {/* Success state */}
         {showSuccess && (
-          <div className="mb-8 p-6 bg-green-50 border-2 border-green-200 rounded-xl">
-            <div className="flex items-center gap-4">
-              <CheckCircle className="text-green-600 flex-shrink-0" size={32} />
-              <div>
-                <h3 className="text-lg font-bold text-green-900 mb-1">התרומה התקבלה בהצלחה!</h3>
-                <p className="text-green-800">תודה רבה על תרומתך הנדיבה של ₪{selectedAmount.toLocaleString()}</p>
-              </div>
+          <div
+            className="flex items-start gap-4 p-5 rounded-2xl border border-[#626D58]/30"
+            style={{ backgroundColor: 'rgba(98,109,88,0.06)' }}
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#626D58]/10 flex items-center justify-center flex-shrink-0">
+              <CheckCircle className="text-[#626D58]" size={20} />
+            </div>
+            <div>
+              <p className="font-bold text-[#0A192F] mb-0.5">התרומה התקבלה בהצלחה!</p>
+              <p className="text-sm text-[#33332D]/60 font-light">
+                תודה רבה על תרומתך הנדיבה של ₪{selectedAmount.toLocaleString()}
+              </p>
             </div>
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">בחר סכום לתרומה</h2>
+        {/* Main card */}
+        <div
+          className="bg-white rounded-[2rem] p-8 border border-[#E5E1D8]/60"
+          style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
+        >
+          <h2 className="text-lg font-black text-[#0A192F] mb-6">בחר סכום לתרומה</h2>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+          {/* Preset amounts */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
             {predefinedAmounts.map((value) => (
               <button
                 key={value}
                 onClick={() => handleAmountSelect(value)}
-                className={`p-6 rounded-xl border-2 transition-all ${
+                className={`p-5 rounded-2xl border-2 transition-all text-center ${
                   amount === value.toString()
-                    ? 'border-blue-600 bg-blue-50 shadow-md'
-                    : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                    ? 'border-[#626D58] bg-[#626D58]/5 shadow-sm'
+                    : 'border-[#E5E1D8] hover:border-[#D4B483]/60 hover:bg-[#F9F8F4]'
                 }`}
               >
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-gray-900 mb-1">
-                    ₪{value.toLocaleString()}
-                  </div>
-                  <div className="text-sm text-gray-600">תרומה חד פעמית</div>
+                <div className={`text-2xl font-black mb-0.5 ${
+                  amount === value.toString() ? 'text-[#626D58]' : 'text-[#0A192F]'
+                }`}>
+                  ₪{value.toLocaleString()}
                 </div>
+                <div className="text-xs text-[#33332D]/40">תרומה חד פעמית</div>
               </button>
             ))}
           </div>
 
+          {/* Custom amount */}
           <div className="mb-8">
-            <label className="block text-lg font-semibold text-gray-900 mb-3">
+            <label className="block text-sm font-semibold text-[#33332D]/70 mb-3">
               או הזן סכום אחר:
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-                <DollarSign className="text-gray-400" size={24} />
-              </div>
+              <span className="absolute start-4 top-1/2 -translate-y-1/2 text-[#33332D]/40 font-semibold text-lg pointer-events-none">
+                ₪
+              </span>
               <input
                 type="text"
                 value={customAmount}
                 onChange={(e) => handleCustomAmountChange(e.target.value)}
-                placeholder="הזן סכום..."
-                className="w-full pr-12 pl-4 py-4 text-xl border-2 border-gray-200 rounded-xl focus:border-blue-600 focus:outline-none transition-colors"
+                placeholder="0"
+                className="w-full ps-10 pe-4 py-3.5 bg-[#F9F8F4] border border-[#E5E1D8] rounded-xl text-[#0A192F] text-lg font-bold placeholder-[#33332D]/20 focus:outline-none focus:ring-2 focus:ring-[#D4B483]/30 focus:border-[#D4B483] transition-all"
+                dir="ltr"
               />
-              <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                <span className="text-gray-500 text-xl">₪</span>
-              </div>
             </div>
-            <p className="text-sm text-gray-600 mt-2">סכום מינימלי: ₪10</p>
+            <p className="text-xs text-[#33332D]/40 mt-2">סכום מינימלי: ₪10</p>
           </div>
 
+          {/* Summary */}
           {selectedAmount > 0 && (
-            <div className="mb-8 p-6 bg-blue-50 border-2 border-blue-200 rounded-xl">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-lg font-semibold text-gray-900">סכום לתרומה:</span>
-                <span className="text-3xl font-bold text-blue-600">
-                  ₪{selectedAmount.toLocaleString()}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600">
-                תרומה זו תתווסף למערכת ותעזור לנו להמשיך את פעילותנו
-              </p>
+            <div
+              className="flex items-center justify-between p-5 rounded-2xl border border-[#D4B483]/30 mb-6"
+              style={{ backgroundColor: 'rgba(212,180,131,0.05)' }}
+            >
+              <span className="text-sm font-semibold text-[#33332D]/60">סכום לתרומה</span>
+              <span className="text-2xl font-black text-[#0A192F]">₪{selectedAmount.toLocaleString()}</span>
             </div>
           )}
 
           <button
             onClick={handleDonate}
             disabled={selectedAmount < 10}
-            className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${
+            className={`w-full py-4 rounded-xl font-semibold text-base transition-all flex items-center justify-center gap-2 ${
               selectedAmount >= 10
-                ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:shadow-lg hover:scale-[1.02]'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? 'bg-[#0A192F] text-white hover:bg-[#0A192F]/90 shadow-sm hover:shadow-md'
+                : 'bg-[#F7F5F0] text-[#33332D]/30 cursor-not-allowed border border-[#E5E1D8]'
             }`}
           >
-            {selectedAmount >= 10
-              ? `תרום ₪${selectedAmount.toLocaleString()} עכשיו`
-              : 'בחר סכום לתרומה'}
+            <Heart size={18} className={selectedAmount >= 10 ? 'text-[#D4B483]' : ''} />
+            <span>
+              {selectedAmount >= 10
+                ? `תרום ₪${selectedAmount.toLocaleString()} עכשיו`
+                : 'בחר סכום לתרומה'}
+            </span>
           </button>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              התרומה תעובד באמצעות מערכת התשלומים המאובטחת שלנו
-            </p>
-          </div>
         </div>
 
-        <div className="mt-8 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl shadow-lg p-6 border-2 border-amber-200">
-          <h3 className="text-xl font-bold text-gray-900 mb-3">למה לתרום תרומה נוספת?</h3>
-          <ul className="space-y-2 text-gray-700">
-            <li className="flex items-start gap-2">
-              <Heart className="text-amber-600 flex-shrink-0 mt-1" size={20} />
-              <span>תרומתך מסייעת לנו להמשיך לעזור למשפחות נזקקות</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Heart className="text-amber-600 flex-shrink-0 mt-1" size={20} />
-              <span>כל שקל עוזר לנו לספק שירותי אירוח איכוותיים יותר</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Heart className="text-amber-600 flex-shrink-0 mt-1" size={20} />
-              <span>תרומה נוספת מאפשרת לנו להרחיב את מאגר המלונות</span>
-            </li>
+        {/* Why donate more */}
+        <div
+          className="bg-white rounded-[2rem] p-7 border border-[#E5E1D8]/60"
+          style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.06)' }}
+        >
+          <h3 className="text-base font-bold text-[#0A192F] mb-4">למה לתרום תרומה נוספת?</h3>
+          <ul className="space-y-3">
+            {[
+              'תרומתך מסייעת לנו להמשיך לעזור למשפחות נזקקות',
+              'כל שקל עוזר לנו לספק שירותי אירוח איכותיים יותר',
+              'תרומה נוספת מאפשרת לנו להרחיב את מאגר המלונות',
+            ].map((text) => (
+              <li key={text} className="flex items-start gap-3 text-sm text-[#33332D]/60 font-light">
+                <div className="w-5 h-5 rounded-full bg-[#D4B483]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Heart size={10} className="text-[#B08D57]" fill="currentColor" />
+                </div>
+                <span>{text}</span>
+              </li>
+            ))}
           </ul>
         </div>
       </div>
