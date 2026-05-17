@@ -197,36 +197,31 @@ export default function HomePage() {
 
             <div className="relative z-10 max-w-4xl mx-auto">
               <span className="inline-block px-4 py-1.5 rounded-full bg-[#0A192F]/80 border border-white/10 text-[#D4B483] text-[10px] font-bold uppercase tracking-[0.3em] mb-8">
-                {isRtl ? 'מערכת ההשקיה' : 'The Life-Spring'}
+                {isRtl ? 'מקור האנרגיה' : 'The Energy Source'}
               </span>
 
               <h3 className="text-4xl md:text-6xl font-black mb-12 tracking-tighter leading-tight">
-                {isRtl ? 'מערכת ההשקייה' : 'The Sustaining Reservoir'}
+                {isRtl ? 'מקור האנרגיה' : 'The Energy Source'}
               </h3>
 
               <div className={`text-lg md:text-xl text-white/70 font-medium leading-relaxed italic space-y-8 ${isRtl ? 'text-right' : 'text-center'}`}>
                 <p>
                   {isRtl
-                    ? 'פעילות הגמ"ח דורשת משאבים כלכליים. על אף עבודת ההנהלה בהתנדבות וצמצום עלויות מירבי, ישנם הוצאות הכרחיות, במיוחד לגמ"ח בהיקף כמו שלנו. בכדי לנהל את הגמ"ח, אנו מוכרחים לגייס כסף מידי שנה בשנה.'
-                    : 'The operation of our GMACH requires consistent resources. Despite our volunteer management and extreme cost-reduction, certain expenses are vital for an institution of our scale.'}
+                    ? 'פעילות הגמ"ח דורשת משאבים כלכליים, הכסף הנמצא ברשותנו הופקד לצורך נתינת הלואות ולא בכדי להשתמש בו להוצאות. אנו זקוקים למקור כספי יציב שישמש כמקור האנרגיה לכל הפעילות הענפה של הגמ"ח.'
+                    : 'Our GMACH operations require consistent financial resources. The funds in our possession were deposited to provide loans, not to be used for expenses. We need a stable financial source to serve as the energy for all the extensive activities of the GMACH.'}
                 </p>
                 <p>
                   {isRtl
-                    ? 'לאחר כניסת חוק הגמ"חים לתוקף, נוספו הוצואת גדולות שהושתו עלינו, כתנאי לקבל רשיון לניהול הגמ"ח.'
-                    : 'With the implementation of the new GMACH laws, significant legislative expenses have been added to our burden.'}
+                    ? 'בנוסף להוצאות החודשיות אנו זקוקים להון עצמי מתוקף "חוק הגמחים" המחייב זאת כתנאי לקבלת רישיון לעיסוק.'
+                    : 'In addition to the monthly expenses, we require equity capital under the "GMACH Law" which mandates this as a condition for obtaining an operating license.'}
                 </p>
                 <div className="py-12 border-y border-white/10 my-12">
                   <p className="text-2xl md:text-3xl text-white font-black tracking-tight leading-snug not-italic">
                     {isRtl
-                      ? 'האדמה פוריה, השורשים בריאים, הצמיחה והפריחה מרהיבים עין והפירות מתוקים, אך כדי להמשיך לגדל ולהמשיך להניב פירות, אנו זקוקים למערכת השקייה שתרזים מים זכים להרוות צימאונם של האילנות הנטועים בגן.'
-                      : 'The soil is fertile, the roots are healthy, and the growth is magnificent—but to continue bearing fruit, we need the irrigation system that flows with pure water to quench the thirst of the garden.'}
+                      ? 'אנו פונים אליך בקריאת ידידות, הצטרף נא להיות ממחזקי פעילות הגמ"ח, ותזכה להיות שותף מלא באלפי פעילויות חסד שיזקפו לזכותך כפי שכתב לנו מרן רבי חיים קנייבסקי זצוק"ל.'
+                      : 'We call upon you in friendship — please join to be among the supporters of the GMACH\'s activities, and merit being a full partner in thousands of acts of kindness credited to your account, as written to us by Maran Rabbi Chaim Kanievsky zt"l.'}
                   </p>
                 </div>
-                <p className="text-2xl font-black text-[#D4B483] tracking-tight not-italic">
-                  {isRtl
-                    ? 'ברצונך להיות חלק מהחזקת מפעל גדול זה וכל הזכויות ינקפו לזכותך כפי שכתב לנו מרן רבי חיים קנייבסקי זצוק"ל'
-                    : 'Do you wish to be part of sustaining this great enterprise? All rights shall be credited to your merit.'}
-                </p>
               </div>
 
               <div className="mt-20">
