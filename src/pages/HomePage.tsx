@@ -25,22 +25,22 @@ export default function HomePage() {
           >
             <Star size={14} className="text-[#B08D57]" fill="currentColor" />
             <span className="uppercase tracking-widest text-xs">
-              {isRtl ? 'הצטרפו לאלפי תורמים שכבר נהנים' : 'Join thousands of premium donors'}
+              {isRtl ? "אתר 'הנציבים' של גמ\"ח חסדי עולם" : "The 'Delegates' Site of Chasdei Olam GMACH"}
             </span>
           </div>
 
           <h1 className="text-6xl md:text-[5.5rem] font-black text-[#2D3E40] leading-[1.05] tracking-tighter mb-10">
-            {isRtl ? 'תרומה חודשית' : 'A Monthly Legacy'}
+            {isRtl ? 'תרומה חודשית' : 'A Monthly Donation'}
             <br />
             <span className="text-[#B08D57] font-serif italic font-normal tracking-normal">
-              {isRtl ? 'שמעניקה לך חופשה' : 'That Becomes Your Journey'}
+              {isRtl ? 'שמעניקה לך חופשה' : 'That Gives You a Vacation'}
             </span>
           </h1>
 
           <p className="text-xl md:text-2xl text-[#33332D]/70 max-w-2xl mx-auto leading-relaxed mb-14 font-light">
             {isRtl
-              ? 'בחסדי עולם אנחנו הופכים את הנתינה שלכם לזכויות נופש יוקרתיות. תירמו מדי חודש וצברו זכאות לשהייה במלונות המובילים בישראל.'
-              : "Elevate your giving into luxury vacation rights. Our unique platform transforms your recurring kindness into curated experiences at Israel's premier properties."}
+              ? 'הצטרפו להיות מנציבי הגמ"ח ע"י תרומה חודשית [אפשר ממעשרות*]\nשתעניק לך זכות לחופשה זוגית'
+              : "Join as GMACH delegates with a monthly donation [tithes accepted*] that grants you the right to a couples' vacation."}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
@@ -74,6 +74,12 @@ export default function HomePage() {
               </span>
             </button>
           </div>
+
+          <p className="mt-6 text-xs text-[#33332D]/50 max-w-xl mx-auto leading-relaxed">
+            {isRtl
+              ? '* החופשה אינה מקוזזת מהתרומה , אלא מכספי קרן שהוקמה ע"י אחד מהתורמים.'
+              : '* The vacation is not deducted from the donation, but from a fund established by one of the donors.'}
+          </p>
         </div>
       </section>
 
