@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import logoImg from '../assets/לוגו-חסדי.png';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -64,7 +65,13 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       >
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-gray-700">
-            <h1 className="text-2xl font-bold text-[#C6A75E]">חסדי עולם</h1>
+            <img
+              src={logoImg}
+              alt="חסדי עולם"
+              className="h-14 w-auto object-contain brightness-0 invert mb-1"
+              loading="eager"
+              decoding="async"
+            />
             <p className="text-sm text-gray-300 mt-1">לוח ניהול</p>
           </div>
 
@@ -121,7 +128,13 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       <div className="flex-1 flex flex-col min-h-screen">
         <header className="bg-white shadow-sm lg:hidden sticky top-0 z-30">
           <div className="px-4 py-3 flex items-center justify-between">
-            <h1 className="text-lg font-bold text-[#0B3C5D]">חסדי עולם</h1>
+            <img
+              src={logoImg}
+              alt="חסדי עולם"
+              className="h-9 w-auto object-contain"
+              loading="eager"
+              decoding="async"
+            />
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-[#0B3C5D]"

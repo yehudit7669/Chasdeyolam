@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import logoImg from '../assets/לוגו-חסדי.png';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Heart,
@@ -40,14 +41,14 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
       <header className="bg-white border-b border-[#E5E1D8]/60" style={{ boxShadow: '0 1px 8px 0 rgba(98,109,88,0.06)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#0A192F] flex items-center justify-center">
-                <Heart className="text-[#D4B483]" size={18} fill="currentColor" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-[#0A192F] leading-tight">חסדי עולם</h1>
-                <p className="text-xs text-[#33332D]/40 leading-tight">מערכת תורמים</p>
-              </div>
+            <div className="flex items-center">
+              <img
+                src={logoImg}
+                alt="חסדי עולם"
+                className="h-11 w-auto object-contain"
+                loading="eager"
+                decoding="async"
+              />
             </div>
             <div className="flex items-center gap-3">
               {profile?.full_name && (

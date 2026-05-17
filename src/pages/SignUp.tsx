@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { Layout } from '../components/Layout';
+import logoImg from '../assets/לוגו-חסדי.png';
 import { Heart, UserPlus, AlertCircle } from 'lucide-react';
 
 export const SignUp = () => {
@@ -37,8 +38,14 @@ export const SignUp = () => {
         <div className="w-full max-w-md">
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="inline-flex w-14 h-14 rounded-2xl bg-[#0A192F] items-center justify-center mb-4">
-              <Heart className="text-[#D4B483]" size={24} fill="currentColor" />
+            <div className="flex justify-center mb-4">
+              <img
+                src={logoImg}
+                alt="חסדי עולם"
+                className="h-20 w-auto object-contain"
+                loading="eager"
+                decoding="async"
+              />
             </div>
             <h1 className="text-3xl font-black text-[#0A192F] tracking-tight">
               {t.auth.createAccount}

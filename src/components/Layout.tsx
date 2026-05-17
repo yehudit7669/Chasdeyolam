@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect } from 'react';
+import logoImg from '../assets/לוגו-חסדי.png';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
@@ -48,13 +49,14 @@ export const Layout = ({ children }: LayoutProps) => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 md:h-20">
-            <Link to="/" className="flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-xl bg-[#0A192F] flex items-center justify-center transition-transform group-hover:scale-105">
-                <Heart className="text-[#D4B483]" size={18} fill="currentColor" />
-              </div>
-              <span className="text-xl font-bold tracking-tight text-[#0A192F]">
-                {t.app.title}
-              </span>
+            <Link to="/" className="flex items-center group">
+              <img
+                src={logoImg}
+                alt="חסדי עולם"
+                className="h-12 md:h-14 w-auto object-contain transition-opacity group-hover:opacity-90"
+                loading="eager"
+                decoding="async"
+              />
             </Link>
 
             <div className="hidden md:flex items-center gap-1">
