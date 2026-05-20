@@ -95,25 +95,34 @@ export default function PlanSelectionPage() {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
+        options: {
+          data: { full_name: formData.fullName },
+        },
       });
 
       if (authError) throw authError;
 
       if (authData.user) {
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: authData.user.id,
-          email: formData.email,
-          full_name: formData.fullName,
-          phone: formData.phone,
-          role: 'donor',
-        });
-
-        if (profileError) throw profileError;
+        // Trigger handle_new_user() already created the profile row.
+        // Update phone and full_name which the trigger doesn't set from form.
+        await supabase
+          .from('profiles')
+          .update({ full_name: formData.fullName, phone: formData.phone || null })
+          .eq('id', authData.user.id);
 
         navigate('/payment', { state: { planId: selectedPlan?.id } });
       }
     } catch (err: any) {
-      setError(err.message || 'שגיאה בהרשמה');
+      const msg = (err?.message || '').toLowerCase();
+      if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already')) {
+        setError('כתובת האימייל כבר רשומה במערכת. נסו להתחבר במקום.');
+      } else if (msg.includes('invalid email')) {
+        setError('כתובת האימייל אינה תקינה.');
+      } else if (msg.includes('rate limit') || msg.includes('too many')) {
+        setError('יותר מדי ניסיונות הרשמה. נסו שוב מאוחר יותר.');
+      } else {
+        setError('אירעה שגיאה בהרשמה. נסו שוב.');
+      }
     } finally {
       setRegistering(false);
     }
