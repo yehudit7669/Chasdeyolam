@@ -100,22 +100,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: { full_name: fullName },
+      },
     });
 
     if (error) throw error;
 
     if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email,
-          full_name: fullName,
-          phone: phone || null,
-          role: 'donor',
-        });
-
-      if (profileError) throw profileError;
+      // Trigger handle_new_user() already created the profile row.
+      // Update phone separately since the trigger doesn't set it.
+      if (phone) {
+        await supabase
+          .from('profiles')
+          .update({ phone, full_name: fullName })
+          .eq('id', data.user.id);
+      } else {
+        await supabase
+          .from('profiles')
+          .update({ full_name: fullName })
+          .eq('id', data.user.id);
+      }
       await loadProfile(data.user.id);
     }
   };

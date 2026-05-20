@@ -26,7 +26,18 @@ export const SignUp = () => {
       await signUp(email, password, fullName, phone);
       navigate('/plans');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to sign up');
+      const msg = err instanceof Error ? err.message.toLowerCase() : '';
+      if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already')) {
+        setError('כתובת האימייל כבר רשומה במערכת. נסו להתחבר במקום.');
+      } else if (msg.includes('invalid email')) {
+        setError('כתובת האימייל אינה תקינה.');
+      } else if (msg.includes('password') && msg.includes('short')) {
+        setError('הסיסמה קצרה מדי. יש להזין לפחות 6 תווים.');
+      } else if (msg.includes('rate limit') || msg.includes('too many')) {
+        setError('יותר מדי ניסיונות הרשמה. נסו שוב מאוחר יותר.');
+      } else {
+        setError('אירעה שגיאה בהרשמה. נסו שוב.');
+      }
     } finally {
       setLoading(false);
     }
