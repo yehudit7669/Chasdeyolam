@@ -19,7 +19,6 @@ export default function PaymentPage() {
   const { user } = useAuth();
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
   const [agreed, setAgreed] = useState(false);
 
@@ -59,45 +58,22 @@ export default function PaymentPage() {
     }
   };
 
+  const PAYMENT_LINKS: Record<number, string> = {
+    290: 'https://www.matara.pro/nedarimplus/online/?mosad=7010422&onlykeva=1&Amount=290&AmountLock=1&Payment=15&PaymentLock=1&groupe=%D7%AA%D7%A9%D7%9C%D7%95%D7%9D%20%D7%93%D7%A8%D7%9A%20%D7%90%D7%AA%D7%A8%20%D7%A0%D7%A6%D7%99%D7%91%D7%99%D7%9D&groupelock=1',
+    350: 'https://www.matara.pro/nedarimplus/online/?mosad=7010422&onlykeva=1&Amount=350&AmountLock=1&Payment=15&PaymentLock=1&groupe=%D7%AA%D7%A9%D7%9C%D7%95%D7%9D%20%D7%93%D7%A8%D7%9A%20%D7%90%D7%AA%D7%A8%20%D7%A0%D7%A6%D7%99%D7%91%D7%99%D7%9D&groupelock=1',
+  };
+
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    setProcessing(true);
-    setError('');
+    if (!agreed || !plan) return;
 
-    try {
-      const { data: existingSub } = await supabase
-        .from('subscriptions')
-        .select('id')
-        .eq('user_id', user!.id)
-        .eq('status', 'active')
-        .maybeSingle();
-
-      if (existingSub) {
-        setError('כבר קיים מנוי פעיל עבור חשבון זה');
-        return;
-      }
-
-      const { error: subError } = await supabase
-        .from('subscriptions')
-        .insert({
-          user_id: user!.id,
-          plan_id: plan!.id,
-          status: 'active',
-          successful_payments_count: 0,
-          failed_payment_attempts: 0,
-          is_eligible: false,
-        })
-        .select()
-        .single();
-
-      if (subError) throw subError;
-
-      navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'שגיאה ביצירת מנוי');
-    } finally {
-      setProcessing(false);
+    const paymentUrl = PAYMENT_LINKS[plan.monthly_amount];
+    if (!paymentUrl) {
+      setError('קישור תשלום לא נמצא עבור תוכנית זו');
+      return;
     }
+
+    window.open(paymentUrl, '_blank', 'noopener,noreferrer');
   };
 
   if (loading) {
@@ -162,7 +138,7 @@ export default function PaymentPage() {
               )}
 
               <form onSubmit={handlePayment} className="space-y-6">
-                {/* Payment placeholder */}
+                {/* Payment info */}
                 <div
                   className="rounded-2xl border-2 border-dashed border-[#E5E1D8] p-6 flex items-center gap-4"
                   style={{ backgroundColor: '#F9F8F4' }}
@@ -171,9 +147,9 @@ export default function PaymentPage() {
                     <CreditCard className="text-[#626D58]" size={22} />
                   </div>
                   <div>
-                    <div className="font-semibold text-[#0A192F] text-sm">אינטגרציה עם Stripe</div>
+                    <div className="font-semibold text-[#0A192F] text-sm">תשלום מאובטח דרך נדרים פלוס</div>
                     <div className="text-xs text-[#33332D]/50 mt-0.5">
-                      תשלומים מאובטחים יתווספו בקרוב. כרגע המערכת תיצור מנוי פעיל עבורך.
+                      לחיצה על הכפתור תעביר אותך לדף התשלום המאובטח של נדרים פלוס.
                     </div>
                   </div>
                 </div>
@@ -213,17 +189,11 @@ export default function PaymentPage() {
 
                 <button
                   type="submit"
-                  disabled={processing || !agreed}
+                  disabled={!agreed}
                   className="w-full py-4 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {processing ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <Shield size={18} />
-                      <span>אישור והשלמת הרשמה</span>
-                    </>
-                  )}
+                  <Shield size={18} />
+                  <span>המשך לתשלום מאובטח</span>
                 </button>
               </form>
             </div>

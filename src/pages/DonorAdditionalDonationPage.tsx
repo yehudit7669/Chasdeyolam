@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { Heart, CheckCircle } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import DonorLayout from '../components/DonorLayout';
 
 export default function DonorAdditionalDonationPage() {
   const [amount, setAmount] = useState<string>('');
   const [customAmount, setCustomAmount] = useState<string>('');
-  const [showSuccess, setShowSuccess] = useState(false);
 
   const predefinedAmounts = [50, 100, 180, 250, 500, 1000];
 
@@ -20,18 +19,14 @@ export default function DonorAdditionalDonationPage() {
     setAmount(numValue);
   };
 
-  const handleDonate = async () => {
+  const ADDITIONAL_DONATION_URL = 'https://www.matara.pro/nedarimplus/online/?mosad=7010422&groupe=%D7%AA%D7%A9%D7%9C%D7%95%D7%9D%20%D7%93%D7%A8%D7%9A%20%D7%90%D7%AA%D7%A8%20%D7%A0%D7%A6%D7%99%D7%91%D7%99%D7%9D&groupelock=1';
+
+  const handleDonate = () => {
     if (!amount || parseInt(amount) < 10) {
       alert('נא להזין סכום של לפחות ₪10');
       return;
     }
-
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setAmount('');
-      setCustomAmount('');
-    }, 3000);
+    window.open(ADDITIONAL_DONATION_URL, '_blank', 'noopener,noreferrer');
   };
 
   const selectedAmount = parseInt(amount) || 0;
@@ -46,24 +41,6 @@ export default function DonorAdditionalDonationPage() {
             תרום סכום נוסף מעבר למנוי החודשי שלך
           </p>
         </div>
-
-        {/* Success state */}
-        {showSuccess && (
-          <div
-            className="flex items-start gap-4 p-5 rounded-2xl border border-[#626D58]/30"
-            style={{ backgroundColor: 'rgba(98,109,88,0.06)' }}
-          >
-            <div className="w-10 h-10 rounded-xl bg-[#626D58]/10 flex items-center justify-center flex-shrink-0">
-              <CheckCircle className="text-[#626D58]" size={20} />
-            </div>
-            <div>
-              <p className="font-bold text-[#0A192F] mb-0.5">התרומה התקבלה בהצלחה!</p>
-              <p className="text-sm text-[#33332D]/60 font-light">
-                תודה רבה על תרומתך הנדיבה של ₪{selectedAmount.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Main card */}
         <div
