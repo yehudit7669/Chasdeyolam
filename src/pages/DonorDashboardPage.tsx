@@ -47,49 +47,48 @@ export default function DonorDashboardPage() {
       navigate('/signin');
       return;
     }
+
+    const loadData = async () => {
+      try {
+        const { data: subData, error: subError } = await supabase
+          .from('subscriptions')
+          .select(`
+            *,
+            plans (
+              name_he,
+              monthly_amount,
+              required_successful_payments,
+              hotel_level
+            )
+          `)
+          .eq('user_id', user.id)
+          .in('status', ['active', 'frozen'])
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        console.log('[Dashboard] subscription query result:', { subData, subError, userId: user.id });
+
+        if (subData) {
+          setSubscription(subData as any);
+
+          const { data: paymentsData } = await supabase
+            .from('payments')
+            .select('*')
+            .eq('subscription_id', subData.id)
+            .order('created_at', { ascending: false });
+
+          if (paymentsData) setPayments(paymentsData);
+        }
+      } catch (err) {
+        console.error('[Dashboard] Error loading data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadData();
   }, [user]);
-
-  const loadData = async () => {
-    try {
-      console.log('[Dashboard] loadData called, user.id =', user?.id);
-
-      const { data: subData, error: subError } = await supabase
-        .from('subscriptions')
-        .select(`
-          *,
-          plans (
-            name_he,
-            monthly_amount,
-            required_successful_payments,
-            hotel_level
-          )
-        `)
-        .eq('user_id', user!.id)
-        .in('status', ['active', 'frozen'])
-        .order('started_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      console.log('[Dashboard] subscription query result:', { subData, subError });
-
-      if (subData) {
-        setSubscription(subData as any);
-
-        const { data: paymentsData } = await supabase
-          .from('payments')
-          .select('*')
-          .eq('subscription_id', subData.id)
-          .order('created_at', { ascending: false });
-
-        if (paymentsData) setPayments(paymentsData);
-      }
-    } catch (err) {
-      console.error('[Dashboard] Error loading data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return (
