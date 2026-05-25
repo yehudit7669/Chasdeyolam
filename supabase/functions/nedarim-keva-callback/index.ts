@@ -154,10 +154,25 @@ async function processKeva(
           .limit(1)
           .maybeSingle();
 
-        // Parse NextDate from Nedarim Plus (format: YYYY-MM-DD or ISO)
-        const nextPaymentDate = payload.NextDate
-          ? new Date(payload.NextDate).toISOString()
-          : null;
+        // Parse NextDate from Nedarim Plus.
+        // Nedarim Plus sends DD/MM/YYYY (e.g. "09/06/2026") — NOT MM/DD/YYYY.
+        // new Date() mis-parses or rejects that format in Deno, so we parse manually.
+        let nextPaymentDate: string | null = null;
+        if (payload.NextDate) {
+          try {
+            const raw = payload.NextDate.trim();
+            const ddmmyyyy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+            const m = raw.match(ddmmyyyy);
+            if (m) {
+              // m[1]=day, m[2]=month, m[3]=year  →  ISO YYYY-MM-DD
+              nextPaymentDate = new Date(`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}T00:00:00Z`).toISOString();
+            } else {
+              // Try direct ISO / YYYY-MM-DD parse as fallback
+              const d = new Date(raw);
+              if (!isNaN(d.getTime())) nextPaymentDate = d.toISOString();
+            }
+          } catch (_) { /* leave null */ }
+        }
 
         if (existingSub) {
           subscriptionId = existingSub.id;
