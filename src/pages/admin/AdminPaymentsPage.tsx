@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { Download, Search, X, Eye, CreditCard, RefreshCw, AlertCircle, TrendingUp, Calendar } from 'lucide-react';
@@ -665,85 +665,132 @@ export const AdminPaymentsPage = () => {
         <Modal
           isOpen={!!detailPayment}
           onClose={() => setDetailPayment(null)}
-          title="פרטי תשלום מלאים"
+          title="פרטי תשלום"
           maxWidth="xl"
         >
-          <div className="space-y-5 text-sm" dir="rtl">
-            {/* Basic info */}
-            <section>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">פרטי תשלום</h3>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                <DetailRow label="תורם" value={detailPayment.subscriptions?.profiles?.full_name || detailPayment.nedarim_mail || '-'} />
-                <DetailRow label="אימייל" value={detailPayment.subscriptions?.profiles?.email || detailPayment.nedarim_mail || '-'} />
-                <DetailRow label="טלפון" value={detailPayment.subscriptions?.profiles?.phone || detailPayment.nedarim_phone || '-'} />
-                <DetailRow label="סכום" value={`₪${detailPayment.amount}`} />
-                <DetailRow label="סטטוס" value={detailPayment.status === 'succeeded' ? 'הצליח' : detailPayment.status === 'failed' ? 'נכשל' : 'ממתין'} />
-                <DetailRow label="סוג תשלום" value={getPaymentTypeLabel(detailPayment)} />
-                <DetailRow label="ניסיון מספר" value={String(detailPayment.attempt_number)} />
-                {detailPayment.failure_reason && (
-                  <DetailRow label="סיבת כישלון" value={detailPayment.failure_reason} />
-                )}
-              </div>
-            </section>
+          <div className="space-y-1 text-sm" dir="rtl">
 
-            <hr className="border-gray-100" />
+            {/* 1. Donor information */}
+            <ModalSection title="פרטי תורם" icon="👤">
+              <DetailRow label="שם מלא" value={detailPayment.subscriptions?.profiles?.full_name || '-'} />
+              <DetailRow
+                label="אימייל"
+                value={detailPayment.subscriptions?.profiles?.email || detailPayment.nedarim_mail || '-'}
+                copyable
+              />
+              <DetailRow
+                label="טלפון"
+                value={detailPayment.subscriptions?.profiles?.phone || detailPayment.nedarim_phone || '-'}
+              />
+            </ModalSection>
 
-            {/* Nedarim Plus fields */}
-            <section>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">נדרים פלוס</h3>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                <DetailRow label="Transaction ID" value={detailPayment.nedarim_transaction_id || '-'} mono />
-                <DetailRow label="Keva ID" value={detailPayment.nedarim_keva_id || '-'} mono />
-                <DetailRow label="זיהוי (Zeout)" value={detailPayment.nedarim_zeout || '-'} mono />
-                <DetailRow label="התאמה" value={getMatchSourceLabel(detailPayment.nedarim_match_source).label} />
-                {detailPayment.nedarim_tashloumim && (
-                  <DetailRow label="תשלומים" value={detailPayment.nedarim_tashloumim} />
-                )}
+            {/* 2. Payment information */}
+            <ModalSection title="פרטי תשלום" icon="💳">
+              <DetailRow label="סכום" value={`₪${detailPayment.amount}`} highlight />
+              <DetailRow
+                label="סטטוס"
+                value={
+                  detailPayment.status === 'succeeded' ? 'הצליח' :
+                  detailPayment.status === 'failed' ? 'נכשל' : 'ממתין'
+                }
+                statusColor={
+                  detailPayment.status === 'succeeded' ? 'success' :
+                  detailPayment.status === 'failed' ? 'error' : 'warning'
+                }
+              />
+              <DetailRow label="סוג תשלום" value={getPaymentTypeLabel(detailPayment)} />
+              <DetailRow
+                label="תאריך תשלום"
+                value={
+                  detailPayment.paid_at
+                    ? new Date(detailPayment.paid_at).toLocaleString('he-IL')
+                    : new Date(detailPayment.created_at).toLocaleString('he-IL')
+                }
+              />
+              <DetailRow label="ניסיון מספר" value={String(detailPayment.attempt_number)} />
+              {detailPayment.failure_reason && (
+                <DetailRow label="סיבת כישלון" value={detailPayment.failure_reason} statusColor="error" />
+              )}
+            </ModalSection>
+
+            {/* 3. Subscription information */}
+            {detailPayment.subscriptions?.plans && (
+              <ModalSection title="מנוי" icon="🔄">
+                <DetailRow label="תוכנית" value={detailPayment.subscriptions.plans.name_he} />
+                <DetailRow
+                  label="התקדמות"
+                  value={`${detailPayment.subscriptions.successful_payments_count} / ${detailPayment.subscriptions.plans.required_successful_payments} תשלומים`}
+                />
                 {detailPayment.nedarim_next_date && (
                   <DetailRow label="תשלום הבא" value={detailPayment.nedarim_next_date} />
                 )}
-              </div>
-            </section>
-
-            {/* Subscription progress */}
-            {detailPayment.subscriptions?.plans && (
-              <>
-                <hr className="border-gray-100" />
-                <section>
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">התקדמות מנוי</h3>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                    <DetailRow label="תוכנית" value={detailPayment.subscriptions.plans.name_he} />
-                    <DetailRow
-                      label="התקדמות"
-                      value={`${detailPayment.subscriptions.successful_payments_count} / ${detailPayment.subscriptions.plans.required_successful_payments}`}
-                    />
+                <div className="col-span-2 pt-1">
+                  <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+                    <span>0</span>
+                    <span>{detailPayment.subscriptions.plans.required_successful_payments}</span>
                   </div>
-                  <div className="mt-2 w-full bg-gray-100 rounded-full h-2">
+                  <div className="w-full bg-gray-100 rounded-full h-2.5">
                     <div
-                      className="bg-[#0B3C5D] h-2 rounded-full transition-all"
+                      className="bg-[#0B3C5D] h-2.5 rounded-full transition-all"
                       style={{
                         width: `${Math.min(100, (detailPayment.subscriptions.successful_payments_count / detailPayment.subscriptions.plans.required_successful_payments) * 100)}%`,
                       }}
                     />
                   </div>
-                </section>
-              </>
+                  <p className="text-xs text-gray-400 mt-1 text-center">
+                    {Math.round((detailPayment.subscriptions.successful_payments_count / detailPayment.subscriptions.plans.required_successful_payments) * 100)}% הושלם
+                  </p>
+                </div>
+              </ModalSection>
             )}
 
-            {/* Raw payload */}
+            {/* 4. Nedarim Plus callback information */}
+            <ModalSection title="נדרים פלוס — נתוני callback" icon="📡">
+              <DetailRow
+                label="Transaction ID"
+                value={detailPayment.nedarim_transaction_id || '-'}
+                mono
+                copyable={!!detailPayment.nedarim_transaction_id}
+              />
+              <DetailRow
+                label="Keva ID"
+                value={detailPayment.nedarim_keva_id || '-'}
+                mono
+                copyable={!!detailPayment.nedarim_keva_id}
+              />
+              <DetailRow
+                label="Zeout (זיהוי)"
+                value={detailPayment.nedarim_zeout || '-'}
+                mono
+                copyable={!!detailPayment.nedarim_zeout}
+              />
+              <DetailRow
+                label="התאמה"
+                value={getMatchSourceLabel(detailPayment.nedarim_match_source).label}
+                statusColor={
+                  detailPayment.nedarim_match_source === 'email' ? 'success' :
+                  detailPayment.nedarim_match_source === 'zeout' ? 'info' : 'neutral'
+                }
+              />
+              {detailPayment.nedarim_tashloumim && (
+                <DetailRow label="מספר תשלומים" value={detailPayment.nedarim_tashloumim} />
+              )}
+            </ModalSection>
+
+            {/* 5. Raw payload */}
             {detailPayment.nedarim_raw_payload && (
-              <>
-                <hr className="border-gray-100" />
-                <section>
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-                    Payload מלא מנדרים פלוס
-                  </h3>
-                  <pre className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-xs text-gray-700 overflow-x-auto leading-relaxed max-h-64 overflow-y-auto" dir="ltr">
+              <ModalSection title="Payload גולמי" icon="🔧" collapsible>
+                <div className="col-span-2">
+                  <pre
+                    className="bg-gray-950 text-green-400 rounded-lg p-3 text-xs leading-relaxed overflow-x-auto overflow-y-auto max-h-56 select-all"
+                    dir="ltr"
+                  >
                     {JSON.stringify(detailPayment.nedarim_raw_payload, null, 2)}
                   </pre>
-                </section>
-              </>
+                </div>
+              </ModalSection>
             )}
+
           </div>
         </Modal>
       )}
@@ -753,17 +800,104 @@ export const AdminPaymentsPage = () => {
   );
 };
 
+// ─── Modal sub-components ────────────────────────────────────────────────────
+
+const ModalSection = ({
+  title,
+  icon,
+  children,
+  collapsible = false,
+}: {
+  title: string;
+  icon: string;
+  children: React.ReactNode;
+  collapsible?: boolean;
+}) => {
+  const [open, setOpen] = useState(!collapsible);
+  return (
+    <div className="rounded-xl border border-gray-100 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => collapsible && setOpen((v) => !v)}
+        className={`w-full flex items-center gap-2 px-4 py-3 bg-gray-50 text-right ${collapsible ? 'cursor-pointer hover:bg-gray-100 transition-colors' : 'cursor-default'}`}
+      >
+        <span className="text-base leading-none">{icon}</span>
+        <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide flex-1">{title}</span>
+        {collapsible && (
+          <span className="text-gray-400 text-xs">{open ? '▲' : '▼'}</span>
+        )}
+      </button>
+      {open && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 px-4 py-4">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CopyButton = ({ value }: { value: string }) => {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title="העתק"
+      className={`shrink-0 px-1.5 py-0.5 rounded text-xs border transition-all ${
+        copied
+          ? 'border-green-300 text-green-600 bg-green-50'
+          : 'border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600 bg-white'
+      }`}
+    >
+      {copied ? '✓' : 'העתק'}
+    </button>
+  );
+};
+
+const statusColorMap = {
+  success: 'text-green-700 font-medium',
+  error: 'text-red-600 font-medium',
+  warning: 'text-amber-600 font-medium',
+  info: 'text-blue-600 font-medium',
+  neutral: 'text-gray-500',
+} as const;
+
 const DetailRow = ({
   label,
   value,
   mono = false,
+  copyable = false,
+  highlight = false,
+  statusColor,
 }: {
   label: string;
   value: string;
   mono?: boolean;
+  copyable?: boolean;
+  highlight?: boolean;
+  statusColor?: keyof typeof statusColorMap;
 }) => (
-  <div className="flex flex-col gap-0.5">
-    <span className="text-xs text-gray-400">{label}</span>
-    <span className={`text-sm text-gray-800 break-all ${mono ? 'font-mono' : ''}`}>{value}</span>
+  <div className="flex flex-col gap-1 min-w-0">
+    <span className="text-xs text-gray-400 leading-none">{label}</span>
+    <div className="flex items-center gap-2 min-w-0">
+      <span
+        className={[
+          'text-sm break-all min-w-0',
+          mono ? 'font-mono text-xs bg-gray-50 border border-gray-100 rounded px-1.5 py-0.5 overflow-x-auto max-w-full block' : '',
+          highlight ? 'text-lg font-bold text-[#0B3C5D]' : 'text-gray-800',
+          statusColor ? statusColorMap[statusColor] : '',
+        ].join(' ')}
+        title={value}
+      >
+        {value}
+      </span>
+      {copyable && value !== '-' && <CopyButton value={value} />}
+    </div>
   </div>
 );
