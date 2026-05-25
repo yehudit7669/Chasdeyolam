@@ -1,0 +1,5 @@
+/api/nedarim/keva-callback/* https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1/nedarim-keva-callback/:splat 200
+/api/nedarim/keva-callback https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1/nedarim-keva-callback 200
+/api/nedarim/payment-callback/* https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1/nedarim-payment-callback/:splat 200
+/api/nedarim/payment-callback https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1/nedarim-payment-callback 200
+/* /index.html 200

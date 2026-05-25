@@ -1,0 +1,47 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Proxy /api/nedarim/* → Supabase Edge Functions
+# These are the exact URLs configured in Nedarim Plus
+[[redirects]]
+  from = "/api/nedarim/keva-callback"
+  to = "https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1/nedarim-keva-callback"
+  status = 200
+  force = true
+
+  [redirects.headers]
+    X-Forwarded-Host = "chasdeyolam.com"
+
+[[redirects]]
+  from = "/api/nedarim/keva-callback/*"
+  to = "https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1/nedarim-keva-callback/:splat"
+  status = 200
+  force = true
+
+  [redirects.headers]
+    X-Forwarded-Host = "chasdeyolam.com"
+
+[[redirects]]
+  from = "/api/nedarim/payment-callback"
+  to = "https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1/nedarim-payment-callback"
+  status = 200
+  force = true
+
+  [redirects.headers]
+    X-Forwarded-Host = "chasdeyolam.com"
+
+[[redirects]]
+  from = "/api/nedarim/payment-callback/*"
+  to = "https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1/nedarim-payment-callback/:splat"
+  status = 200
+  force = true
+
+  [redirects.headers]
+    X-Forwarded-Host = "chasdeyolam.com"
+
+# SPA fallback — must be last
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
