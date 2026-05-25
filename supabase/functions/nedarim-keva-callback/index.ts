@@ -154,15 +154,22 @@ async function processKeva(
           .limit(1)
           .maybeSingle();
 
+        // Parse NextDate from Nedarim Plus (format: YYYY-MM-DD or ISO)
+        const nextPaymentDate = payload.NextDate
+          ? new Date(payload.NextDate).toISOString()
+          : null;
+
         if (existingSub) {
           subscriptionId = existingSub.id;
-          // Update subscription to confirm it's active (keva setup succeeded)
+          // Update subscription to confirm it's active and record next charge date
+          const updateFields: Record<string, unknown> = {
+            status: "active",
+            updated_at: new Date().toISOString(),
+          };
+          if (nextPaymentDate) updateFields.next_payment_date = nextPaymentDate;
           await supabase
             .from("subscriptions")
-            .update({
-              status: "active",
-              updated_at: new Date().toISOString(),
-            })
+            .update(updateFields)
             .eq("id", existingSub.id);
         } else if (planId) {
           // Create new subscription from keva setup
@@ -176,6 +183,7 @@ async function processKeva(
               failed_payment_attempts: 0,
               is_eligible: false,
               started_at: new Date().toISOString(),
+              next_payment_date: nextPaymentDate,
             })
             .select("id")
             .single();

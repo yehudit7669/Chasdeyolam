@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
-import { Eye, Pause, Play, Edit2 } from 'lucide-react';
+import { Eye, Pause, Play, CreditCard as Edit2 } from 'lucide-react';
 import { Modal } from '../../components/admin/Modal';
 import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
 import { Toast } from '../../components/admin/Toast';
@@ -16,6 +16,7 @@ interface Subscription {
   successful_payments_count: number;
   is_eligible: boolean;
   started_at: string;
+  next_payment_date: string | null;
   frozen_at: string | null;
   canceled_at: string | null;
   completed_at: string | null;
@@ -196,7 +197,14 @@ export const AdminSubscriptionsPage = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (subscription: Subscription) => {
+    if (subscription.status === 'active' && subscription.successful_payments_count === 0) {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800 whitespace-nowrap">
+          פעיל – ממתין לחיוב ראשון
+        </span>
+      );
+    }
     const badges = {
       active: 'bg-green-100 text-green-800',
       frozen: 'bg-blue-100 text-blue-800',
@@ -210,8 +218,8 @@ export const AdminSubscriptionsPage = () => {
       completed: 'הושלם',
     };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs ${badges[status as keyof typeof badges]}`}>
-        {labels[status as keyof typeof labels]}
+      <span className={`px-2 py-1 rounded-full text-xs ${badges[subscription.status as keyof typeof badges]}`}>
+        {labels[subscription.status as keyof typeof labels]}
       </span>
     );
   };
@@ -298,13 +306,14 @@ export const AdminSubscriptionsPage = () => {
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תשלומים מוצלחים</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">זכאות</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תאריך התחלה</th>
+              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תשלום הבא</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">פעולות</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {subscriptions.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                   אין מנויים להצגה
                 </td>
               </tr>
@@ -322,7 +331,7 @@ export const AdminSubscriptionsPage = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">{subscription.plans.name_he}</td>
-                  <td className="px-6 py-4 text-sm">{getStatusBadge(subscription.status)}</td>
+                  <td className="px-6 py-4 text-sm">{getStatusBadge(subscription)}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{subscription.successful_payments_count}</td>
                   <td className="px-6 py-4 text-sm">
                     <span
@@ -337,6 +346,11 @@ export const AdminSubscriptionsPage = () => {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {new Date(subscription.started_at).toLocaleDateString('he-IL')}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {subscription.next_payment_date
+                      ? new Date(subscription.next_payment_date).toLocaleDateString('he-IL')
+                      : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="px-6 py-4 text-sm" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-2">
@@ -406,7 +420,7 @@ export const AdminSubscriptionsPage = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">סטטוס</label>
-                {getStatusBadge(selectedSubscription.status)}
+                {getStatusBadge(selectedSubscription)}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">זכאות</label>
@@ -428,6 +442,14 @@ export const AdminSubscriptionsPage = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">תאריך התחלה</label>
                 <p className="text-gray-900">
                   {new Date(selectedSubscription.started_at).toLocaleDateString('he-IL')}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">תשלום הבא</label>
+                <p className="text-gray-900">
+                  {selectedSubscription.next_payment_date
+                    ? new Date(selectedSubscription.next_payment_date).toLocaleDateString('he-IL')
+                    : '—'}
                 </p>
               </div>
             </div>

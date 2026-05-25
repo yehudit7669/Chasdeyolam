@@ -15,6 +15,13 @@ interface Donor {
   phone: string | null;
   role: string;
   created_at: string;
+  subscriptions: {
+    id: string;
+    status: string;
+    successful_payments_count: number;
+    next_payment_date: string | null;
+    plans: { name_he: string } | null;
+  }[];
 }
 
 export const AdminDonorsPage = () => {
@@ -49,7 +56,16 @@ export const AdminDonorsPage = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          *,
+          subscriptions (
+            id,
+            status,
+            successful_payments_count,
+            next_payment_date,
+            plans ( name_he )
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -165,6 +181,7 @@ export const AdminDonorsPage = () => {
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">אימייל</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">טלפון</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תפקיד</th>
+              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">מנוי</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תאריך הצטרפות</th>
               {canEdit && <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">פעולות</th>}
             </tr>
@@ -172,7 +189,7 @@ export const AdminDonorsPage = () => {
           <tbody className="divide-y divide-gray-200">
             {filteredDonors.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                   לא נמצאו תורמים
                 </td>
               </tr>
@@ -194,6 +211,45 @@ export const AdminDonorsPage = () => {
                     >
                       {getRoleName(donor.role)}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    {(() => {
+                      const activeSub = donor.subscriptions?.find(
+                        (s) => s.status === 'active' || s.status === 'frozen'
+                      );
+                      if (!activeSub) {
+                        return <span className="text-gray-400 text-xs">אין מנוי</span>;
+                      }
+                      if (activeSub.status === 'frozen') {
+                        return (
+                          <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                            מוקפא
+                          </span>
+                        );
+                      }
+                      if (activeSub.successful_payments_count === 0) {
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800 w-fit">
+                              פעיל – ממתין לחיוב ראשון
+                            </span>
+                            {activeSub.plans?.name_he && (
+                              <span className="text-xs text-gray-500">{activeSub.plans.name_he}</span>
+                            )}
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 w-fit">
+                            פעיל · {activeSub.successful_payments_count} תשלומים
+                          </span>
+                          {activeSub.plans?.name_he && (
+                            <span className="text-xs text-gray-500">{activeSub.plans.name_he}</span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {new Date(donor.created_at).toLocaleDateString('he-IL')}

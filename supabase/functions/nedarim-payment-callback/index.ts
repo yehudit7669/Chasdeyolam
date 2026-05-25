@@ -178,16 +178,31 @@ async function processPayment(
           const required = (subscription as any).plans?.required_successful_payments ?? 15;
           const isEligible = newCount >= required;
 
+          const subUpdate: Record<string, unknown> = {
+            successful_payments_count: newCount,
+            is_eligible: isEligible,
+            failed_payment_attempts: 0,
+            status: "active",
+            frozen_at: null,
+            updated_at: new Date().toISOString(),
+          };
+          // If Nedarim sends a next charge date with this payment, persist it
+          if (payload.KevaId) {
+            const { data: kevaRow } = await supabase
+              .from("nedarim_keva_callbacks")
+              .select("next_date")
+              .eq("keva_id", payload.KevaId)
+              .not("next_date", "is", null)
+              .order("received_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (kevaRow?.next_date) {
+              subUpdate.next_payment_date = new Date(kevaRow.next_date).toISOString();
+            }
+          }
           await supabase
             .from("subscriptions")
-            .update({
-              successful_payments_count: newCount,
-              is_eligible: isEligible,
-              failed_payment_attempts: 0,
-              status: "active",
-              frozen_at: null,
-              updated_at: new Date().toISOString(),
-            })
+            .update(subUpdate)
             .eq("id", subscription.id);
 
           console.log("[nedarim-payment-callback] Subscription updated", {

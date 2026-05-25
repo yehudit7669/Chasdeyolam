@@ -18,6 +18,7 @@ interface Subscription {
   successful_payments_count: number;
   is_eligible: boolean;
   started_at: string;
+  next_payment_date: string | null;
   plans: {
     name_he: string;
     monthly_amount: number;
@@ -63,7 +64,9 @@ export default function DonorDashboardPage() {
           )
         `)
         .eq('user_id', user!.id)
-        .eq('status', 'active')
+        .in('status', ['active', 'frozen'])
+        .order('started_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (subData) {
@@ -235,6 +238,29 @@ export default function DonorDashboardPage() {
                 </button>
               </div>
             </div>
+          ) : subscription.successful_payments_count === 0 ? (
+            <div
+              className="flex items-start gap-4 p-5 rounded-2xl border border-[#0A192F]/10"
+              style={{ backgroundColor: 'rgba(10,25,47,0.03)' }}
+            >
+              <div className="w-10 h-10 rounded-xl bg-[#0A192F]/8 flex items-center justify-center flex-shrink-0">
+                <Calendar className="text-[#0A192F]/60" size={20} />
+              </div>
+              <div>
+                <p className="font-bold text-[#0A192F] mb-1">המנוי פעיל — ממתין לחיוב הראשון</p>
+                <p className="text-sm text-[#33332D]/50 font-light">
+                  הוראת הקבע נרשמה בהצלחה. החיוב הראשון יבוצע בקרוב.
+                </p>
+                {subscription.next_payment_date && (
+                  <p className="text-sm font-semibold text-[#0A192F]/70 mt-2">
+                    תאריך חיוב צפוי:{' '}
+                    {new Date(subscription.next_payment_date).toLocaleDateString('he-IL', {
+                      day: 'numeric', month: 'long', year: 'numeric',
+                    })}
+                  </p>
+                )}
+              </div>
+            </div>
           ) : (
             <div
               className="flex items-start gap-4 p-5 rounded-2xl border border-[#D4B483]/30"
@@ -250,6 +276,14 @@ export default function DonorDashboardPage() {
                 <p className="text-sm text-[#33332D]/50 font-light">
                   המשך לתרום באופן קבוע כדי לפתוח את הזכאות למלונות
                 </p>
+                {subscription.next_payment_date && (
+                  <p className="text-sm font-semibold text-[#0A192F]/70 mt-2">
+                    תשלום הבא:{' '}
+                    {new Date(subscription.next_payment_date).toLocaleDateString('he-IL', {
+                      day: 'numeric', month: 'long', year: 'numeric',
+                    })}
+                  </p>
+                )}
               </div>
             </div>
           )}
