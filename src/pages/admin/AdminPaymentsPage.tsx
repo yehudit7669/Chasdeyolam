@@ -498,7 +498,8 @@ export const AdminPaymentsPage = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div className="overflow-x-auto">
         <table className="w-full min-w-[1100px]">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
@@ -656,6 +657,7 @@ export const AdminPaymentsPage = () => {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Detail Modal */}

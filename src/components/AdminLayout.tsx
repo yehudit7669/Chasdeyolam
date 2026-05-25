@@ -125,7 +125,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
         />
       )}
 
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
         <header className="bg-white shadow-sm lg:hidden sticky top-0 z-30">
           <div className="px-4 py-3 flex items-center justify-between">
             <img
