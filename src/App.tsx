@@ -68,7 +68,7 @@ function AppRoutes() {
         path="/dashboard"
         element={
           <ProtectedRoute>
-            {isAdmin || canView ? <Navigate to="/admin" replace /> : <DonorDashboardPage />}
+            <DonorDashboardPage />
           </ProtectedRoute>
         }
       />
@@ -76,7 +76,7 @@ function AppRoutes() {
         path="/donor/hotels"
         element={
           <ProtectedRoute>
-            {isAdmin || canView ? <Navigate to="/admin" replace /> : <DonorHotelsPage />}
+            <DonorHotelsPage />
           </ProtectedRoute>
         }
       />
@@ -84,7 +84,7 @@ function AppRoutes() {
         path="/donor/additional-donation"
         element={
           <ProtectedRoute>
-            {isAdmin || canView ? <Navigate to="/admin" replace /> : <DonorAdditionalDonationPage />}
+            <DonorAdditionalDonationPage />
           </ProtectedRoute>
         }
       />
@@ -92,7 +92,7 @@ function AppRoutes() {
         path="/donor/manage-subscription"
         element={
           <ProtectedRoute>
-            {isAdmin || canView ? <Navigate to="/admin" replace /> : <DonorManageSubscriptionPage />}
+            <DonorManageSubscriptionPage />
           </ProtectedRoute>
         }
       />

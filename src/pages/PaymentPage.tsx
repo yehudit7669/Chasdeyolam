@@ -58,20 +58,25 @@ export default function PaymentPage() {
     }
   };
 
-  const PAYMENT_LINKS: Record<number, string> = {
+  const BASE_PAYMENT_LINKS: Record<number, string> = {
     290: 'https://www.matara.pro/nedarimplus/online/?mosad=7010422&onlykeva=1&Amount=290&AmountLock=1&Payment=15&PaymentLock=1&groupe=%D7%AA%D7%A9%D7%9C%D7%95%D7%9D%20%D7%93%D7%A8%D7%9A%20%D7%90%D7%AA%D7%A8%20%D7%A0%D7%A6%D7%99%D7%91%D7%99%D7%9D&groupelock=1',
     350: 'https://www.matara.pro/nedarimplus/online/?mosad=7010422&onlykeva=1&Amount=350&AmountLock=1&Payment=15&PaymentLock=1&groupe=%D7%AA%D7%A9%D7%9C%D7%95%D7%9D%20%D7%93%D7%A8%D7%9A%20%D7%90%D7%AA%D7%A8%20%D7%A0%D7%A6%D7%99%D7%91%D7%99%D7%9D&groupelock=1',
   };
 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!agreed || !plan) return;
+    if (!agreed || !plan || !user) return;
 
-    const paymentUrl = PAYMENT_LINKS[plan.monthly_amount];
-    if (!paymentUrl) {
+    const baseUrl = BASE_PAYMENT_LINKS[plan.monthly_amount];
+    if (!baseUrl) {
       setError('קישור תשלום לא נמצא עבור תוכנית זו');
       return;
     }
+
+    // Param1 carries the authenticated user's UUID so the callback always
+    // links the subscription to the account that initiated the payment,
+    // regardless of what email the user types inside Nedarim Plus.
+    const paymentUrl = `${baseUrl}&Param1=${encodeURIComponent(user.id)}`;
 
     window.open(paymentUrl, '_blank', 'noopener,noreferrer');
   };

@@ -2,20 +2,7 @@ import { ReactNode } from 'react';
 import logoImg from '../assets/לוגו-חסדי.png';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import {
-  LayoutDashboard,
-  FileText,
-  Users,
-  CreditCard,
-  Hotel,
-  Calendar,
-  BookOpen,
-  MessageSquare,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-} from 'lucide-react';
+import { LayoutDashboard, FileText, Users, CreditCard, Hotel, Calendar, BookOpen, MessageSquare, Settings, LogOut, Menu, X, CircleUser as UserCircle } from 'lucide-react';
 import { useState } from 'react';
 
 interface AdminLayoutProps {
@@ -107,6 +94,14 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                 <p className="text-xs text-gray-400">מנהל מערכת</p>
               </div>
             </div>
+            <Link
+              to="/dashboard"
+              onClick={() => setSidebarOpen(false)}
+              className="w-full flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors mb-1"
+            >
+              <UserCircle size={18} />
+              <span>המנוי שלי</span>
+            </Link>
             <button
               onClick={handleSignOut}
               className="w-full flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
