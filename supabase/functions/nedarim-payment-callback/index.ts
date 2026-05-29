@@ -47,10 +47,16 @@ function isSuccess(p: NedarimPaymentPayload): boolean {
   return !!(p.TransactionId?.trim() && p.Confirmation?.trim());
 }
 
-// Param1 is set by the authenticated frontend before the payer touches anything.
-// It is a URL-level field echoed back verbatim — not user-editable.
+// Param1 = authenticated user UUID (set by iframe PostNedarim — authoritative)
 function extractUserId(p: NedarimPaymentPayload): string | null {
   if (p.Param1 && UUID_RE.test(p.Param1.trim())) return p.Param1.trim();
+  return null;
+}
+
+// Param2 = plan UUID chosen on the frontend (set by iframe PostNedarim)
+// "additional_donation" is a sentinel value for one-time donations — not a UUID
+function extractPlanId(p: NedarimPaymentPayload): string | null {
+  if (p.Param2 && UUID_RE.test(p.Param2.trim())) return p.Param2.trim();
   return null;
 }
 
@@ -74,45 +80,6 @@ async function parseBody(req: Request): Promise<NedarimPaymentPayload> {
   try { return JSON.parse(text); } catch { return {}; }
 }
 
-async function handleTest(): Promise<Response> {
-  const testPayload: NedarimPaymentPayload = {
-    TransactionId: `TEST-${Date.now()}`,
-    ClientId: "TEST_CLIENT",
-    Zeout: "TEST_ZEOUT",
-    ClientName: "בדיקה אוטומטית",
-    Phone: "050-0000000",
-    Mail: "test@chasdeyolam.com",
-    Amount: "290",
-    Currency: "ILS",
-    TransactionTime: new Date().toISOString(),
-    Confirmation: "TEST_CONFIRMATION",
-    LastNum: "1234",
-    Tokef: "12/27",
-    TransactionType: "1",
-    Groupe: "תשלום דרך אתר נציבים",
-    Comments: "",
-    Param1: "",
-    Tashloumim: "1",
-    FirstTashloum: "0",
-    MosadNumber: "7010422",
-    CallId: "TEST_CALL",
-    MasofId: "TEST_MASOF",
-    Shovar: "TEST_SHOVAR",
-    CompagnyCard: "ישראכרט",
-    Solek: "1",
-    Tayar: "1",
-    Makor: "2",
-    KevaId: "",
-    DebitIframe: "0",
-  };
-  const supabase = makeSupabase();
-  const result = await processPayment(supabase, testPayload, testPayload);
-  return new Response(
-    JSON.stringify({ test: true, payload: testPayload, result }),
-    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
-}
-
 async function processPayment(
   supabase: ReturnType<typeof makeSupabase>,
   payload: NedarimPaymentPayload,
@@ -123,98 +90,150 @@ async function processPayment(
   let subscriptionId: string | null = null;
   let processingError: string | null = null;
   const resolvedUserId = extractUserId(payload);
+  const paramPlanId = extractPlanId(payload);
 
-  if (success) {
-    try {
-      // Identity resolution — priority order:
-      // 1. Param1 UUID (authoritative — set by authenticated frontend, not user-editable)
-      // 2. KevaId → look up original keva row which has user_id + subscription_id.
-      //    Handles recurring monthly charges where Param1 comes from the keva setup.
-      // 3. Mail match (last resort for payments made outside the website)
-      // If no identity found: log but do NOT attach to any subscription.
-      let profileId: string | null = resolvedUserId;
-      let identitySource = resolvedUserId ? "param1" : "none";
-
-      if (profileId) {
-        const { data: profile } = await supabase
-          .from("profiles").select("id").eq("id", profileId).maybeSingle();
-        if (!profile) {
-          console.warn("[nedarim-payment-callback] Param1 UUID not in profiles:", profileId);
-          profileId = null;
-          identitySource = "none";
-        }
-      }
-
-      if (!profileId && payload.KevaId?.trim()) {
-        identitySource = "keva_id";
-        const { data: kevaRow } = await supabase
-          .from("nedarim_keva_callbacks")
-          .select("user_id, subscription_id")
-          .eq("keva_id", payload.KevaId.trim())
-          .not("subscription_id", "is", null)
-          .order("received_at", { ascending: false })
-          .limit(1).maybeSingle();
-
-        if (kevaRow?.subscription_id) {
-          const { data: sub } = await supabase
-            .from("subscriptions")
-            .select("id, user_id, successful_payments_count, plans(required_successful_payments)")
-            .eq("id", kevaRow.subscription_id)
-            .in("status", ["active", "frozen"]).maybeSingle();
-
-          if (sub) {
-            subscriptionId = sub.id;
-            await recordPayment(supabase, sub, payload);
-            await supabase.from("nedarim_donation_callbacks").insert(
-              buildRow(payload, subscriptionId, rawPayload, kevaRow.user_id ?? null, null)
-            );
-            console.log("[nedarim-payment-callback] Payment recorded via KevaId", {
-              subscriptionId, kevaId: payload.KevaId,
-            });
-            return { processed: true, subscriptionId, error: null };
-          }
-        }
-
-        if (kevaRow?.user_id) profileId = kevaRow.user_id;
-      }
-
-      if (!profileId && payload.Mail) {
-        identitySource = "mail_fallback";
-        const { data: profile } = await supabase
-          .from("profiles").select("id")
-          .eq("email", payload.Mail.toLowerCase().trim()).maybeSingle();
-        profileId = profile?.id ?? null;
-      }
-
-      console.log("[nedarim-payment-callback] Identity resolved", {
-        profileId, identitySource, transactionId: payload.TransactionId, param1: payload.Param1,
-      });
-
-      if (profileId) {
-        const { data: subscription } = await supabase
-          .from("subscriptions")
-          .select("id, user_id, successful_payments_count, plans(required_successful_payments)")
-          .eq("user_id", profileId).in("status", ["active", "frozen"])
-          .order("created_at", { ascending: false }).limit(1).maybeSingle();
-
-        if (subscription) {
-          subscriptionId = subscription.id;
-          await recordPayment(supabase, subscription, payload);
-        } else {
-          processingError = `No subscription found for profile ${profileId}`;
-          console.warn("[nedarim-payment-callback]", processingError);
-        }
-      } else {
-        processingError = `No profile found — Param1=${payload.Param1} Mail=${payload.Mail}`;
-        console.warn("[nedarim-payment-callback]", processingError);
-      }
-    } catch (err: unknown) {
-      processingError = err instanceof Error ? err.message : String(err);
-      console.error("[nedarim-payment-callback] Processing error:", processingError);
-    }
-  } else {
+  if (!success) {
     processingError = "Payment not successful — no TransactionId or Confirmation";
     console.warn("[nedarim-payment-callback]", processingError);
+    await supabase.from("nedarim_donation_callbacks").insert(
+      buildRow(payload, null, rawPayload, resolvedUserId, processingError)
+    );
+    return { processed: false, subscriptionId: null, error: processingError };
+  }
+
+  try {
+    // Identity resolution priority:
+    // 1. Param1 = authenticated user UUID (iframe PostNedarim — authoritative)
+    // 2. KevaId → look up original keva row (recurring monthly charge back-reference)
+    // 3. Mail fallback (legacy only — never used for new iframe payments)
+    let profileId: string | null = resolvedUserId;
+    let identitySource = resolvedUserId ? "param1" : "none";
+
+    if (profileId) {
+      const { data: profile } = await supabase
+        .from("profiles").select("id").eq("id", profileId).maybeSingle();
+      if (!profile) {
+        console.warn("[nedarim-payment-callback] Param1 UUID not found in profiles:", profileId);
+        profileId = null;
+        identitySource = "none";
+      }
+    }
+
+    // KevaId path: recurring monthly charges reference the original HK setup
+    if (!profileId && payload.KevaId?.trim()) {
+      identitySource = "keva_id";
+      const { data: kevaRow } = await supabase
+        .from("nedarim_keva_callbacks")
+        .select("user_id, subscription_id")
+        .eq("keva_id", payload.KevaId.trim())
+        .not("subscription_id", "is", null)
+        .order("received_at", { ascending: false })
+        .limit(1).maybeSingle();
+
+      if (kevaRow?.subscription_id) {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("id, user_id, successful_payments_count, plans(required_successful_payments)")
+          .eq("id", kevaRow.subscription_id)
+          .in("status", ["active", "frozen"]).maybeSingle();
+
+        if (sub) {
+          subscriptionId = sub.id;
+          await recordPayment(supabase, sub, payload);
+          await supabase.from("nedarim_donation_callbacks").insert(
+            buildRow(payload, subscriptionId, rawPayload, kevaRow.user_id ?? null, null)
+          );
+          console.log("[nedarim-payment-callback] Payment recorded via KevaId", {
+            subscriptionId, kevaId: payload.KevaId,
+          });
+          return { processed: true, subscriptionId, error: null };
+        }
+      }
+
+      if (kevaRow?.user_id) profileId = kevaRow.user_id;
+    }
+
+    if (!profileId && payload.Mail) {
+      identitySource = "mail_fallback";
+      const { data: profile } = await supabase
+        .from("profiles").select("id")
+        .eq("email", payload.Mail.toLowerCase().trim()).maybeSingle();
+      profileId = profile?.id ?? null;
+    }
+
+    console.log("[nedarim-payment-callback] Identity resolved", {
+      profileId, identitySource,
+      transactionId: payload.TransactionId,
+      param1: payload.Param1, param2: payload.Param2,
+    });
+
+    if (profileId) {
+      // One-time additional donation — no subscription to link
+      if (payload.Param2?.trim() === "additional_donation") {
+        // Record as a standalone payment without subscription
+        await supabase.from("payments").insert({
+          subscription_id: null,
+          amount: payload.Amount ? Math.round(parseFloat(payload.Amount)) : null,
+          status: "succeeded",
+          attempt_number: 1,
+          paid_at: payload.TransactionTime ?? new Date().toISOString(),
+        });
+        await supabase.from("nedarim_donation_callbacks").insert(
+          buildRow(payload, null, rawPayload, profileId, null)
+        );
+        console.log("[nedarim-payment-callback] One-time donation recorded", {
+          userId: profileId, amount: payload.Amount,
+        });
+        return { processed: true, subscriptionId: null, error: null };
+      }
+
+      // Recurring subscription payment
+      const { data: subscription } = await supabase
+        .from("subscriptions")
+        .select("id, user_id, successful_payments_count, plans(required_successful_payments)")
+        .eq("user_id", profileId).in("status", ["active", "frozen"])
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+      if (subscription) {
+        subscriptionId = subscription.id;
+        await recordPayment(supabase, subscription, payload);
+      } else {
+        // No subscription yet — this is the first payment on a new HK setup.
+        // The keva callback should have created the subscription already,
+        // but create it here as a safety net using Param2 plan ID.
+        let planId = paramPlanId;
+        if (!planId && payload.Amount) {
+          const amountNum = Math.round(parseFloat(payload.Amount));
+          const { data: plan } = await supabase
+            .from("plans").select("id")
+            .eq("monthly_amount", amountNum).eq("active", true).maybeSingle();
+          planId = plan?.id ?? null;
+        }
+        if (planId) {
+          const { data: newSub } = await supabase
+            .from("subscriptions").insert({
+              user_id: profileId, plan_id: planId, status: "active",
+              successful_payments_count: 0, failed_payment_attempts: 0,
+              is_eligible: false, started_at: new Date().toISOString(),
+            }).select("id").single();
+          if (newSub) {
+            subscriptionId = newSub.id;
+            const freshSub = { id: newSub.id, user_id: profileId, successful_payments_count: 0,
+              plans: { required_successful_payments: 15 } };
+            await recordPayment(supabase, freshSub, payload);
+          }
+        } else {
+          processingError = `No subscription or plan found for profile ${profileId}`;
+          console.warn("[nedarim-payment-callback]", processingError);
+        }
+      }
+    } else {
+      processingError = `No profile found — Param1=${payload.Param1} Param2=${payload.Param2} Mail=${payload.Mail}`;
+      console.warn("[nedarim-payment-callback]", processingError);
+    }
+  } catch (err: unknown) {
+    processingError = err instanceof Error ? err.message : String(err);
+    console.error("[nedarim-payment-callback] Processing error:", processingError);
   }
 
   await supabase.from("nedarim_donation_callbacks").insert(
@@ -303,7 +322,21 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
   const url = new URL(req.url);
-  if (req.method === "POST" && url.pathname.endsWith("/test")) return handleTest();
+  if (req.method === "POST" && url.pathname.endsWith("/test")) {
+    const testPayload: NedarimPaymentPayload = {
+      TransactionId: `TEST-${Date.now()}`,
+      Confirmation: "TEST_CONF",
+      Amount: "290", Currency: "1",
+      Param1: "", Param2: "",
+      Groupe: "תשלום דרך אתר נציבים",
+      MosadNumber: "7010422",
+      TransactionTime: new Date().toISOString(),
+    };
+    const supabase = makeSupabase();
+    const result = await processPayment(supabase, testPayload, testPayload);
+    return new Response(JSON.stringify({ test: true, payload: testPayload, result }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
 
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }),
@@ -319,7 +352,8 @@ Deno.serve(async (req: Request) => {
 
     console.log("[nedarim-payment-callback] Received", {
       TransactionId: payload.TransactionId, Amount: payload.Amount,
-      Param1: payload.Param1, KevaId: payload.KevaId, MosadNumber: payload.MosadNumber,
+      Param1: payload.Param1, Param2: payload.Param2,
+      KevaId: payload.KevaId, MosadNumber: payload.MosadNumber,
     });
 
     if (!payload.MosadNumber) {

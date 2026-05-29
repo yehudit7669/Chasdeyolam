@@ -33,14 +33,14 @@ interface NedarimKevaPayload {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function isValid(p: NedarimKevaPayload): boolean {
-  return !!(p.KevaId && p.KevaId.trim() !== "");
-}
-
-// Param1 is set by the authenticated frontend before the payer touches anything.
-// It is a URL-level field echoed back verbatim — not user-editable.
 function extractUserId(p: NedarimKevaPayload): string | null {
   if (p.Param1 && UUID_RE.test(p.Param1.trim())) return p.Param1.trim();
+  return null;
+}
+
+// Param2 carries the plan UUID chosen on the frontend
+function extractPlanId(p: NedarimKevaPayload): string | null {
+  if (p.Param2 && UUID_RE.test(p.Param2.trim())) return p.Param2.trim();
   return null;
 }
 
@@ -76,35 +76,6 @@ function parseNextDate(raw?: string): string | null {
   return null;
 }
 
-async function handleTest(): Promise<Response> {
-  const testPayload: NedarimKevaPayload = {
-    KevaId: `TEST-KEVA-${Date.now()}`,
-    ClientId: "TEST_CLIENT",
-    Zeout: "TEST_ZEOUT",
-    ClientName: "בדיקה אוטומטית",
-    Phone: "050-0000000",
-    Mail: "test@chasdeyolam.com",
-    Amount: "290",
-    Currency: "ILS",
-    NextDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    LastNum: "1234",
-    Tokef: "12/27",
-    Groupe: "תשלום דרך אתר נציבים",
-    Comments: "",
-    Param1: "",
-    Tashloumim: "15",
-    MosadNumber: "7010422",
-    MasofId: "TEST_MASOF",
-    DebitIframe: "0",
-  };
-  const supabase = makeSupabase();
-  const result = await processKeva(supabase, testPayload, testPayload);
-  return new Response(
-    JSON.stringify({ test: true, payload: testPayload, result }),
-    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
-}
-
 async function processKeva(
   supabase: ReturnType<typeof makeSupabase>,
   payload: NedarimKevaPayload,
@@ -114,126 +85,153 @@ async function processKeva(
   let subscriptionId: string | null = null;
   let processingError: string | null = null;
   const resolvedUserId = extractUserId(payload);
+  const paramPlanId = extractPlanId(payload);
 
-  if (isValid(payload)) {
-    try {
-      // Identity resolution — priority order:
-      // 1. Param1 UUID (authoritative — set by authenticated frontend, not user-editable)
-      // 2. Mail match (fallback for payments made outside the website)
-      // If no identity found: log but do NOT attach to any subscription.
-      let profileId: string | null = resolvedUserId;
-      let identitySource = resolvedUserId ? "param1" : "none";
-
-      if (profileId) {
-        const { data: profile } = await supabase
-          .from("profiles").select("id").eq("id", profileId).maybeSingle();
-        if (!profile) {
-          console.warn("[nedarim-keva-callback] Param1 UUID not in profiles:", profileId);
-          profileId = null;
-          identitySource = "none";
-        }
-      }
-
-      if (!profileId && payload.Mail) {
-        identitySource = "mail_fallback";
-        const { data: profile } = await supabase
-          .from("profiles").select("id")
-          .eq("email", payload.Mail.toLowerCase().trim()).maybeSingle();
-        profileId = profile?.id ?? null;
-      }
-
-      console.log("[nedarim-keva-callback] Identity resolved", {
-        profileId, identitySource, kevaId: payload.KevaId, param1: payload.Param1,
-      });
-
-      if (profileId) {
-        const amountNum = payload.Amount ? Math.round(parseFloat(payload.Amount)) : null;
-        let planId: string | null = null;
-        if (amountNum) {
-          const { data: plan } = await supabase
-            .from("plans").select("id")
-            .eq("monthly_amount", amountNum).eq("active", true).maybeSingle();
-          planId = plan?.id ?? null;
-        }
-
-        const nextPaymentDate = parseNextDate(payload.NextDate);
-
-        const { data: existingSub } = await supabase
-          .from("subscriptions").select("id")
-          .eq("user_id", profileId).in("status", ["active", "frozen"])
-          .order("created_at", { ascending: false }).limit(1).maybeSingle();
-
-        if (existingSub) {
-          subscriptionId = existingSub.id;
-          const upd: Record<string, unknown> = { status: "active", updated_at: new Date().toISOString() };
-          if (nextPaymentDate) upd.next_payment_date = nextPaymentDate;
-          await supabase.from("subscriptions").update(upd).eq("id", existingSub.id);
-        } else if (planId) {
-          const { data: newSub } = await supabase
-            .from("subscriptions").insert({
-              user_id: profileId, plan_id: planId, status: "active",
-              successful_payments_count: 0, failed_payment_attempts: 0,
-              is_eligible: false, started_at: new Date().toISOString(),
-              next_payment_date: nextPaymentDate,
-            }).select("id").single();
-          subscriptionId = newSub?.id ?? null;
-        } else {
-          processingError = `Could not find plan for amount ${payload.Amount}`;
-          console.warn("[nedarim-keva-callback]", processingError);
-        }
-
-        if (subscriptionId) {
-          console.log("[nedarim-keva-callback] Subscription linked", {
-            subscriptionId, kevaId: payload.KevaId, identitySource,
-          });
-        }
-      } else {
-        processingError = `No profile found — Param1=${payload.Param1} Mail=${payload.Mail}`;
-        console.warn("[nedarim-keva-callback]", processingError);
-      }
-    } catch (err: unknown) {
-      processingError = err instanceof Error ? err.message : String(err);
-      console.error("[nedarim-keva-callback] Processing error:", processingError);
-    }
-  } else {
+  if (!payload.KevaId?.trim()) {
     processingError = "Invalid keva callback — missing KevaId";
     console.warn("[nedarim-keva-callback]", processingError);
+    await insertRow(supabase, payload, rawPayload, null, null, processingError, false);
+    return { processed: false, subscriptionId: null, error: processingError };
   }
 
+  try {
+    // Identity resolution:
+    // 1. Param1 = authenticated user UUID (iframe flow — authoritative)
+    // 2. Mail fallback (legacy / outside-website payments only)
+    let profileId: string | null = resolvedUserId;
+    let identitySource = resolvedUserId ? "param1" : "none";
+
+    if (profileId) {
+      const { data: profile } = await supabase
+        .from("profiles").select("id").eq("id", profileId).maybeSingle();
+      if (!profile) {
+        console.warn("[nedarim-keva-callback] Param1 UUID not found in profiles:", profileId);
+        profileId = null;
+        identitySource = "none";
+      }
+    }
+
+    if (!profileId && payload.Mail) {
+      identitySource = "mail_fallback";
+      const { data: profile } = await supabase
+        .from("profiles").select("id")
+        .eq("email", payload.Mail.toLowerCase().trim()).maybeSingle();
+      profileId = profile?.id ?? null;
+    }
+
+    console.log("[nedarim-keva-callback] Identity resolved", {
+      profileId, identitySource, kevaId: payload.KevaId,
+      param1: payload.Param1, param2: payload.Param2,
+    });
+
+    if (profileId) {
+      const nextPaymentDate = parseNextDate(payload.NextDate);
+
+      // Plan resolution: Param2 UUID first, then amount lookup
+      let planId: string | null = paramPlanId;
+      if (planId) {
+        const { data: plan } = await supabase
+          .from("plans").select("id").eq("id", planId).eq("active", true).maybeSingle();
+        if (!plan) planId = null;
+      }
+      if (!planId && payload.Amount) {
+        const amountNum = Math.round(parseFloat(payload.Amount));
+        const { data: plan } = await supabase
+          .from("plans").select("id")
+          .eq("monthly_amount", amountNum).eq("active", true).maybeSingle();
+        planId = plan?.id ?? null;
+      }
+
+      const { data: existingSub } = await supabase
+        .from("subscriptions").select("id")
+        .eq("user_id", profileId).in("status", ["active", "frozen"])
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+      if (existingSub) {
+        subscriptionId = existingSub.id;
+        const upd: Record<string, unknown> = { status: "active", updated_at: new Date().toISOString() };
+        if (nextPaymentDate) upd.next_payment_date = nextPaymentDate;
+        await supabase.from("subscriptions").update(upd).eq("id", existingSub.id);
+      } else if (planId) {
+        const { data: newSub } = await supabase
+          .from("subscriptions").insert({
+            user_id: profileId, plan_id: planId, status: "active",
+            successful_payments_count: 0, failed_payment_attempts: 0,
+            is_eligible: false, started_at: new Date().toISOString(),
+            next_payment_date: nextPaymentDate,
+          }).select("id").single();
+        subscriptionId = newSub?.id ?? null;
+      } else {
+        processingError = `Could not find plan for amount ${payload.Amount}`;
+        console.warn("[nedarim-keva-callback]", processingError);
+      }
+
+      if (subscriptionId) {
+        console.log("[nedarim-keva-callback] Subscription linked", {
+          subscriptionId, kevaId: payload.KevaId, identitySource,
+        });
+      }
+    } else {
+      processingError = `No profile found — Param1=${payload.Param1} Param2=${payload.Param2} Mail=${payload.Mail}`;
+      console.warn("[nedarim-keva-callback] UNMATCHED — queued for admin review", {
+        kevaId: payload.KevaId, mail: payload.Mail, param1: payload.Param1,
+      });
+    }
+  } catch (err: unknown) {
+    processingError = err instanceof Error ? err.message : String(err);
+    console.error("[nedarim-keva-callback] Processing error:", processingError);
+  }
+
+  const isUnmatched = subscriptionId === null &&
+    (processingError?.startsWith("No profile found") ?? false);
+
+  await insertRow(supabase, payload, rawPayload, resolvedUserId, subscriptionId,
+    processingError, isUnmatched);
+
+  return { processed: subscriptionId !== null, subscriptionId, error: processingError };
+}
+
+async function insertRow(
+  supabase: ReturnType<typeof makeSupabase>,
+  payload: NedarimKevaPayload,
+  rawPayload: unknown,
+  userId: string | null,
+  subscriptionId: string | null,
+  processingError: string | null,
+  isUnmatched: boolean
+) {
   await supabase.from("nedarim_keva_callbacks").insert({
-    keva_id:      payload.KevaId      ?? null,
-    client_id:    payload.ClientId    ?? null,
-    zeout:        payload.Zeout       ?? null,
-    client_name:  payload.ClientName  ?? null,
-    adresse:      payload.Adresse     ?? null,
-    phone:        payload.Phone       ?? null,
-    mail:         payload.Mail        ?? null,
-    amount:       payload.Amount      ?? null,
-    currency:     payload.Currency    ?? null,
-    next_date:    payload.NextDate    ?? null,
-    last_num:     payload.LastNum     ?? null,
-    tokef:        payload.Tokef       ?? null,
-    groupe:       payload.Groupe      ?? null,
-    comments:     payload.Comments    ?? null,
-    tashloumim:   payload.Tashloumim  ?? null,
-    mosad_number: payload.MosadNumber ?? null,
-    masof_id:     payload.MasofId     ?? null,
-    debit_iframe: payload.DebitIframe ?? null,
-    user_id:          resolvedUserId,
+    keva_id:       payload.KevaId      ?? null,
+    client_id:     payload.ClientId    ?? null,
+    zeout:         payload.Zeout       ?? null,
+    client_name:   payload.ClientName  ?? null,
+    adresse:       payload.Adresse     ?? null,
+    phone:         payload.Phone       ?? null,
+    mail:          payload.Mail        ?? null,
+    amount:        payload.Amount      ?? null,
+    currency:      payload.Currency    ?? null,
+    next_date:     payload.NextDate    ?? null,
+    last_num:      payload.LastNum     ?? null,
+    tokef:         payload.Tokef       ?? null,
+    groupe:        payload.Groupe      ?? null,
+    comments:      payload.Comments    ?? null,
+    tashloumim:    payload.Tashloumim  ?? null,
+    mosad_number:  payload.MosadNumber ?? null,
+    masof_id:      payload.MasofId     ?? null,
+    debit_iframe:  payload.DebitIframe ?? null,
+    user_id:          userId,
     subscription_id:  subscriptionId,
     raw_payload:      rawPayload,
     processed:        subscriptionId !== null,
     error_message:    processingError,
+    review_status:    isUnmatched ? "pending_review" : null,
   });
-
-  return { processed: subscriptionId !== null, subscriptionId, error: processingError };
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
   const url = new URL(req.url);
-  if (req.method === "POST" && url.pathname.endsWith("/test")) return handleTest();
 
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }),
@@ -249,7 +247,8 @@ Deno.serve(async (req: Request) => {
 
     console.log("[nedarim-keva-callback] Received", {
       KevaId: payload.KevaId, Amount: payload.Amount,
-      Param1: payload.Param1, Mail: payload.Mail, MosadNumber: payload.MosadNumber,
+      Param1: payload.Param1, Param2: payload.Param2,
+      Mail: payload.Mail, MosadNumber: payload.MosadNumber,
     });
 
     if (!payload.MosadNumber) {
@@ -278,6 +277,7 @@ Deno.serve(async (req: Request) => {
     try {
       await makeSupabase().from("nedarim_keva_callbacks").insert({
         raw_payload: rawPayload ?? {}, processed: false, error_message: `UNHANDLED: ${message}`,
+        review_status: "pending_review",
       });
     } catch (_) { /* best effort */ }
     return new Response(JSON.stringify({ error: "Internal server error" }),
