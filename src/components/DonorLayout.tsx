@@ -9,6 +9,7 @@ import {
   LogOut,
   DollarSign,
   LayoutDashboard,
+  ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
@@ -38,6 +39,18 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
 
   return (
     <div className="min-h-screen bg-[#F7F5F0]" dir="rtl">
+      {/* Admin return bar — always visible for admins */}
+      {isAdmin && (
+        <Link
+          to="/admin"
+          className="flex items-center gap-2 w-full px-4 py-2.5 bg-[#0B3C5D] text-white text-sm font-semibold hover:bg-[#0B3C5D]/90 transition-colors"
+        >
+          <ArrowLeft size={15} className="shrink-0" />
+          <span>חזרה לפאנל ניהול</span>
+          <LayoutDashboard size={15} className="mr-auto shrink-0 opacity-60" />
+        </Link>
+      )}
+
       <header className="bg-white border-b border-[#E5E1D8]/60" style={{ boxShadow: '0 1px 8px 0 rgba(98,109,88,0.06)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -53,15 +66,6 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
             <div className="flex items-center gap-3">
               {profile?.full_name && (
                 <span className="hidden sm:block text-sm font-medium text-[#33332D]/60">{profile.full_name}</span>
-              )}
-              {isAdmin && (
-                <Link
-                  to="/admin"
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#0A192F]/70 hover:text-[#0A192F] transition-colors rounded-xl hover:bg-[#0A192F]/5"
-                >
-                  <LayoutDashboard size={16} />
-                  <span className="hidden sm:inline">פאנל ניהול</span>
-                </Link>
               )}
               <button
                 onClick={handleSignOut}
