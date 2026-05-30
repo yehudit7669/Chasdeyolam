@@ -85,12 +85,16 @@ export const AdminDonorsPage = () => {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (d) =>
-          d.full_name.toLowerCase().includes(term) ||
+          (d.full_name || '').toLowerCase().includes(term) ||
           d.email.toLowerCase().includes(term)
       );
     }
 
-    if (roleFilter !== 'all') {
+    if (roleFilter === 'with_subscription') {
+      filtered = filtered.filter((d) =>
+        d.subscriptions?.some((s) => s.status === 'active' || s.status === 'frozen')
+      );
+    } else if (roleFilter !== 'all') {
       filtered = filtered.filter((d) => d.role === roleFilter);
     }
 
@@ -145,7 +149,7 @@ export const AdminDonorsPage = () => {
     <AdminLayout>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-[#0B3C5D]">ניהול תורמים ומשתמשים</h1>
-        <p className="text-gray-600 mt-2">צפייה וניהול משתמשי המערכת</p>
+        <p className="text-gray-600 mt-2">כל המשתמשים הרשומים במערכת. לצפייה במנויים פעילים בלבד עבור ל<strong>ניהול מנויים</strong>.</p>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
@@ -165,10 +169,11 @@ export const AdminDonorsPage = () => {
             onChange={(e) => setRoleFilter(e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C5D] focus:border-transparent"
           >
-            <option value="all">כל התפקידים</option>
-            <option value="donor">תורמים</option>
-            <option value="admin">מנהלים</option>
-            <option value="viewer">צופים</option>
+            <option value="all">כל המשתמשים</option>
+            <option value="with_subscription">עם מנוי פעיל</option>
+            <option value="donor">תפקיד: תורם</option>
+            <option value="admin">תפקיד: מנהל</option>
+            <option value="viewer">תפקיד: צופה</option>
           </select>
         </div>
       </div>
@@ -177,8 +182,8 @@ export const AdminDonorsPage = () => {
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">שם מלא</th>
-              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">אימייל</th>
+              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">שם / אימייל</th>
+              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700 hidden md:table-cell">אימייל</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">טלפון</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תפקיד</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">מנוי</th>
@@ -196,8 +201,13 @@ export const AdminDonorsPage = () => {
             ) : (
               filteredDonors.map((donor) => (
                 <tr key={donor.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-gray-900">{donor.full_name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{donor.email}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    <div>
+                      <div className="font-medium">{donor.full_name || <span className="text-gray-400 italic">ללא שם</span>}</div>
+                      <div className="text-xs text-gray-500">{donor.email}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900 hidden md:table-cell">{donor.email}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{donor.phone || '-'}</td>
                   <td className="px-6 py-4 text-sm">
                     <span

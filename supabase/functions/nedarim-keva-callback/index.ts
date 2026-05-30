@@ -68,10 +68,32 @@ function parseNextDate(raw?: string): string | null {
   if (!raw) return null;
   try {
     const s = raw.trim();
+    let parsed: Date | null = null;
     const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (m) return new Date(`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}T00:00:00Z`).toISOString();
-    const d = new Date(s);
-    if (!isNaN(d.getTime())) return d.toISOString();
+    if (m) {
+      parsed = new Date(`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}T00:00:00Z`);
+    } else {
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) parsed = d;
+    }
+    if (!parsed || isNaN(parsed.getTime())) return null;
+
+    // Always return a future date. Nedarim may send a date that has already passed
+    // (e.g. billing day 28 sent on the 30th means next charge is next month's 28th).
+    // Advance month-by-month until the date is in the future.
+    const now = new Date();
+    const billingDay = parsed.getUTCDate();
+    let candidate = new Date(parsed);
+    while (candidate <= now) {
+      // Advance by one month, preserving the billing day
+      const y = candidate.getUTCFullYear();
+      const mo = candidate.getUTCMonth() + 1; // advance one month
+      const nextMonth = mo > 11 ? 0 : mo;
+      const nextYear = mo > 11 ? y + 1 : y;
+      const daysInNext = new Date(Date.UTC(nextYear, nextMonth + 1, 0)).getUTCDate();
+      candidate = new Date(Date.UTC(nextYear, nextMonth, Math.min(billingDay, daysInNext)));
+    }
+    return candidate.toISOString();
   } catch (_) { /* leave null */ }
   return null;
 }

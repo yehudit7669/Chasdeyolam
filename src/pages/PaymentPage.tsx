@@ -304,6 +304,39 @@ export default function PaymentPage() {
                 <div className="p-8">
                   <h1 className="text-2xl font-black text-[#0A192F] mb-6">פרטי תשלום</h1>
 
+                  {/* Plan summary — donor must see exactly what they're committing to */}
+                  {plan && (
+                    <div className="rounded-2xl bg-[#0A192F] p-5 mb-6 text-white">
+                      <div className="text-xs font-bold uppercase tracking-[0.25em] text-[#D4B483]/60 mb-3">סיכום ההתחייבות</div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <div className="text-white/40 text-xs mb-0.5">תוכנית</div>
+                          <div className="font-bold">{plan.name_he}</div>
+                        </div>
+                        <div>
+                          <div className="text-white/40 text-xs mb-0.5">סוג תשלום</div>
+                          <div className="font-bold">הוראת קבע חודשית</div>
+                        </div>
+                        <div>
+                          <div className="text-white/40 text-xs mb-0.5">תשלום חודשי</div>
+                          <div className="font-bold text-[#D4B483]">₪{plan.monthly_amount.toLocaleString()}</div>
+                        </div>
+                        <div>
+                          <div className="text-white/40 text-xs mb-0.5">מספר תשלומים</div>
+                          <div className="font-bold">{plan.required_successful_payments} חודשים</div>
+                        </div>
+                        <div>
+                          <div className="text-white/40 text-xs mb-0.5">סה"כ התחייבות</div>
+                          <div className="font-bold">₪{(plan.monthly_amount * plan.required_successful_payments).toLocaleString()}</div>
+                        </div>
+                        <div>
+                          <div className="text-white/40 text-xs mb-0.5">רמת מלון</div>
+                          <div className="font-bold">{plan.hotel_level}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="rounded-2xl border border-[#E5E1D8]/60 bg-[#F9F8F4] p-5 mb-6 flex gap-4 items-start">
                     <div className="w-10 h-10 rounded-xl bg-[#626D58]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <Shield size={18} className="text-[#626D58]" />
@@ -351,6 +384,17 @@ export default function PaymentPage() {
               {/* Step 2: iframe is mounted */}
               {(pageState === 'iframe' || pageState === 'paying') && (
                 <div>
+                  {/* Compact plan reminder above card form */}
+                  {plan && (
+                    <div className="px-6 pt-5 pb-0">
+                      <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-4 flex flex-wrap gap-x-6 gap-y-2 text-xs mb-1">
+                        <span className="font-bold text-[#0A192F]">{plan.name_he}</span>
+                        <span className="text-[#33332D]/50">הוראת קבע</span>
+                        <span className="text-[#626D58] font-semibold">₪{plan.monthly_amount.toLocaleString()} × {plan.required_successful_payments} חודשים</span>
+                        <span className="text-[#B08D57] font-bold">סה"כ: ₪{(plan.monthly_amount * plan.required_successful_payments).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="px-6 py-4 border-b border-[#E5E1D8]/60 flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#0A192F]">
                       <Shield size={16} className="text-[#626D58]" />

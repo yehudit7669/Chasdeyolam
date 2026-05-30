@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, AlertTriangle, X } from 'lucide-react';
+import { Heart, AlertTriangle, X, Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import DonorLayout from '../components/DonorLayout';
@@ -10,6 +10,7 @@ interface Subscription {
   status: string;
   successful_payments_count: number;
   started_at: string;
+  next_payment_date: string | null;
   plans: {
     id: string;
     name_he: string;
@@ -19,23 +20,12 @@ interface Subscription {
   };
 }
 
-interface Plan {
-  id: string;
-  name_he: string;
-  monthly_amount: number;
-  required_successful_payments: number;
-  hotel_level: string;
-}
-
 export default function DonorManageSubscriptionPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [showChangePlanDialog, setShowChangePlanDialog] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
@@ -48,27 +38,23 @@ export default function DonorManageSubscriptionPage() {
 
   const loadData = async () => {
     try {
-      const [subRes, plansRes] = await Promise.all([
-        supabase
-          .from('subscriptions')
-          .select(`
-            *,
-            plans (
-              id,
-              name_he,
-              monthly_amount,
-              required_successful_payments,
-              hotel_level
-            )
-          `)
-          .eq('user_id', user!.id)
-          .eq('status', 'active')
-          .maybeSingle(),
-        supabase.from('plans').select('*').eq('active', true).order('monthly_amount'),
-      ]);
+      const { data } = await supabase
+        .from('subscriptions')
+        .select(`
+          *,
+          plans (
+            id,
+            name_he,
+            monthly_amount,
+            required_successful_payments,
+            hotel_level
+          )
+        `)
+        .eq('user_id', user!.id)
+        .eq('status', 'active')
+        .maybeSingle();
 
-      if (subRes.data) setSubscription(subRes.data as any);
-      if (plansRes.data) setAvailablePlans(plansRes.data);
+      if (data) setSubscription(data as any);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -85,37 +71,13 @@ export default function DonorManageSubscriptionPage() {
         .eq('id', subscription!.id);
 
       if (error) throw error;
-
-      alert('המנוי בוטל בהצלחה');
+      alert('המנוי בוטל בהצלחה. הוראת הקבע בנדרים פלוס תבוטל בנפרד.');
       navigate('/plans');
     } catch (err: any) {
       alert('שגיאה בביטול מנוי: ' + err.message);
     } finally {
       setProcessing(false);
       setShowCancelDialog(false);
-    }
-  };
-
-  const handleChangePlan = async () => {
-    if (!selectedPlan) return;
-
-    setProcessing(true);
-    try {
-      const { error } = await supabase
-        .from('subscriptions')
-        .update({ plan_id: selectedPlan.id })
-        .eq('id', subscription!.id);
-
-      if (error) throw error;
-
-      alert('התוכנית שונתה בהצלחה');
-      loadData();
-    } catch (err: any) {
-      alert('שגיאה בשינוי תוכנית: ' + err.message);
-    } finally {
-      setProcessing(false);
-      setShowChangePlanDialog(false);
-      setSelectedPlan(null);
     }
   };
 
@@ -149,15 +111,12 @@ export default function DonorManageSubscriptionPage() {
     );
   }
 
-  const otherPlans = availablePlans.filter(p => p.id !== subscription.plans.id);
-
   return (
     <DonorLayout>
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
         <div>
           <h1 className="text-2xl font-black text-[#0A192F]">ניהול תרומה</h1>
-          <p className="text-[#33332D]/50 text-sm mt-1 font-light">נהל את המנוי והתוכנית שלך</p>
+          <p className="text-[#33332D]/50 text-sm mt-1 font-light">פרטי המנוי הנוכחי שלך</p>
         </div>
 
         {/* Current plan card */}
@@ -165,7 +124,6 @@ export default function DonorManageSubscriptionPage() {
           className="bg-white rounded-[2rem] overflow-hidden border border-[#E5E1D8]/60"
           style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
         >
-          {/* Dark header */}
           <div
             className="p-6 relative overflow-hidden"
             style={{ background: 'linear-gradient(135deg, #0A192F 0%, #2D3E40 100%)' }}
@@ -186,39 +144,51 @@ export default function DonorManageSubscriptionPage() {
             </div>
           </div>
 
-          {/* Details */}
           <div className="p-6">
             <div className="grid grid-cols-2 gap-4 mb-6">
               {[
                 { label: 'תשלומים שבוצעו', value: `${subscription.successful_payments_count} / ${subscription.plans.required_successful_payments}` },
                 { label: 'רמת זכאות', value: subscription.plans.hotel_level },
                 { label: 'תאריך התחלה', value: new Date(subscription.started_at).toLocaleDateString('he-IL') },
+                {
+                  label: 'חיוב הבא',
+                  value: subscription.next_payment_date
+                    ? new Date(subscription.next_payment_date).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : '—',
+                },
               ].map(({ label, value }) => (
                 <div key={label} className="p-4 rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/50">
                   <div className="text-xs text-[#33332D]/40 mb-1">{label}</div>
-                  <div className="font-bold text-[#0A192F]">{value}</div>
+                  <div className="font-bold text-[#0A192F] text-sm">{value}</div>
                 </div>
               ))}
             </div>
 
-            <div className="space-y-3">
-              <button
-                onClick={() => setShowChangePlanDialog(true)}
-                className="w-full py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md"
-              >
-                שנה תוכנית תרומה
-              </button>
-              <button
-                onClick={() => setShowCancelDialog(true)}
-                className="w-full py-3.5 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors border-2 border-red-100"
-              >
-                בטל מנוי
-              </button>
-            </div>
+            <button
+              onClick={() => setShowCancelDialog(true)}
+              className="w-full py-3.5 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors border-2 border-red-100"
+            >
+              בטל מנוי
+            </button>
           </div>
         </div>
 
-        {/* Info */}
+        {/* Change plan — not supported via self-service */}
+        <div
+          className="flex items-start gap-4 p-5 rounded-2xl border border-[#0A192F]/10"
+          style={{ backgroundColor: 'rgba(10,25,47,0.03)' }}
+        >
+          <Info className="text-[#0A192F]/40 flex-shrink-0 mt-0.5" size={18} />
+          <div className="text-sm text-[#33332D]/60">
+            <p className="font-semibold text-[#33332D]/80 mb-1">שינוי תוכנית</p>
+            <p className="font-light leading-relaxed">
+              שינוי תוכנית הוראת קבע מחייב יצירת הסדר חדש בנדרים פלוס. לביצוע שינוי תוכנית,
+              צור קשר עם התמיכה שלנו — אנו נטפל בזה עבורך.
+            </p>
+          </div>
+        </div>
+
+        {/* Warning */}
         <div
           className="flex items-start gap-4 p-5 rounded-2xl border border-[#D4B483]/20"
           style={{ backgroundColor: 'rgba(212,180,131,0.05)' }}
@@ -227,9 +197,10 @@ export default function DonorManageSubscriptionPage() {
           <div className="text-sm text-[#33332D]/60">
             <p className="font-semibold text-[#33332D]/80 mb-2">חשוב לדעת:</p>
             <ul className="space-y-1 font-light">
-              <li>שינוי תוכנית יבוטל את ההתקדמות הנוכחית שלך</li>
+              <li>ביטול מנוי יבטל את ההתקדמות הנוכחית שלך</li>
               <li>ביטול מנוי יבטל את כל הזכאויות למלונות</li>
               <li>תשלומים שכבר בוצעו לא יוחזרו</li>
+              <li>הביטול בנדרים פלוס יבוצע בנפרד על ידי הצוות שלנו</li>
             </ul>
           </div>
         </div>
@@ -256,6 +227,7 @@ export default function DonorManageSubscriptionPage() {
               <p className="font-bold text-red-800 mb-2">האם אתה בטוח?</p>
               <p className="text-sm text-red-700 font-light leading-relaxed">
                 ביטול המנוי יגרום לאובדן כל ההטבות והזכאויות למלונות. תשלומים שבוצעו לא יוחזרו.
+                הביטול בנדרים פלוס יבוצע על ידי הצוות שלנו בנפרד.
               </p>
             </div>
 
@@ -277,88 +249,6 @@ export default function DonorManageSubscriptionPage() {
                 ביטול
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Change Plan Dialog */}
-      {showChangePlanDialog && (
-        <div className="fixed inset-0 bg-[#0A192F]/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div
-            className="bg-white rounded-[2rem] max-w-xl w-full p-8 my-8 border border-[#E5E1D8]/60"
-            style={{ boxShadow: '0 24px 60px rgba(10,25,47,0.2)' }}
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-black text-[#0A192F]">שינוי תוכנית תרומה</h3>
-              <button
-                onClick={() => { setShowChangePlanDialog(false); setSelectedPlan(null); }}
-                className="p-2 text-[#33332D]/40 hover:text-[#33332D] transition-colors rounded-xl hover:bg-[#F7F5F0]"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-3 mb-6">
-              {otherPlans.length === 0 ? (
-                <p className="text-[#33332D]/50 text-center py-8 font-light">אין תוכניות אחרות זמינות כרגע</p>
-              ) : (
-                otherPlans.map((plan) => (
-                  <div
-                    key={plan.id}
-                    onClick={() => setSelectedPlan(plan)}
-                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${
-                      selectedPlan?.id === plan.id
-                        ? 'border-[#626D58] bg-[#626D58]/5'
-                        : 'border-[#E5E1D8] hover:border-[#D4B483]/50'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h4 className="font-bold text-[#0A192F]">{plan.name_he}</h4>
-                        <p className="text-[#33332D]/60 text-sm mt-1">
-                          ₪{plan.monthly_amount.toLocaleString()} לחודש
-                        </p>
-                        <p className="text-xs text-[#33332D]/40 mt-0.5">
-                          {plan.required_successful_payments} תשלומים · רמה {plan.hotel_level}
-                        </p>
-                      </div>
-                      <div
-                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                          selectedPlan?.id === plan.id
-                            ? 'border-[#626D58] bg-[#626D58]'
-                            : 'border-[#E5E1D8]'
-                        }`}
-                      >
-                        {selectedPlan?.id === plan.id && (
-                          <div className="w-2 h-2 bg-white rounded-full" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {otherPlans.length > 0 && (
-              <div className="flex gap-3">
-                <button
-                  onClick={handleChangePlan}
-                  disabled={!selectedPlan || processing}
-                  className="flex-1 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  {processing ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : 'שנה תוכנית'}
-                </button>
-                <button
-                  onClick={() => { setShowChangePlanDialog(false); setSelectedPlan(null); }}
-                  disabled={processing}
-                  className="flex-1 py-3.5 bg-[#F7F5F0] text-[#33332D] font-semibold rounded-xl hover:bg-[#E5E1D8] transition-colors"
-                >
-                  ביטול
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}
