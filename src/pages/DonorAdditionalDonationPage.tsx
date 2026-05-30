@@ -4,14 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import DonorLayout from '../components/DonorLayout';
 import { useAuth } from '../hooks/useAuth';
 
-type PaymentState = 'select' | 'iframe_loading' | 'iframe_ready' | 'success' | 'failure' | 'cancel';
+type PageState = 'select' | 'iframe' | 'paying' | 'success' | 'failure' | 'cancel';
 
-const NEDARIM_IFRAME_URL = 'https://www.matara.pro/nedarimplus/iframe/';
+// Official URL from sample2.html — no www, no trailing slash
+const NEDARIM_IFRAME_SRC = 'https://matara.pro/nedarimplus/iframe?language=he';
 const MOSAD = '7010422';
 const API_VALID = 'Rd8QEQCDEY';
 const SUPABASE_FN_BASE = 'https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1';
 const CALLBACK_URL = `${SUPABASE_FN_BASE}/nedarim-payment-callback`;
-const CALLBACK_MAIL_ERROR = '';
 
 const PRESET_AMOUNTS = [50, 100, 180, 250, 500, 1000];
 
@@ -21,8 +21,9 @@ export default function DonorAdditionalDonationPage() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [amount, setAmount] = useState('');
   const [customAmount, setCustomAmount] = useState('');
-  const [state, setState] = useState<PaymentState>('select');
-  const [iframeHeight, setIframeHeight] = useState(600);
+  const [pageState, setPageState] = useState<PageState>('select');
+  const [iframeHeight, setIframeHeight] = useState(500);
+  const [iframeVisible, setIframeVisible] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const selectedAmount = parseInt(amount) || 0;
@@ -38,68 +39,56 @@ export default function DonorAdditionalDonationPage() {
     setAmount(n);
   };
 
-  const sendPostNedarim = useCallback(() => {
-    if (!user || !iframeRef.current?.contentWindow || selectedAmount < 10) return;
+  // Matches sample2.html: PostNedarim(Data) { iframeWin.postMessage(Data, "*") }
+  const postNedarim = useCallback((data: object) => {
+    const iframeWin = iframeRef.current?.contentWindow;
+    if (!iframeWin) {
+      console.warn('[AdditionalDonation] postNedarim: iframe not ready');
+      return;
+    }
+    console.log('[AdditionalDonation] postNedarim →', JSON.stringify(data));
+    iframeWin.postMessage(data, '*');
+  }, []);
 
-    const payload = {
-      Mosad: MOSAD,
-      ApiValid: API_VALID,
-      PaymentType: 'Ragil',
-      Amount: String(selectedAmount),
-      Tashlumim: '1',
-      Currency: '1',
-      Groupe: 'תרומה נוספת דרך אתר נציבים',
-      Comment: '',
-      Param1: user.id,
-      Param2: 'additional_donation',
-      CallBack: CALLBACK_URL,
-      CallBackMailError: CALLBACK_MAIL_ERROR,
-      Zeout: '',
-      FirstName: '',
-      LastName: '',
-      Street: '',
-      City: '',
-      Phone: '',
-      Mail: '',
-    };
-
-    console.log('[AdditionalDonation] PostNedarim payload:', payload);
-
-    iframeRef.current.contentWindow.postMessage(
-      { Name: 'PostNedarim', Value: payload },
-      NEDARIM_IFRAME_URL
-    );
-  }, [user, selectedAmount]);
+  // Matches sample2.html: iframe.onload = () => PostNedarim({Name:'GetHeight'})
+  const handleIframeLoad = useCallback(() => {
+    console.log('[AdditionalDonation] iframe onload fired — sending GetHeight');
+    postNedarim({ Name: 'GetHeight' });
+  }, [postNedarim]);
 
   const handleMessage = useCallback((event: MessageEvent) => {
-    if (!event.origin.includes('matara.pro')) return;
+    console.log('[AdditionalDonation] raw message', 'origin:', event.origin, 'data:', JSON.stringify(event.data));
+
+    if (event.origin && event.origin !== '' && !event.origin.includes('matara.pro')) return;
+
     const data = event.data;
     if (!data || typeof data !== 'object') return;
 
-    if (data.Name === 'Height' || data.height) {
-      const h = parseInt(data.Value ?? data.height ?? '0', 10);
-      if (h > 0) setIframeHeight(h + 40);
-      return;
+    switch (data.Name) {
+      case 'Height': {
+        const h = parseInt(data.Value ?? '0', 10);
+        console.log('[AdditionalDonation] Height received:', h);
+        if (h > 0) {
+          setIframeHeight(h + 15);
+          setIframeVisible(true);
+        }
+        break;
+      }
+      case 'TransactionResponse': {
+        const resp = data.Value ?? {};
+        console.log('[AdditionalDonation] TransactionResponse:', JSON.stringify(resp));
+        if (resp.Status === 'Error') {
+          setErrorMsg(resp.Message ?? 'שגיאה בעיבוד התשלום');
+          setPageState('failure');
+        } else {
+          setPageState('success');
+        }
+        break;
+      }
+      default:
+        console.log('[AdditionalDonation] unhandled message Name:', data.Name);
     }
-    if (data.Name === 'IframeReady' || data.Action === 'IframeReady') {
-      setState('iframe_ready');
-      sendPostNedarim();
-      return;
-    }
-    if (data.Name === 'PaymentSuccess' || data.Action === 'PaymentSuccess' || data.Status === 'Success') {
-      setState('success');
-      return;
-    }
-    if (data.Name === 'PaymentFailure' || data.Action === 'PaymentFailure' || data.Status === 'Failure') {
-      setState('failure');
-      setErrorMsg(data.Message ?? 'התשלום נכשל. נסה שוב.');
-      return;
-    }
-    if (data.Name === 'PaymentCancel' || data.Action === 'PaymentCancel' || data.Status === 'Cancel') {
-      setState('cancel');
-      return;
-    }
-  }, [sendPostNedarim]);
+  }, []);
 
   useEffect(() => {
     window.addEventListener('message', handleMessage);
@@ -107,27 +96,57 @@ export default function DonorAdditionalDonationPage() {
   }, [handleMessage]);
 
   useEffect(() => {
-    if (state !== 'iframe_ready' && state !== 'iframe_loading') return;
-    const askHeight = () => {
-      iframeRef.current?.contentWindow?.postMessage({ Name: 'Height' }, NEDARIM_IFRAME_URL);
-    };
-    const interval = setInterval(askHeight, 2000);
-    window.addEventListener('resize', askHeight);
-    return () => { clearInterval(interval); window.removeEventListener('resize', askHeight); };
-  }, [state]);
+    if (pageState !== 'iframe' && pageState !== 'paying') return;
+    const interval = setInterval(() => postNedarim({ Name: 'GetHeight' }), 3000);
+    const onResize = () => postNedarim({ Name: 'GetHeight' });
+    window.addEventListener('resize', onResize);
+    return () => { clearInterval(interval); window.removeEventListener('resize', onResize); };
+  }, [pageState, postNedarim]);
 
-  const startPayment = () => {
+  const startIframe = () => {
     if (selectedAmount < 10) return;
-    setState('iframe_loading');
+    console.log('[AdditionalDonation] mounting iframe for amount:', selectedAmount);
+    setIframeVisible(false);
+    setPageState('iframe');
   };
 
-  const handleIframeLoad = () => {
-    setTimeout(() => {
-      iframeRef.current?.contentWindow?.postMessage({ Name: 'Height' }, NEDARIM_IFRAME_URL);
-    }, 500);
-  };
+  const handlePayClick = useCallback(() => {
+    if (!user || selectedAmount < 10) return;
 
-  if (state === 'success') {
+    const payload = {
+      Name: 'FinishTransaction2',
+      Value: {
+        Mosad: MOSAD,
+        ApiValid: API_VALID,
+        PaymentType: 'Ragil',
+        Currency: '1',
+        Zeout: '',
+        FirstName: '',
+        LastName: '',
+        Street: '',
+        City: '',
+        Phone: '',
+        Mail: '',
+        Amount: String(selectedAmount),
+        Tashlumim: '1',
+        Groupe: 'תרומה נוספת דרך אתר נציבים',
+        Comment: '',
+        Param1: user.id,
+        Param2: 'additional_donation',
+        ForceUpdateMatching: '1',
+        CallBack: CALLBACK_URL,
+        CallBackMailError: '',
+      },
+    };
+
+    console.log('[AdditionalDonation] FinishTransaction2 →', JSON.stringify(payload));
+    setPageState('paying');
+    postNedarim(payload);
+  }, [user, selectedAmount, postNedarim]);
+
+  // ── Result screens ──────────────────────────────────────
+
+  if (pageState === 'success') {
     return (
       <DonorLayout>
         <div className="max-w-md mx-auto mt-8">
@@ -137,9 +156,7 @@ export default function DonorAdditionalDonationPage() {
               <CheckCircle size={32} className="text-green-600" />
             </div>
             <h2 className="text-2xl font-black text-[#0A192F] mb-3">תרומה התקבלה!</h2>
-            <p className="text-[#33332D]/60 text-sm mb-8 leading-relaxed">
-              תודה על תרומתך הנוספת! תרומתך תעזור לנו לעזור ליותר משפחות.
-            </p>
+            <p className="text-[#33332D]/60 text-sm mb-8 leading-relaxed">תודה על תרומתך!</p>
             <button onClick={() => navigate('/dashboard')}
               className="w-full py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all">
               חזרה ללוח הבקרה
@@ -150,8 +167,8 @@ export default function DonorAdditionalDonationPage() {
     );
   }
 
-  if (state === 'cancel' || state === 'failure') {
-    const isCancel = state === 'cancel';
+  if (pageState === 'cancel' || pageState === 'failure') {
+    const isCancel = pageState === 'cancel';
     return (
       <DonorLayout>
         <div className="max-w-md mx-auto mt-8">
@@ -166,7 +183,7 @@ export default function DonorAdditionalDonationPage() {
             <p className="text-[#33332D]/60 text-sm mb-8">
               {isCancel ? 'ביטלת את תהליך התשלום.' : (errorMsg || 'אירעה שגיאה. נסה שוב.')}
             </p>
-            <button onClick={() => { setState('select'); setErrorMsg(''); }}
+            <button onClick={() => { setPageState('select'); setErrorMsg(''); setIframeVisible(false); }}
               className="w-full py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all">
               נסה שוב
             </button>
@@ -186,7 +203,8 @@ export default function DonorAdditionalDonationPage() {
           </p>
         </div>
 
-        {state === 'select' && (
+        {/* Amount selection */}
+        {pageState === 'select' && (
           <>
             <div className="bg-white rounded-[2rem] p-8 border border-[#E5E1D8]/60"
               style={{ boxShadow: '0 4px 24px rgba(98,109,88,0.08)' }}>
@@ -232,14 +250,14 @@ export default function DonorAdditionalDonationPage() {
                 <span>תשלום מאובטח · נדרים פלוס · SSL</span>
               </div>
 
-              <button onClick={startPayment} disabled={selectedAmount < 10}
+              <button onClick={startIframe} disabled={selectedAmount < 10}
                 className={`w-full py-4 rounded-xl font-semibold text-base transition-all flex items-center justify-center gap-2 ${
                   selectedAmount >= 10
                     ? 'bg-[#0A192F] text-white hover:bg-[#0A192F]/90 shadow-sm hover:shadow-md'
                     : 'bg-[#F7F5F0] text-[#33332D]/30 cursor-not-allowed border border-[#E5E1D8]'
                 }`}>
                 <Heart size={18} className={selectedAmount >= 10 ? 'text-[#D4B483]' : ''} />
-                <span>{selectedAmount >= 10 ? `תרום ₪${selectedAmount.toLocaleString()} עכשיו` : 'בחר סכום לתרומה'}</span>
+                <span>{selectedAmount >= 10 ? `המשך לתשלום ₪${selectedAmount.toLocaleString()}` : 'בחר סכום לתרומה'}</span>
               </button>
             </div>
 
@@ -264,8 +282,8 @@ export default function DonorAdditionalDonationPage() {
           </>
         )}
 
-        {/* Iframe payment step */}
-        {(state === 'iframe_loading' || state === 'iframe_ready') && (
+        {/* iframe payment panel */}
+        {(pageState === 'iframe' || pageState === 'paying') && (
           <div className="bg-white rounded-[2rem] overflow-hidden border border-[#E5E1D8]/60"
             style={{ boxShadow: '0 4px 24px rgba(98,109,88,0.08)' }}>
 
@@ -274,30 +292,56 @@ export default function DonorAdditionalDonationPage() {
                 <Shield size={16} className="text-[#626D58]" />
                 <span>תשלום מאובטח — ₪{selectedAmount.toLocaleString()}</span>
               </div>
-              <button onClick={() => setState('cancel')}
-                className="text-xs text-[#33332D]/40 hover:text-[#33332D]/70 transition-colors">
-                ביטול
-              </button>
+              {pageState === 'iframe' && (
+                <button onClick={() => { setPageState('cancel'); setIframeVisible(false); }}
+                  className="text-xs text-[#33332D]/40 hover:text-[#33332D]/70 transition-colors">
+                  ביטול
+                </button>
+              )}
             </div>
 
-            <div className="relative">
-              {state === 'iframe_loading' && (
-                <div className="absolute inset-0 bg-white flex items-center justify-center z-10" style={{ minHeight: 300 }}>
-                  <div className="text-center">
-                    <Loader2 size={36} className="animate-spin text-[#626D58] mx-auto mb-3" />
-                    <p className="text-[#33332D]/50 text-sm">טוען טופס תשלום...</p>
-                  </div>
+            {!iframeVisible && (
+              <div className="flex items-center justify-center py-16">
+                <div className="text-center">
+                  <Loader2 size={36} className="animate-spin text-[#626D58] mx-auto mb-3" />
+                  <p className="text-[#33332D]/50 text-sm">טוען טופס תשלום...</p>
                 </div>
-              )}
-              <iframe
-                ref={iframeRef}
-                src={NEDARIM_IFRAME_URL}
-                onLoad={handleIframeLoad}
-                style={{ width: '100%', height: `${iframeHeight}px`, border: 'none', display: 'block' }}
-                title="טופס תשלום נדרים פלוס"
-                allow="payment"
-              />
-            </div>
+              </div>
+            )}
+
+            <iframe
+              ref={iframeRef}
+              src={NEDARIM_IFRAME_SRC}
+              onLoad={handleIframeLoad}
+              style={{
+                width: '100%',
+                height: `${iframeHeight}px`,
+                border: 'none',
+                display: iframeVisible ? 'block' : 'none',
+              }}
+              title="טופס תשלום נדרים פלוס"
+              allow="payment"
+            />
+
+            {iframeVisible && pageState === 'iframe' && (
+              <div className="px-6 py-5 border-t border-[#E5E1D8]/60">
+                <button onClick={handlePayClick}
+                  className="w-full py-4 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2">
+                  <Shield size={18} />
+                  <span>בצע תרומה</span>
+                </button>
+                <p className="text-center text-xs text-[#33332D]/40 mt-3">
+                  לחיצה על "בצע תרומה" תשלח את פרטי הכרטיס לנדרים פלוס בצורה מוצפנת
+                </p>
+              </div>
+            )}
+
+            {pageState === 'paying' && (
+              <div className="px-6 py-5 border-t border-[#E5E1D8]/60 flex items-center justify-center gap-3">
+                <Loader2 size={20} className="animate-spin text-[#626D58]" />
+                <span className="text-sm text-[#33332D]/60">מעבד תשלום...</span>
+              </div>
+            )}
           </div>
         )}
       </div>
