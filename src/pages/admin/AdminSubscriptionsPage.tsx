@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
-import { Eye, Pause, Play, CreditCard as Edit2 } from 'lucide-react';
+import { Eye, Pause, Play, CreditCard as Edit2, XCircle } from 'lucide-react';
 import { Modal } from '../../components/admin/Modal';
 import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
 import { Toast } from '../../components/admin/Toast';
@@ -57,8 +57,11 @@ export const AdminSubscriptionsPage = () => {
     subscriptionId: '',
     action: 'freeze',
   });
+  const [cancelDialog, setCancelDialog] = useState<{ isOpen: boolean; subId: string; reason: string }>({
+    isOpen: false, subId: '', reason: '',
+  });
   const { toast, showToast, hideToast } = useToast();
-  const { canEdit } = useAuth();
+  const { canEdit, profile } = useAuth();
 
   useEffect(() => {
     loadSubscriptions();
@@ -194,6 +197,42 @@ export const AdminSubscriptionsPage = () => {
     } catch (error) {
       console.error('Error changing plan:', error);
       showToast('שגיאה בשינוי תוכנית', 'error');
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!canEdit) { showToast('אין הרשאה', 'error'); return; }
+    const sub = subscriptions.find(s => s.id === cancelDialog.subId);
+    if (!sub) return;
+
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({
+          status: 'canceled',
+          canceled_at: new Date().toISOString(),
+          canceled_by: profile?.id,
+          cancellation_reason: cancelDialog.reason || null,
+        })
+        .eq('id', cancelDialog.subId);
+
+      if (error) throw error;
+
+      await supabase.from('subscription_audit_log').insert({
+        subscription_id: cancelDialog.subId,
+        donor_id: sub.user_id,
+        performed_by: profile?.id,
+        action: 'subscription_canceled',
+        notes: cancelDialog.reason || 'ביטול ע"י מנהל',
+      });
+
+      showToast('מנוי בוטל בהצלחה', 'success');
+      setCancelDialog({ isOpen: false, subId: '', reason: '' });
+      setIsDetailsModalOpen(false);
+      loadSubscriptions();
+    } catch (error) {
+      console.error(error);
+      showToast('שגיאה בביטול מנוי', 'error');
     }
   };
 
@@ -391,6 +430,15 @@ export const AdminSubscriptionsPage = () => {
                           <Play size={18} />
                         </button>
                       )}
+                      {canEdit && (subscription.status === 'active' || subscription.status === 'frozen') && (
+                        <button
+                          onClick={() => setCancelDialog({ isOpen: true, subId: subscription.id, reason: '' })}
+                          className="text-red-500 hover:text-red-700"
+                          title="בטל מנוי"
+                        >
+                          <XCircle size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -508,6 +556,18 @@ export const AdminSubscriptionsPage = () => {
 
             {canEdit && (
               <div className="flex gap-3 justify-end pt-4 border-t">
+                {(selectedSubscription.status === 'active' || selectedSubscription.status === 'frozen') && (
+                  <button
+                    onClick={() => {
+                      setIsDetailsModalOpen(false);
+                      setCancelDialog({ isOpen: true, subId: selectedSubscription.id, reason: '' });
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  >
+                    <XCircle size={16} />
+                    בטל מנוי
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setSelectedPlanId(selectedSubscription.plan_id);
@@ -576,6 +636,40 @@ export const AdminSubscriptionsPage = () => {
         }
         type={confirmDialog.action === 'freeze' ? 'warning' : 'info'}
       />
+
+      {/* Cancel subscription dialog */}
+      {cancelDialog.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl" dir="rtl">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">ביטול מנוי</h3>
+            <p className="text-sm text-gray-600 mb-4">האם אתה בטוח שברצונך לבטל מנוי זה? לא ניתן לבטל פעולה זו.</p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">סיבת ביטול (אופציונלי)</label>
+              <textarea
+                value={cancelDialog.reason}
+                onChange={(e) => setCancelDialog({ ...cancelDialog, reason: e.target.value })}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C5D] focus:border-transparent resize-none text-sm"
+                placeholder="הזן סיבת ביטול..."
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleCancelSubscription}
+                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold text-sm"
+              >
+                בטל מנוי
+              </button>
+              <button
+                onClick={() => setCancelDialog({ isOpen: false, subId: '', reason: '' })}
+                className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-semibold text-sm"
+              >
+                חזור
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast.isOpen && (
         <Toast message={toast.message} type={toast.type} onClose={hideToast} />

@@ -10,13 +10,19 @@ import { AdminBookingsPage } from './AdminBookingsPage';
 import { AdminSupportPage } from './AdminSupportPage';
 import { AdminServiceDeskPage } from './AdminServiceDeskPage';
 import { AdminSettingsPage } from './AdminSettingsPage';
+import { AdminBankDonorsPage } from './AdminBankDonorsPage';
 
 export const AdminDashboard = () => {
   return (
     <Routes>
       <Route path="/" element={<AdminDashboardPage />} />
       <Route path="/plans" element={<AdminPlansPage />} />
+      {/* /admin/users = all registered users (no subscription filter) */}
+      <Route path="/users" element={<AdminDonorsPage />} />
+      {/* /admin/donors = donors with any active/historical subscription */}
       <Route path="/donors" element={<AdminDonorsPage />} />
+      {/* /admin/bank-donors = only manual_bank subscribers */}
+      <Route path="/bank-donors" element={<AdminBankDonorsPage />} />
       <Route path="/subscriptions" element={<AdminSubscriptionsPage />} />
       <Route path="/payments" element={<AdminPaymentsPage />} />
       <Route path="/hotels" element={<AdminHotelsPage />} />
