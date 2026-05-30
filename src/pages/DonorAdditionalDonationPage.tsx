@@ -6,8 +6,8 @@ import { useAuth } from '../hooks/useAuth';
 
 type PageState = 'select' | 'iframe' | 'paying' | 'success' | 'failure' | 'cancel';
 
-// Official URL from sample2.html — no www, no trailing slash
-const NEDARIM_IFRAME_SRC = 'https://matara.pro/nedarimplus/iframe?language=he';
+// Official URL — trailing slash required (without it redirects to slash version)
+const NEDARIM_IFRAME_SRC = 'https://matara.pro/nedarimplus/iframe/';
 const MOSAD = '7010422';
 const API_VALID = 'Rd8QEQCDEY';
 const SUPABASE_FN_BASE = 'https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1';
@@ -51,8 +51,18 @@ export default function DonorAdditionalDonationPage() {
   }, []);
 
   // Matches sample2.html: iframe.onload = () => PostNedarim({Name:'GetHeight'})
+  // Matches sample2.html: iframe.onload → PostNedarim({Name:'GetHeight'})
+  // Show iframe immediately; retry GetHeight until non-zero height arrives
   const handleIframeLoad = useCallback(() => {
-    console.log('[AdditionalDonation] iframe onload fired — sending GetHeight');
+    console.log('[AdditionalDonation] iframe onload fired');
+    setIframeVisible(true); // show card form immediately — don't wait for height
+    let attempts = 0;
+    const retry = setInterval(() => {
+      attempts++;
+      console.log('[AdditionalDonation] GetHeight attempt', attempts);
+      postNedarim({ Name: 'GetHeight' });
+      if (attempts >= 17) clearInterval(retry);
+    }, 300);
     postNedarim({ Name: 'GetHeight' });
   }, [postNedarim]);
 
@@ -70,7 +80,6 @@ export default function DonorAdditionalDonationPage() {
         console.log('[AdditionalDonation] Height received:', h);
         if (h > 0) {
           setIframeHeight(h + 15);
-          setIframeVisible(true);
         }
         break;
       }
@@ -106,7 +115,8 @@ export default function DonorAdditionalDonationPage() {
   const startIframe = () => {
     if (selectedAmount < 10) return;
     console.log('[AdditionalDonation] mounting iframe for amount:', selectedAmount);
-    setIframeVisible(false);
+    setIframeHeight(500);
+    setIframeVisible(false); // hide until onload fires
     setPageState('iframe');
   };
 

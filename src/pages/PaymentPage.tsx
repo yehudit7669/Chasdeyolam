@@ -15,8 +15,8 @@ interface Plan {
 
 type PageState = 'loading_plan' | 'ready' | 'iframe' | 'paying' | 'success' | 'failure' | 'cancel';
 
-// Official URL from sample2.html — no www, no trailing slash
-const NEDARIM_IFRAME_SRC = 'https://matara.pro/nedarimplus/iframe?language=he';
+// Official URL — trailing slash required (without it redirects to slash version)
+const NEDARIM_IFRAME_SRC = 'https://matara.pro/nedarimplus/iframe/';
 const MOSAD = '7010422';
 const API_VALID = 'Rd8QEQCDEY';
 const SUPABASE_FN_BASE = 'https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1';
@@ -73,9 +73,22 @@ export default function PaymentPage() {
     iframeWin.postMessage(data, '*'); // sample2.html uses "*" — NOT the iframe URL
   }, []);
 
-  // Matches sample2.html: iframe.onload = () => PostNedarim({Name:'GetHeight'})
+  // Matches sample2.html: iframe.onload → PostNedarim({Name:'GetHeight'})
+  // But the iframe's own JS needs time to render — send GetHeight repeatedly
+  // until we get a non-zero height back.
   const handleIframeLoad = useCallback(() => {
-    console.log('[PaymentPage] iframe onload fired — sending GetHeight');
+    console.log('[PaymentPage] iframe onload fired');
+    // Show iframe immediately — don't wait for height to be non-zero.
+    // The card form is always present; Height=0 just means it hasn't painted yet.
+    setIframeVisible(true);
+    // Send GetHeight now and retry every 300ms for up to 5s
+    let attempts = 0;
+    const retry = setInterval(() => {
+      attempts++;
+      console.log('[PaymentPage] GetHeight attempt', attempts);
+      postNedarim({ Name: 'GetHeight' });
+      if (attempts >= 17) clearInterval(retry); // ~5s total
+    }, 300);
     postNedarim({ Name: 'GetHeight' });
   }, [postNedarim]);
 
@@ -100,8 +113,6 @@ export default function PaymentPage() {
         console.log('[PaymentPage] Height received:', h);
         if (h > 0) {
           setIframeHeight(h + 15);
-          setIframeVisible(true);
-          console.log('[PaymentPage] iframe is now visible, height set to', h + 15);
         }
         break;
       }
@@ -175,7 +186,8 @@ export default function PaymentPage() {
   const startIframe = () => {
     if (!agreed || !plan || !user) return;
     console.log('[PaymentPage] iframe starting, mounting element');
-    setIframeVisible(false);
+    setIframeHeight(500);
+    setIframeVisible(false); // hide until onload fires
     setPageState('iframe');
   };
 
@@ -353,7 +365,7 @@ export default function PaymentPage() {
                     )}
                   </div>
 
-                  {/* Spinner shown until Height message arrives from iframe */}
+                  {/* Spinner shown until iframe visible */}
                   {!iframeVisible && (
                     <div className="flex items-center justify-center py-16">
                       <div className="text-center">
