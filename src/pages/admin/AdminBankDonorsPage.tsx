@@ -17,7 +17,7 @@ interface BankSubscription {
   started_at: string;
   next_payment_date: string | null;
   billing_day: number | null;
-  admin_notes: string | null;
+  admin_note: string | null;
   source_thread_id: string | null;
   canceled_by: string | null;
   cancellation_reason: string | null;
@@ -37,7 +37,7 @@ interface BankSubscription {
 interface AuditEntry {
   id: string;
   action: string;
-  notes: string | null;
+  note: string | null;
   metadata: any;
   created_at: string;
   profiles: { full_name: string } | null;
@@ -106,7 +106,7 @@ export const AdminBankDonorsPage = () => {
       donor_id: donorId,
       performed_by: profile?.id,
       action,
-      notes: notes || null,
+      note: notes || null,
       metadata: metadata || null,
     });
   };
@@ -356,8 +356,8 @@ export const AdminBankDonorsPage = () => {
               <div><span className="text-gray-400">תשלומים: </span><span className="font-bold">{selectedSub.successful_payments_count}/{selectedSub.plans?.required_successful_payments}</span></div>
               <div><span className="text-gray-400">יום חיוב: </span><span className="font-medium">{selectedSub.billing_day ? `ה-${selectedSub.billing_day}` : '—'}</span></div>
               <div><span className="text-gray-400">זכאות: </span><span className={selectedSub.is_eligible ? 'text-green-600 font-semibold' : 'text-gray-500'}>{selectedSub.is_eligible ? 'כן' : 'לא'}</span></div>
-              {selectedSub.admin_notes && (
-                <div className="col-span-2"><span className="text-gray-400">הערות: </span><span>{selectedSub.admin_notes}</span></div>
+              {selectedSub.admin_note && (
+                <div className="col-span-2"><span className="text-gray-400">הערות: </span><span>{selectedSub.admin_note}</span></div>
               )}
             </div>
 
@@ -412,7 +412,7 @@ export const AdminBankDonorsPage = () => {
                         <span className="font-semibold text-gray-700">{actionLabel(entry.action)}</span>
                         <span className="text-gray-400">{new Date(entry.created_at).toLocaleString('he-IL')}</span>
                       </div>
-                      {entry.notes && <div className="text-gray-500">{entry.notes}</div>}
+                      {entry.note && <div className="text-gray-500">{entry.note}</div>}
                       {entry.profiles && <div className="text-gray-400 mt-1">בוצע ע"י: {entry.profiles.full_name}</div>}
                     </div>
                   ))}

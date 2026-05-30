@@ -223,7 +223,7 @@ export const AdminSubscriptionsPage = () => {
         donor_id: sub.user_id,
         performed_by: profile?.id,
         action: 'subscription_canceled',
-        notes: cancelDialog.reason || 'ביטול ע"י מנהל',
+        note: cancelDialog.reason || 'ביטול ע"י מנהל',
       });
 
       showToast('מנוי בוטל בהצלחה', 'success');

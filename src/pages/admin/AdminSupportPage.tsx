@@ -226,7 +226,7 @@ export const AdminSupportPage = () => {
           is_eligible: false,
           started_at: new Date(approveForm.start_date).toISOString(),
           billing_day: approveForm.billing_day ? Number(approveForm.billing_day) : null,
-          admin_notes: approveForm.admin_notes || null,
+          admin_note: approveForm.admin_notes || null,
           source_thread_id: selectedThread.id,
         })
         .select('id')
@@ -255,7 +255,7 @@ export const AdminSupportPage = () => {
         donor_id: selectedThread.user_id,
         performed_by: profile.id,
         action: 'subscription_created',
-        notes: `נוצר מפנייה ${selectedThread.id}`,
+        note: `נוצר מפנייה ${selectedThread.id}`,
         metadata: {
           thread_id: selectedThread.id,
           monthly_amount: approveForm.monthly_amount,
