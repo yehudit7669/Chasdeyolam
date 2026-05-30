@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { MessageSquare, Lock, Unlock, Send, Building2, CheckCircle, X } from 'lucide-react';
@@ -73,6 +74,8 @@ export const AdminSupportPage = () => {
   const [approving, setApproving] = useState(false);
   const { toast, showToast, hideToast } = useToast();
   const { canEdit, profile } = useAuth();
+  const [searchParams] = useSearchParams();
+  const autoSelectDone = useRef(false);
 
   useEffect(() => {
     loadThreads();
@@ -104,7 +107,28 @@ export const AdminSupportPage = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      setThreads(data || []);
+      const loaded = data || [];
+      setThreads(loaded);
+
+      // Auto-select thread from ?thread= query param (only once)
+      if (!autoSelectDone.current) {
+        const threadId = searchParams.get('thread');
+        if (threadId) {
+          autoSelectDone.current = true;
+          const match = loaded.find(t => t.id === threadId);
+          if (match) {
+            handleSelectThread(match);
+          } else {
+            // Thread not in current filter — fetch it directly
+            const { data: direct } = await supabase
+              .from('support_threads')
+              .select(`*, profiles!support_threads_user_id_fkey(full_name, email)`)
+              .eq('id', threadId)
+              .maybeSingle();
+            if (direct) handleSelectThread(direct);
+          }
+        }
+      }
     } catch (error) {
       console.error('Error loading threads:', error);
       showToast('שגיאה בטעינת פניות', 'error');

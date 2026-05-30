@@ -45,7 +45,7 @@ export const AdminUsersPage = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select(`*, subscriptions(id, status, successful_payments_count, next_payment_date, plans(name_he))`)
+        .select(`*, subscriptions!subscriptions_user_id_fkey(id, status, successful_payments_count, next_payment_date, plans(name_he))`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
