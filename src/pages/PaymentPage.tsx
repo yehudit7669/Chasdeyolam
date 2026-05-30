@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, CheckCircle, XCircle, Loader2, Shield, Lock } from 'lucide-react';
+import { ArrowRight, CheckCircle, XCircle, Loader2, Shield, Lock, CreditCard, Building2, X, Send, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
@@ -13,9 +13,8 @@ interface Plan {
   hotel_level: string;
 }
 
-type PageState = 'loading_plan' | 'ready' | 'iframe' | 'paying' | 'success' | 'failure' | 'cancel';
+type PageState = 'loading_plan' | 'ready' | 'iframe' | 'paying' | 'success' | 'failure' | 'cancel' | 'bank_success';
 
-// Official URL — trailing slash required (without it redirects to slash version)
 const NEDARIM_IFRAME_SRC = 'https://matara.pro/nedarimplus/iframe/';
 const MOSAD = '7010422';
 const API_VALID = 'Rd8QEQCDEY';
@@ -40,6 +39,11 @@ export default function PaymentPage() {
   const [agreed, setAgreed] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Bank transfer modal state
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [bankNote, setBankNote] = useState('');
+  const [bankSubmitting, setBankSubmitting] = useState(false);
+
   const planId = location.state?.planId;
 
   useEffect(() => {
@@ -62,63 +66,36 @@ export default function PaymentPage() {
     }
   };
 
-  // Matches sample2.html: PostNedarim(Data) { iframeWin.postMessage(Data, "*") }
   const postNedarim = useCallback((data: object) => {
     const iframeWin = iframeRef.current?.contentWindow;
-    if (!iframeWin) {
-      console.warn('[PaymentPage] postNedarim: iframe contentWindow not available');
-      return;
-    }
-    console.log('[PaymentPage] postNedarim →', JSON.stringify(data));
-    iframeWin.postMessage(data, '*'); // sample2.html uses "*" — NOT the iframe URL
+    if (!iframeWin) return;
+    iframeWin.postMessage(data, '*');
   }, []);
 
-  // Matches sample2.html: iframe.onload → PostNedarim({Name:'GetHeight'})
-  // But the iframe's own JS needs time to render — send GetHeight repeatedly
-  // until we get a non-zero height back.
   const handleIframeLoad = useCallback(() => {
-    console.log('[PaymentPage] iframe onload fired');
-    // Show iframe immediately — don't wait for height to be non-zero.
-    // The card form is always present; Height=0 just means it hasn't painted yet.
     setIframeVisible(true);
-    // Send GetHeight now and retry every 300ms for up to 5s
     let attempts = 0;
     const retry = setInterval(() => {
       attempts++;
-      console.log('[PaymentPage] GetHeight attempt', attempts);
       postNedarim({ Name: 'GetHeight' });
-      if (attempts >= 17) clearInterval(retry); // ~5s total
+      if (attempts >= 17) clearInterval(retry);
     }, 300);
     postNedarim({ Name: 'GetHeight' });
   }, [postNedarim]);
 
-  // Matches sample2.html ReadPostMessage switch on event.data.Name
   const handleMessage = useCallback((event: MessageEvent) => {
-    // Log every message regardless of origin to see what arrives
-    console.log('[PaymentPage] raw message received', 'origin:', event.origin, 'data:', JSON.stringify(event.data));
-
-    // Only trust matara.pro — note: no www, check both
-    if (event.origin && event.origin !== '' &&
-        !event.origin.includes('matara.pro')) {
-      return;
-    }
-
+    if (event.origin && event.origin !== '' && !event.origin.includes('matara.pro')) return;
     const data = event.data;
     if (!data || typeof data !== 'object') return;
 
     switch (data.Name) {
       case 'Height': {
-        // sample2.html: frame.style.height = (parseInt(Value) + 15) + "px"; hide loader
         const h = parseInt(data.Value ?? '0', 10);
-        console.log('[PaymentPage] Height received:', h);
-        if (h > 0) {
-          setIframeHeight(h + 15);
-        }
+        if (h > 0) setIframeHeight(h + 15);
         break;
       }
       case 'TransactionResponse': {
         const resp = data.Value ?? {};
-        console.log('[PaymentPage] TransactionResponse:', JSON.stringify(resp));
         if (resp.Status === 'Error') {
           setErrorMsg(resp.Message ?? 'שגיאה בעיבוד התשלום');
           setPageState('failure');
@@ -127,8 +104,6 @@ export default function PaymentPage() {
         }
         break;
       }
-      default:
-        console.log('[PaymentPage] unhandled message Name:', data.Name);
     }
   }, []);
 
@@ -137,7 +112,6 @@ export default function PaymentPage() {
     return () => window.removeEventListener('message', handleMessage);
   }, [handleMessage]);
 
-  // Poll GetHeight while iframe is open for responsive resize
   useEffect(() => {
     if (pageState !== 'iframe' && pageState !== 'paying') return;
     const interval = setInterval(() => postNedarim({ Name: 'GetHeight' }), 3000);
@@ -146,7 +120,6 @@ export default function PaymentPage() {
     return () => { clearInterval(interval); window.removeEventListener('resize', onResize); };
   }, [pageState, postNedarim]);
 
-  // Called by "בצע תשלום" button — matches sample2.html PayBtClick → FinishTransaction2
   const handlePayClick = useCallback(() => {
     if (!plan || !user) return;
     const cfg = PLAN_CONFIG[plan.monthly_amount];
@@ -165,7 +138,7 @@ export default function PaymentPage() {
         Street: '',
         City: '',
         Phone: '',
-        Mail: '',
+        Mail: user.email ?? '',
         Amount: String(plan.monthly_amount),
         Tashlumim: cfg.tashlumim,
         Groupe: 'תשלום דרך אתר נציבים',
@@ -178,20 +151,76 @@ export default function PaymentPage() {
       },
     };
 
-    console.log('[PaymentPage] FinishTransaction2 →', JSON.stringify(payload));
     setPageState('paying');
     postNedarim(payload);
   }, [plan, user, postNedarim]);
 
   const startIframe = () => {
     if (!agreed || !plan || !user) return;
-    console.log('[PaymentPage] iframe starting, mounting element');
     setIframeHeight(500);
-    setIframeVisible(false); // hide until onload fires
+    setIframeVisible(false);
     setPageState('iframe');
   };
 
-  // ── Result screens ────────────────────────────────────────
+  const submitBankRequest = async () => {
+    if (!user || !plan) return;
+    setBankSubmitting(true);
+    try {
+      const body = [
+        'סוג בקשה: הצטרפות להוראת קבע בנקאית',
+        '',
+        'פרטי תוכנית:',
+        `• שם תוכנית: ${plan.name_he}`,
+        `• סכום חודשי: ₪${plan.monthly_amount.toLocaleString()}`,
+        `• מספר תשלומים: ${plan.required_successful_payments}`,
+        `• רמת מלון: ${plan.hotel_level}`,
+        `• סה"כ: ₪${(plan.monthly_amount * plan.required_successful_payments).toLocaleString()}`,
+        '',
+        'פרטי מבקש:',
+        `• אימייל: ${user.email ?? '—'}`,
+        `• מזהה משתמש: ${user.id}`,
+        bankNote ? `\nהערת הלקוח: ${bankNote}` : '',
+      ].filter((l) => l !== undefined).join('\n');
+
+      const { data: thread, error: threadErr } = await supabase
+        .from('support_threads')
+        .insert({
+          user_id: user.id,
+          subject: `בקשת הוראת קבע בנקאית — ${plan.name_he}`,
+          status: 'open',
+          thread_type: 'bank_transfer_request',
+          plan_id: plan.id,
+          plan_snapshot: {
+            name_he: plan.name_he,
+            monthly_amount: plan.monthly_amount,
+            required_successful_payments: plan.required_successful_payments,
+            hotel_level: plan.hotel_level,
+          },
+        })
+        .select('id')
+        .single();
+
+      if (threadErr) throw threadErr;
+
+      if (thread) {
+        await supabase.from('support_messages').insert({
+          thread_id: thread.id,
+          sender_id: user.id,
+          message: body,
+          is_admin: false,
+        });
+      }
+
+      setShowBankModal(false);
+      setPageState('bank_success');
+    } catch (err: any) {
+      console.error('Bank request error:', err);
+    } finally {
+      setBankSubmitting(false);
+    }
+  };
+
+  // ── Result screens ────────────────────────────────────────────────────────
 
   if (pageState === 'loading_plan') {
     return (
@@ -199,6 +228,36 @@ export default function PaymentPage() {
         <div className="text-center">
           <div className="w-12 h-12 border-2 border-[#E5E1D8] border-t-[#626D58] rounded-full animate-spin mx-auto mb-4" />
           <p className="text-[#33332D]/50 text-sm">טוען...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pageState === 'bank_success') {
+    return (
+      <div className="min-h-screen bg-[#F7F5F0] flex items-center justify-center px-4" dir="rtl">
+        <div className="bg-white rounded-[2rem] p-10 max-w-md w-full text-center border border-[#E5E1D8]/60"
+          style={{ boxShadow: '0 8px 40px rgba(98,109,88,0.12)' }}>
+          <div className="w-16 h-16 rounded-full bg-[#626D58]/10 flex items-center justify-center mx-auto mb-5">
+            <MessageSquare size={32} className="text-[#626D58]" />
+          </div>
+          <h2 className="text-2xl font-black text-[#0A192F] mb-3">הפנייה נשלחה!</h2>
+          <p className="text-[#33332D]/60 text-sm mb-2 leading-relaxed">
+            קיבלנו את בקשתך להצטרפות באמצעות הוראת קבע בנקאית.
+          </p>
+          <p className="text-[#33332D]/60 text-sm mb-8 leading-relaxed">
+            נציג מצוות התמיכה שלנו יחזור אליך בהקדם כדי לסייע בהקמת הוראת הקבע.
+          </p>
+          <div className="flex gap-3">
+            <button onClick={() => navigate('/support')}
+              className="flex-1 py-3.5 border border-[#E5E1D8] text-[#33332D]/70 font-semibold rounded-xl hover:bg-[#F7F5F0] transition-all text-sm">
+              צפה בפנייה
+            </button>
+            <button onClick={() => navigate('/dashboard')}
+              className="flex-1 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all text-sm">
+              לדשבורד
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -299,12 +358,12 @@ export default function PaymentPage() {
             <div className="bg-white rounded-[2rem] overflow-hidden border border-[#E5E1D8]/60"
               style={{ boxShadow: '0 4px 24px rgba(98,109,88,0.08)' }}>
 
-              {/* Step 1: agreement — before iframe is mounted */}
+              {/* Step 1: choose payment method */}
               {pageState === 'ready' && (
                 <div className="p-8">
                   <h1 className="text-2xl font-black text-[#0A192F] mb-6">פרטי תשלום</h1>
 
-                  {/* Plan summary — donor must see exactly what they're committing to */}
+                  {/* Plan summary */}
                   {plan && (
                     <div className="rounded-2xl bg-[#0A192F] p-5 mb-6 text-white">
                       <div className="text-xs font-bold uppercase tracking-[0.25em] text-[#D4B483]/60 mb-3">סיכום ההתחייבות</div>
@@ -327,7 +386,7 @@ export default function PaymentPage() {
                         </div>
                         <div>
                           <div className="text-white/40 text-xs mb-0.5">סה"כ התחייבות</div>
-                          <div className="font-bold">₪{(plan.monthly_amount * plan.required_successful_payments).toLocaleString()}</div>
+                          <div className="font-bold">₪{totalAmount.toLocaleString()}</div>
                         </div>
                         <div>
                           <div className="text-white/40 text-xs mb-0.5">רמת מלון</div>
@@ -337,18 +396,7 @@ export default function PaymentPage() {
                     </div>
                   )}
 
-                  <div className="rounded-2xl border border-[#E5E1D8]/60 bg-[#F9F8F4] p-5 mb-6 flex gap-4 items-start">
-                    <div className="w-10 h-10 rounded-xl bg-[#626D58]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <Shield size={18} className="text-[#626D58]" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-[#0A192F] text-sm mb-1">הוראת קבע דרך נדרים פלוס</div>
-                      <div className="text-xs text-[#33332D]/50 leading-relaxed">
-                        הטופס מוטמע ישירות באתר. הפרטים שלך מוזנים בסביבה מאובטחת של נדרים פלוס.
-                      </div>
-                    </div>
-                  </div>
-
+                  {/* Terms */}
                   <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-5 mb-6">
                     <h4 className="font-semibold text-[#0A192F] text-sm mb-3">תנאי השירות</h4>
                     <ul className="text-xs text-[#33332D]/60 space-y-2 leading-relaxed">
@@ -365,6 +413,7 @@ export default function PaymentPage() {
                     </ul>
                   </div>
 
+                  {/* Agreement checkbox */}
                   <label className="flex items-start gap-3 p-4 rounded-2xl bg-[#D4B483]/5 border border-[#D4B483]/30 cursor-pointer mb-6">
                     <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)}
                       className="mt-0.5 w-4 h-4 accent-[#626D58] flex-shrink-0" />
@@ -373,25 +422,66 @@ export default function PaymentPage() {
                     </span>
                   </label>
 
-                  <button onClick={startIframe} disabled={!agreed}
-                    className="w-full py-4 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                    <Shield size={18} />
-                    <span>המשך לטופס תשלום מאובטח</span>
-                  </button>
+                  {/* TWO payment method buttons */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-[#33332D]/50 mb-2">בחר אמצעי תשלום:</p>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {/* Credit card — Nedarim iframe */}
+                      <button
+                        onClick={startIframe}
+                        disabled={!agreed}
+                        className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 text-right transition-all ${
+                          agreed
+                            ? 'border-[#0A192F] bg-[#0A192F] text-white hover:bg-[#0A192F]/90 cursor-pointer shadow-md hover:shadow-lg'
+                            : 'border-[#E5E1D8] bg-[#F9F8F4] text-[#33332D]/30 cursor-not-allowed'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${agreed ? 'bg-white/15' : 'bg-[#E5E1D8]'}`}>
+                          <CreditCard size={20} className={agreed ? 'text-white' : 'text-[#33332D]/30'} />
+                        </div>
+                        <div className="text-center">
+                          <div className="font-bold text-sm">כרטיס אשראי</div>
+                          <div className={`text-xs mt-0.5 ${agreed ? 'text-white/60' : 'text-[#33332D]/25'}`}>
+                            הוראת קבע דרך נדרים פלוס
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Bank direct debit */}
+                      <button
+                        onClick={() => agreed && setShowBankModal(true)}
+                        disabled={!agreed}
+                        className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 text-right transition-all ${
+                          agreed
+                            ? 'border-[#626D58] bg-white text-[#0A192F] hover:bg-[#F9F8F4] cursor-pointer shadow-sm hover:shadow-md'
+                            : 'border-[#E5E1D8] bg-[#F9F8F4] text-[#33332D]/30 cursor-not-allowed'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${agreed ? 'bg-[#626D58]/10' : 'bg-[#E5E1D8]'}`}>
+                          <Building2 size={20} className={agreed ? 'text-[#626D58]' : 'text-[#33332D]/30'} />
+                        </div>
+                        <div className="text-center">
+                          <div className={`font-bold text-sm ${agreed ? 'text-[#0A192F]' : ''}`}>הוראת קבע בנקאית</div>
+                          <div className={`text-xs mt-0.5 ${agreed ? 'text-[#33332D]/50' : 'text-[#33332D]/25'}`}>
+                            דרך הבנק — צוות התמיכה יסייע
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* Step 2: iframe is mounted */}
+              {/* Step 2: Nedarim iframe */}
               {(pageState === 'iframe' || pageState === 'paying') && (
                 <div>
-                  {/* Compact plan reminder above card form */}
                   {plan && (
                     <div className="px-6 pt-5 pb-0">
                       <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-4 flex flex-wrap gap-x-6 gap-y-2 text-xs mb-1">
                         <span className="font-bold text-[#0A192F]">{plan.name_he}</span>
                         <span className="text-[#33332D]/50">הוראת קבע</span>
                         <span className="text-[#626D58] font-semibold">₪{plan.monthly_amount.toLocaleString()} × {plan.required_successful_payments} חודשים</span>
-                        <span className="text-[#B08D57] font-bold">סה"כ: ₪{(plan.monthly_amount * plan.required_successful_payments).toLocaleString()}</span>
+                        <span className="text-[#B08D57] font-bold">סה"כ: ₪{totalAmount.toLocaleString()}</span>
                       </div>
                     </div>
                   )}
@@ -401,15 +491,13 @@ export default function PaymentPage() {
                       <span>טופס תשלום מאובטח — נדרים פלוס</span>
                     </div>
                     {pageState === 'iframe' && (
-                      <button
-                        onClick={() => { setPageState('cancel'); setIframeVisible(false); }}
+                      <button onClick={() => { setPageState('cancel'); setIframeVisible(false); }}
                         className="text-xs text-[#33332D]/40 hover:text-[#33332D]/70 transition-colors">
                         ביטול
                       </button>
                     )}
                   </div>
 
-                  {/* Spinner shown until iframe visible */}
                   {!iframeVisible && (
                     <div className="flex items-center justify-center py-16">
                       <div className="text-center">
@@ -419,29 +507,15 @@ export default function PaymentPage() {
                     </div>
                   )}
 
-                  {/*
-                    iframe is always mounted when pageState=iframe so onload fires.
-                    display:none keeps it hidden until we get the Height postMessage back.
-                    The official sample2.html flow:
-                      iframe.onload → PostNedarim({Name:'GetHeight'})
-                      iframe responds with {Name:'Height', Value:'620'}
-                      → set height, hide loader
-                  */}
                   <iframe
                     ref={iframeRef}
                     src={NEDARIM_IFRAME_SRC}
                     onLoad={handleIframeLoad}
-                    style={{
-                      width: '100%',
-                      height: `${iframeHeight}px`,
-                      border: 'none',
-                      display: iframeVisible ? 'block' : 'none',
-                    }}
+                    style={{ width: '100%', height: `${iframeHeight}px`, border: 'none', display: iframeVisible ? 'block' : 'none' }}
                     title="טופס תשלום נדרים פלוס"
                     allow="payment"
                   />
 
-                  {/* Pay button — shown only when iframe is visible and not mid-transaction */}
                   {iframeVisible && pageState === 'iframe' && (
                     <div className="px-6 py-5 border-t border-[#E5E1D8]/60">
                       <button onClick={handlePayClick}
@@ -466,7 +540,7 @@ export default function PaymentPage() {
             </div>
           </div>
 
-          {/* Order summary */}
+          {/* Order summary sidebar */}
           {plan && (
             <div className="lg:col-span-1">
               <div className="bg-[#0A192F] text-white rounded-[2rem] p-6 sticky top-8"
@@ -505,6 +579,82 @@ export default function PaymentPage() {
           )}
         </div>
       </div>
+
+      {/* Bank transfer modal */}
+      {showBankModal && plan && (
+        <div className="fixed inset-0 bg-[#0A192F]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2rem] max-w-lg w-full p-8 border border-[#E5E1D8]/60"
+            style={{ boxShadow: '0 24px 60px rgba(10,25,47,0.2)' }}>
+
+            <div className="flex items-start justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#626D58]/10 flex items-center justify-center flex-shrink-0">
+                  <Building2 size={20} className="text-[#626D58]" />
+                </div>
+                <h2 className="text-xl font-black text-[#0A192F]">הצטרפות באמצעות הוראת קבע בנקאית</h2>
+              </div>
+              <button onClick={() => setShowBankModal(false)}
+                className="p-2 text-[#33332D]/40 hover:text-[#33332D] transition-colors rounded-xl hover:bg-[#F7F5F0] flex-shrink-0">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Plan details */}
+            <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-4 mb-5">
+              <div className="text-xs text-[#33332D]/50 mb-2 font-semibold uppercase tracking-wide">פרטי התוכנית שנבחרה</div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><span className="text-[#33332D]/40">תוכנית: </span><span className="font-semibold text-[#0A192F]">{plan.name_he}</span></div>
+                <div><span className="text-[#33332D]/40">סכום חודשי: </span><span className="font-semibold text-[#626D58]">₪{plan.monthly_amount.toLocaleString()}</span></div>
+                <div><span className="text-[#33332D]/40">תשלומים: </span><span className="font-semibold text-[#0A192F]">{plan.required_successful_payments}</span></div>
+                <div><span className="text-[#33332D]/40">רמת מלון: </span><span className="font-semibold text-[#0A192F]">{plan.hotel_level}</span></div>
+                <div className="col-span-2 pt-2 border-t border-[#E5E1D8]/60 mt-1">
+                  <span className="text-[#33332D]/40">סה"כ: </span>
+                  <span className="font-bold text-[#B08D57]">₪{(plan.monthly_amount * plan.required_successful_payments).toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* User details */}
+            <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-4 mb-5">
+              <div className="text-xs text-[#33332D]/50 mb-2 font-semibold uppercase tracking-wide">פרטי הגשה</div>
+              <div className="text-sm">
+                <span className="text-[#33332D]/40">אימייל: </span>
+                <span className="font-semibold text-[#0A192F]">{user?.email ?? '—'}</span>
+              </div>
+            </div>
+
+            <p className="text-sm text-[#33332D]/60 leading-relaxed mb-5">
+              אם ברצונך להצטרף למנוי באמצעות הוראת קבע מהבנק, יש ליצור קשר עם צוות התמיכה שלנו.
+              נציג יחזור אליך ויסייע בהקמת הוראת הקבע.
+            </p>
+
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-[#33332D]/70 mb-2">הערה (אופציונלי)</label>
+              <textarea
+                value={bankNote}
+                onChange={(e) => setBankNote(e.target.value)}
+                rows={3}
+                placeholder='לדוגמה: "אני מעוניין לבצע הוראת קבע דרך בנק הפועלים"'
+                className="w-full px-4 py-3 bg-[#F9F8F4] border border-[#E5E1D8] rounded-xl text-[#0A192F] placeholder-[#33332D]/30 focus:outline-none focus:ring-2 focus:ring-[#D4B483]/30 focus:border-[#D4B483] transition-all text-sm resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={submitBankRequest} disabled={bankSubmitting}
+                className="flex-1 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                {bankSubmitting
+                  ? <Loader2 size={18} className="animate-spin" />
+                  : <><Send size={16} /><span>שלח בקשה</span></>
+                }
+              </button>
+              <button onClick={() => setShowBankModal(false)} disabled={bankSubmitting}
+                className="flex-1 py-3.5 bg-[#F7F5F0] text-[#33332D] font-semibold rounded-xl hover:bg-[#E5E1D8] transition-colors">
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
