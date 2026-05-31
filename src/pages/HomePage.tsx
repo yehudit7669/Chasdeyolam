@@ -3,6 +3,7 @@ import { ChevronLeft, Gift, Users, Hotel, Star } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useStore } from '../store/useStore';
 import { Layout } from '../components/Layout';
+import { RecommendationsSection } from '../components/RecommendationsSection';
 import donationRequestImg from '../assets/בקשת_תרומה_גמח.jpg';
 
 export default function HomePage() {
@@ -82,6 +83,9 @@ export default function HomePage() {
           </p>
         </div>
       </section>
+
+      {/* ───────────────── RECOMMENDATIONS ───────────────── */}
+      <RecommendationsSection />
 
       {/* ───────────────── ROOTS TO FRUITS ───────────────── */}
       <section className="py-40 bg-white mb-20">
