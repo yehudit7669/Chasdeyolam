@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
+import { callNedarimKevaService } from '../../lib/nedarimKevaService';
 import { Eye, Pause, Play, CreditCard as Edit2, XCircle } from 'lucide-react';
 import { Modal } from '../../components/admin/Modal';
 import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
@@ -20,6 +21,7 @@ interface Subscription {
   frozen_at: string | null;
   canceled_at: string | null;
   completed_at: string | null;
+  keva_id: string | null;
   profiles: {
     full_name: string;
     email: string;
@@ -38,6 +40,12 @@ interface Payment {
   created_at: string;
 }
 
+interface KevaDetails {
+  loading: boolean;
+  data: Record<string, unknown> | null;
+  error: string | null;
+}
+
 export const AdminSubscriptionsPage = () => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,25 +56,21 @@ export const AdminSubscriptionsPage = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [kevaDetails, setKevaDetails] = useState<KevaDetails>({ loading: false, data: null, error: null });
+  const [actionProcessing, setActionProcessing] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     subscriptionId: string;
     action: 'freeze' | 'unfreeze';
-  }>({
-    isOpen: false,
-    subscriptionId: '',
-    action: 'freeze',
-  });
+  }>({ isOpen: false, subscriptionId: '', action: 'freeze' });
   const [cancelDialog, setCancelDialog] = useState<{ isOpen: boolean; subId: string; reason: string }>({
     isOpen: false, subId: '', reason: '',
   });
   const { toast, showToast, hideToast } = useToast();
   const { canEdit, profile } = useAuth();
 
-  useEffect(() => {
-    loadSubscriptions();
-    loadPlans();
-  }, []);
+  useEffect(() => { loadSubscriptions(); loadPlans(); }, []);
+  useEffect(() => { loadSubscriptions(); }, [statusFilter]);
 
   const loadSubscriptions = async () => {
     try {
@@ -79,12 +83,9 @@ export const AdminSubscriptionsPage = () => {
         `)
         .order('started_at', { ascending: false });
 
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      }
+      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
 
       const { data, error } = await query;
-
       if (error) throw error;
       setSubscriptions(data || []);
     } catch (error) {
@@ -97,12 +98,7 @@ export const AdminSubscriptionsPage = () => {
 
   const loadPlans = async () => {
     try {
-      const { data, error } = await supabase
-        .from('plans')
-        .select('*')
-        .eq('active', true)
-        .order('name_he');
-
+      const { data, error } = await supabase.from('plans').select('*').eq('active', true).order('name_he');
       if (error) throw error;
       setPlans(data || []);
     } catch (error) {
@@ -110,21 +106,16 @@ export const AdminSubscriptionsPage = () => {
     }
   };
 
-  useEffect(() => {
-    loadSubscriptions();
-  }, [statusFilter]);
-
   const handleViewDetails = async (subscription: Subscription) => {
     setSelectedSubscription(subscription);
+    setKevaDetails({ loading: false, data: null, error: null });
 
-    // Load payments for this subscription
     try {
       const { data, error } = await supabase
         .from('payments')
         .select('*')
         .eq('subscription_id', subscription.id)
         .order('created_at', { ascending: false });
-
       if (error) throw error;
       setPayments(data || []);
     } catch (error) {
@@ -135,67 +126,90 @@ export const AdminSubscriptionsPage = () => {
     setIsDetailsModalOpen(true);
   };
 
-  const handleToggleFreeze = async () => {
-    if (!canEdit) {
-      showToast('אין לך הרשאה לבצע פעולה זו', 'error');
-      return;
-    }
-
+  const handleLoadKevaDetails = async () => {
+    if (!selectedSubscription?.keva_id) return;
+    setKevaDetails({ loading: true, data: null, error: null });
     try {
-      const newStatus = confirmDialog.action === 'freeze' ? 'frozen' : 'active';
-      const updateData: any = {
-        status: newStatus,
-      };
-
-      if (confirmDialog.action === 'freeze') {
-        updateData.frozen_at = new Date().toISOString();
-      } else {
-        updateData.frozen_at = null;
-      }
-
-      const { error } = await supabase
-        .from('subscriptions')
-        .update(updateData)
-        .eq('id', confirmDialog.subscriptionId);
-
-      if (error) throw error;
-
-      showToast(
-        confirmDialog.action === 'freeze' ? 'מנוי הוקפא בהצלחה' : 'מנוי הופעל מחדש בהצלחה',
-        'success'
-      );
-      loadSubscriptions();
-    } catch (error) {
-      console.error('Error toggling freeze:', error);
-      showToast('שגיאה בשינוי סטטוס מנוי', 'error');
+      const result = await callNedarimKevaService({
+        operation: 'GetKevaJson',
+        subscriptionId: selectedSubscription.id,
+      });
+      setKevaDetails({ loading: false, data: result as Record<string, unknown>, error: null });
+    } catch (err: unknown) {
+      setKevaDetails({ loading: false, data: null, error: err instanceof Error ? err.message : 'שגיאה' });
     }
   };
 
-  const handleChangePlan = async () => {
-    if (!canEdit) {
-      showToast('אין לך הרשאה לבצע פעולה זו', 'error');
-      return;
+  const handleNedarimAction = async (
+    action: 'DisableKeva' | 'EnableKevaNew' | 'DeleteKeva',
+    sub: Subscription,
+    notes?: string
+  ) => {
+    setActionProcessing(true);
+    try {
+      const result = await callNedarimKevaService({
+        operation: action,
+        subscriptionId: sub.id,
+        notes,
+      });
+      if (result.success) {
+        const label = action === 'DisableKeva' ? 'הוקפא' : action === 'EnableKevaNew' ? 'הופעל' : 'בוטל';
+        showToast(`מנוי ${label} בהצלחה`, 'success');
+        setIsDetailsModalOpen(false);
+        setCancelDialog({ isOpen: false, subId: '', reason: '' });
+        loadSubscriptions();
+      } else {
+        showToast(result.error ?? 'שגיאה מנדרים פלוס', 'error');
+      }
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : 'שגיאה בביצוע פעולה', 'error');
+    } finally {
+      setActionProcessing(false);
+    }
+  };
+
+  const handleToggleFreeze = async () => {
+    if (!canEdit) { showToast('אין לך הרשאה לבצע פעולה זו', 'error'); return; }
+    const sub = subscriptions.find(s => s.id === confirmDialog.subscriptionId);
+    if (!sub) return;
+
+    if (sub.keva_id) {
+      const op = confirmDialog.action === 'freeze' ? 'DisableKeva' : 'EnableKevaNew';
+      await handleNedarimAction(op, sub);
+    } else {
+      // Fallback: local-only update when no KevaId
+      try {
+        const newStatus = confirmDialog.action === 'freeze' ? 'frozen' : 'active';
+        const updateData: Record<string, unknown> = { status: newStatus };
+        if (confirmDialog.action === 'freeze') updateData.frozen_at = new Date().toISOString();
+        else updateData.frozen_at = null;
+
+        const { error } = await supabase.from('subscriptions').update(updateData).eq('id', confirmDialog.subscriptionId);
+        if (error) throw error;
+        showToast(confirmDialog.action === 'freeze' ? 'מנוי הוקפא (מקומי)' : 'מנוי הופעל מחדש (מקומי)', 'success');
+        loadSubscriptions();
+      } catch (error) {
+        console.error(error);
+        showToast('שגיאה בשינוי סטטוס מנוי', 'error');
+      }
     }
 
-    if (!selectedPlanId) {
-      showToast('יש לבחור תוכנית', 'error');
-      return;
-    }
+    setConfirmDialog({ ...confirmDialog, isOpen: false });
+  };
+
+  const handleChangePlan = async () => {
+    if (!canEdit) { showToast('אין לך הרשאה לבצע פעולה זו', 'error'); return; }
+    if (!selectedPlanId) { showToast('יש לבחור תוכנית', 'error'); return; }
 
     try {
-      const { error } = await supabase
-        .from('subscriptions')
-        .update({ plan_id: selectedPlanId })
-        .eq('id', selectedSubscription!.id);
-
+      const { error } = await supabase.from('subscriptions').update({ plan_id: selectedPlanId }).eq('id', selectedSubscription!.id);
       if (error) throw error;
-
       showToast('תוכנית שונתה בהצלחה', 'success');
       setIsChangePlanModalOpen(false);
       setIsDetailsModalOpen(false);
       loadSubscriptions();
     } catch (error) {
-      console.error('Error changing plan:', error);
+      console.error(error);
       showToast('שגיאה בשינוי תוכנית', 'error');
     }
   };
@@ -205,34 +219,34 @@ export const AdminSubscriptionsPage = () => {
     const sub = subscriptions.find(s => s.id === cancelDialog.subId);
     if (!sub) return;
 
-    try {
-      const { error } = await supabase
-        .from('subscriptions')
-        .update({
+    if (sub.keva_id) {
+      await handleNedarimAction('DeleteKeva', sub, cancelDialog.reason || 'ביטול ע"י מנהל');
+    } else {
+      try {
+        const { error } = await supabase.from('subscriptions').update({
           status: 'canceled',
           canceled_at: new Date().toISOString(),
           canceled_by: profile?.id,
           cancellation_reason: cancelDialog.reason || null,
-        })
-        .eq('id', cancelDialog.subId);
+        }).eq('id', cancelDialog.subId);
+        if (error) throw error;
 
-      if (error) throw error;
+        await supabase.from('subscription_audit_log').insert({
+          subscription_id: cancelDialog.subId,
+          donor_id: sub.user_id,
+          performed_by: profile?.id,
+          action: 'subscription_canceled',
+          note: cancelDialog.reason || 'ביטול ע"י מנהל (ללא KevaId)',
+        });
 
-      await supabase.from('subscription_audit_log').insert({
-        subscription_id: cancelDialog.subId,
-        donor_id: sub.user_id,
-        performed_by: profile?.id,
-        action: 'subscription_canceled',
-        note: cancelDialog.reason || 'ביטול ע"י מנהל',
-      });
-
-      showToast('מנוי בוטל בהצלחה', 'success');
-      setCancelDialog({ isOpen: false, subId: '', reason: '' });
-      setIsDetailsModalOpen(false);
-      loadSubscriptions();
-    } catch (error) {
-      console.error(error);
-      showToast('שגיאה בביטול מנוי', 'error');
+        showToast('מנוי בוטל בהצלחה', 'success');
+        setCancelDialog({ isOpen: false, subId: '', reason: '' });
+        setIsDetailsModalOpen(false);
+        loadSubscriptions();
+      } catch (error) {
+        console.error(error);
+        showToast('שגיאה בביטול מנוי', 'error');
+      }
     }
   };
 
@@ -244,18 +258,8 @@ export const AdminSubscriptionsPage = () => {
         </span>
       );
     }
-    const badges = {
-      active: 'bg-green-100 text-green-800',
-      frozen: 'bg-blue-100 text-blue-800',
-      canceled: 'bg-red-100 text-red-800',
-      completed: 'bg-purple-100 text-purple-800',
-    };
-    const labels = {
-      active: 'פעיל',
-      frozen: 'מוקפא',
-      canceled: 'בוטל',
-      completed: 'הושלם',
-    };
+    const badges = { active: 'bg-green-100 text-green-800', frozen: 'bg-blue-100 text-blue-800', canceled: 'bg-red-100 text-red-800', completed: 'bg-gray-100 text-gray-800' };
+    const labels = { active: 'פעיל', frozen: 'מוקפא', canceled: 'בוטל', completed: 'הושלם' };
     return (
       <span className={`px-2 py-1 rounded-full text-xs ${badges[subscription.status as keyof typeof badges]}`}>
         {labels[subscription.status as keyof typeof labels]}
@@ -267,7 +271,7 @@ export const AdminSubscriptionsPage = () => {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0B3C5D]"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0B3C5D]" />
         </div>
       </AdminLayout>
     );
@@ -276,63 +280,26 @@ export const AdminSubscriptionsPage = () => {
   return (
     <AdminLayout>
       <div className="mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-[#0B3C5D]">ניהול מנויים</h1>
-          <p className="text-gray-600 mt-2">מעקב וניהול מנויי תורמים</p>
-        </div>
+        <h1 className="text-3xl font-bold text-[#0B3C5D]">ניהול מנויים</h1>
+        <p className="text-gray-600 mt-2">מעקב וניהול מנויי תורמים</p>
       </div>
 
-      <div className="mb-6 flex gap-2">
-        <button
-          onClick={() => setStatusFilter('all')}
-          className={`px-4 py-2 rounded-lg ${
-            statusFilter === 'all'
-              ? 'bg-[#0B3C5D] text-white'
-              : 'bg-white text-gray-700 border border-gray-300'
-          }`}
-        >
-          הכל
-        </button>
-        <button
-          onClick={() => setStatusFilter('active')}
-          className={`px-4 py-2 rounded-lg ${
-            statusFilter === 'active'
-              ? 'bg-[#0B3C5D] text-white'
-              : 'bg-white text-gray-700 border border-gray-300'
-          }`}
-        >
-          פעילים
-        </button>
-        <button
-          onClick={() => setStatusFilter('frozen')}
-          className={`px-4 py-2 rounded-lg ${
-            statusFilter === 'frozen'
-              ? 'bg-[#0B3C5D] text-white'
-              : 'bg-white text-gray-700 border border-gray-300'
-          }`}
-        >
-          מוקפאים
-        </button>
-        <button
-          onClick={() => setStatusFilter('canceled')}
-          className={`px-4 py-2 rounded-lg ${
-            statusFilter === 'canceled'
-              ? 'bg-[#0B3C5D] text-white'
-              : 'bg-white text-gray-700 border border-gray-300'
-          }`}
-        >
-          מבוטלים
-        </button>
-        <button
-          onClick={() => setStatusFilter('completed')}
-          className={`px-4 py-2 rounded-lg ${
-            statusFilter === 'completed'
-              ? 'bg-[#0B3C5D] text-white'
-              : 'bg-white text-gray-700 border border-gray-300'
-          }`}
-        >
-          הושלמו
-        </button>
+      <div className="mb-6 flex gap-2 flex-wrap">
+        {[
+          { value: 'all', label: 'הכל' },
+          { value: 'active', label: 'פעילים' },
+          { value: 'frozen', label: 'מוקפאים' },
+          { value: 'canceled', label: 'מבוטלים' },
+          { value: 'completed', label: 'הושלמו' },
+        ].map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => setStatusFilter(value)}
+            className={`px-4 py-2 rounded-lg ${statusFilter === value ? 'bg-[#0B3C5D] text-white' : 'bg-white text-gray-700 border border-gray-300'}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -342,20 +309,16 @@ export const AdminSubscriptionsPage = () => {
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תורם</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תוכנית</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">סטטוס</th>
-              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תשלומים מוצלחים</th>
+              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תשלומים</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">זכאות</th>
-              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תאריך התחלה</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תשלום הבא</th>
+              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">KevaId</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">פעולות</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {subscriptions.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                  אין מנויים להצגה
-                </td>
-              </tr>
+              <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-500">אין מנויים להצגה</td></tr>
             ) : (
               subscriptions.map((subscription) => (
                 <tr
@@ -364,80 +327,47 @@ export const AdminSubscriptionsPage = () => {
                   onClick={() => handleViewDetails(subscription)}
                 >
                   <td className="px-6 py-4 text-sm text-gray-900">
-                    <div>
-                      <div className="font-medium">{subscription.profiles?.full_name || subscription.profiles?.email || 'משתמש לא ידוע'}</div>
-                      <div className="text-gray-500 text-xs">{subscription.profiles?.email}</div>
-                    </div>
+                    <div className="font-medium">{subscription.profiles?.full_name || subscription.profiles?.email || 'משתמש לא ידוע'}</div>
+                    <div className="text-gray-500 text-xs">{subscription.profiles?.email}</div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">{subscription.plans.name_he}</td>
                   <td className="px-6 py-4 text-sm">{getStatusBadge(subscription)}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{subscription.successful_payments_count}</td>
                   <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        subscription.is_eligible
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
+                    <span className={`px-2 py-1 rounded-full text-xs ${subscription.is_eligible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                       {subscription.is_eligible ? 'זכאי' : 'לא זכאי'}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {new Date(subscription.started_at).toLocaleDateString('he-IL')}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {subscription.next_payment_date
                       ? new Date(subscription.next_payment_date).toLocaleDateString('he-IL')
                       : <span className="text-gray-400">—</span>}
                   </td>
+                  <td className="px-6 py-4 text-xs text-gray-500 font-mono">
+                    {subscription.keva_id
+                      ? <span className="bg-gray-100 px-1.5 py-0.5 rounded">{subscription.keva_id}</span>
+                      : <span className="text-gray-300">—</span>}
+                  </td>
                   <td className="px-6 py-4 text-sm" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => handleViewDetails(subscription)}
-                        className="text-blue-600 hover:text-blue-800"
-                        title="צפייה"
-                      >
-                        <Eye size={18} />
-                      </button>
+                      <button onClick={() => handleViewDetails(subscription)} className="text-blue-600 hover:text-blue-800" title="צפייה"><Eye size={18} /></button>
                       {canEdit && subscription.status === 'active' && (
                         <button
-                          onClick={() =>
-                            setConfirmDialog({
-                              isOpen: true,
-                              subscriptionId: subscription.id,
-                              action: 'freeze',
-                            })
-                          }
-                          className="text-blue-600 hover:text-blue-800"
-                          title="הקפא"
-                        >
-                          <Pause size={18} />
-                        </button>
+                          onClick={() => setConfirmDialog({ isOpen: true, subscriptionId: subscription.id, action: 'freeze' })}
+                          className="text-blue-600 hover:text-blue-800" title="הקפא"
+                        ><Pause size={18} /></button>
                       )}
                       {canEdit && subscription.status === 'frozen' && (
                         <button
-                          onClick={() =>
-                            setConfirmDialog({
-                              isOpen: true,
-                              subscriptionId: subscription.id,
-                              action: 'unfreeze',
-                            })
-                          }
-                          className="text-green-600 hover:text-green-800"
-                          title="הפעל מחדש"
-                        >
-                          <Play size={18} />
-                        </button>
+                          onClick={() => setConfirmDialog({ isOpen: true, subscriptionId: subscription.id, action: 'unfreeze' })}
+                          className="text-green-600 hover:text-green-800" title="הפעל מחדש"
+                        ><Play size={18} /></button>
                       )}
                       {canEdit && (subscription.status === 'active' || subscription.status === 'frozen') && (
                         <button
                           onClick={() => setCancelDialog({ isOpen: true, subId: subscription.id, reason: '' })}
-                          className="text-red-500 hover:text-red-700"
-                          title="בטל מנוי"
-                        >
-                          <XCircle size={18} />
-                        </button>
+                          className="text-red-500 hover:text-red-700" title="בטל מנוי"
+                        ><XCircle size={18} /></button>
                       )}
                     </div>
                   </td>
@@ -449,12 +379,7 @@ export const AdminSubscriptionsPage = () => {
       </div>
 
       {/* Details Modal */}
-      <Modal
-        isOpen={isDetailsModalOpen}
-        onClose={() => setIsDetailsModalOpen(false)}
-        title="פרטי מנוי"
-        maxWidth="xl"
-      >
+      <Modal isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} title="פרטי מנוי" maxWidth="xl">
         {selectedSubscription && (
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
@@ -472,13 +397,7 @@ export const AdminSubscriptionsPage = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">זכאות</label>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs ${
-                    selectedSubscription.is_eligible
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
+                <span className={`px-2 py-1 rounded-full text-xs ${selectedSubscription.is_eligible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                   {selectedSubscription.is_eligible ? 'זכאי' : 'לא זכאי'}
                 </span>
               </div>
@@ -488,9 +407,7 @@ export const AdminSubscriptionsPage = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">תאריך התחלה</label>
-                <p className="text-gray-900">
-                  {new Date(selectedSubscription.started_at).toLocaleDateString('he-IL')}
-                </p>
+                <p className="text-gray-900">{new Date(selectedSubscription.started_at).toLocaleDateString('he-IL')}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">תשלום הבא</label>
@@ -500,8 +417,39 @@ export const AdminSubscriptionsPage = () => {
                     : '—'}
                 </p>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">KevaId (נדרים פלוס)</label>
+                {selectedSubscription.keva_id
+                  ? <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{selectedSubscription.keva_id}</span>
+                  : <span className="text-gray-400 text-sm">לא קיים</span>}
+              </div>
             </div>
 
+            {/* Nedarim Plus live details */}
+            {selectedSubscription.keva_id && (
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-gray-900">פרטי הוראת קבע בנדרים פלוס</h4>
+                  <button
+                    onClick={handleLoadKevaDetails}
+                    disabled={kevaDetails.loading}
+                    className="text-sm px-3 py-1.5 bg-[#0B3C5D] text-white rounded-lg hover:bg-[#0B3C5D]/90 disabled:opacity-50"
+                  >
+                    {kevaDetails.loading ? 'טוען...' : 'טען פרטים'}
+                  </button>
+                </div>
+                {kevaDetails.error && (
+                  <p className="text-sm text-red-600">{kevaDetails.error}</p>
+                )}
+                {kevaDetails.data && (
+                  <pre className="text-xs bg-gray-50 p-3 rounded overflow-auto max-h-40 text-gray-700 text-right" dir="ltr">
+                    {JSON.stringify(kevaDetails.data, null, 2)}
+                  </pre>
+                )}
+              </div>
+            )}
+
+            {/* Payment history */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-3">היסטוריית תשלומים</h3>
               <div className="overflow-x-auto">
@@ -515,30 +463,14 @@ export const AdminSubscriptionsPage = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {payments.length === 0 ? (
-                      <tr>
-                        <td colSpan={3} className="px-4 py-4 text-center text-gray-500">
-                          אין תשלומים
-                        </td>
-                      </tr>
+                      <tr><td colSpan={3} className="px-4 py-4 text-center text-gray-500">אין תשלומים</td></tr>
                     ) : (
                       payments.map((payment) => (
                         <tr key={payment.id}>
                           <td className="px-4 py-2 text-gray-900">₪{payment.amount}</td>
                           <td className="px-4 py-2">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs ${
-                                payment.status === 'succeeded'
-                                  ? 'bg-green-100 text-green-800'
-                                  : payment.status === 'failed'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-yellow-100 text-yellow-800'
-                              }`}
-                            >
-                              {payment.status === 'succeeded'
-                                ? 'הצליח'
-                                : payment.status === 'failed'
-                                ? 'נכשל'
-                                : 'ממתין'}
+                            <span className={`px-2 py-1 rounded-full text-xs ${payment.status === 'succeeded' ? 'bg-green-100 text-green-800' : payment.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              {payment.status === 'succeeded' ? 'הצליח' : payment.status === 'failed' ? 'נכשל' : 'ממתין'}
                             </span>
                           </td>
                           <td className="px-4 py-2 text-gray-900">
@@ -555,13 +487,30 @@ export const AdminSubscriptionsPage = () => {
             </div>
 
             {canEdit && (
-              <div className="flex gap-3 justify-end pt-4 border-t">
+              <div className="flex gap-3 justify-end pt-4 border-t flex-wrap">
+                {selectedSubscription.status === 'active' && selectedSubscription.keva_id && (
+                  <button
+                    onClick={() => handleNedarimAction('DisableKeva', selectedSubscription)}
+                    disabled={actionProcessing}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    <Pause size={16} />
+                    הקפא בנדרים
+                  </button>
+                )}
+                {selectedSubscription.status === 'frozen' && selectedSubscription.keva_id && (
+                  <button
+                    onClick={() => handleNedarimAction('EnableKevaNew', selectedSubscription)}
+                    disabled={actionProcessing}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  >
+                    <Play size={16} />
+                    הפעל בנדרים
+                  </button>
+                )}
                 {(selectedSubscription.status === 'active' || selectedSubscription.status === 'frozen') && (
                   <button
-                    onClick={() => {
-                      setIsDetailsModalOpen(false);
-                      setCancelDialog({ isOpen: true, subId: selectedSubscription.id, reason: '' });
-                    }}
+                    onClick={() => { setIsDetailsModalOpen(false); setCancelDialog({ isOpen: true, subId: selectedSubscription.id, reason: '' }); }}
                     className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                   >
                     <XCircle size={16} />
@@ -569,10 +518,7 @@ export const AdminSubscriptionsPage = () => {
                   </button>
                 )}
                 <button
-                  onClick={() => {
-                    setSelectedPlanId(selectedSubscription.plan_id);
-                    setIsChangePlanModalOpen(true);
-                  }}
+                  onClick={() => { setSelectedPlanId(selectedSubscription.plan_id); setIsChangePlanModalOpen(true); }}
                   className="flex items-center gap-2 px-4 py-2 bg-[#0B3C5D] text-white rounded-lg hover:bg-opacity-90"
                 >
                   <Edit2 size={16} />
@@ -585,11 +531,7 @@ export const AdminSubscriptionsPage = () => {
       </Modal>
 
       {/* Change Plan Modal */}
-      <Modal
-        isOpen={isChangePlanModalOpen}
-        onClose={() => setIsChangePlanModalOpen(false)}
-        title="שינוי תוכנית מנוי"
-      >
+      <Modal isOpen={isChangePlanModalOpen} onClose={() => setIsChangePlanModalOpen(false)} title="שינוי תוכנית מנוי">
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">בחר תוכנית חדשה</label>
@@ -600,26 +542,13 @@ export const AdminSubscriptionsPage = () => {
             >
               <option value="">בחר תוכנית</option>
               {plans.map((plan) => (
-                <option key={plan.id} value={plan.id}>
-                  {plan.name_he} - ₪{plan.monthly_amount}
-                </option>
+                <option key={plan.id} value={plan.id}>{plan.name_he} - ₪{plan.monthly_amount}</option>
               ))}
             </select>
           </div>
-
           <div className="flex gap-3 justify-end mt-6">
-            <button
-              onClick={() => setIsChangePlanModalOpen(false)}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-            >
-              ביטול
-            </button>
-            <button
-              onClick={handleChangePlan}
-              className="px-4 py-2 bg-[#0B3C5D] text-white rounded-lg hover:bg-opacity-90"
-            >
-              שמור
-            </button>
+            <button onClick={() => setIsChangePlanModalOpen(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">ביטול</button>
+            <button onClick={handleChangePlan} className="px-4 py-2 bg-[#0B3C5D] text-white rounded-lg hover:bg-opacity-90">שמור</button>
           </div>
         </div>
       </Modal>
@@ -631,18 +560,23 @@ export const AdminSubscriptionsPage = () => {
         title={confirmDialog.action === 'freeze' ? 'הקפאת מנוי' : 'הפעלה מחדש של מנוי'}
         message={
           confirmDialog.action === 'freeze'
-            ? 'האם אתה בטוח שברצונך להקפיא מנוי זה? התורם לא יוכל להזמין מלון עד להפעלה מחדש.'
-            : 'האם אתה בטוח שברצונך להפעיל מנוי זה מחדש?'
+            ? 'האם אתה בטוח שברצונך להקפיא מנוי זה? הוראת הקבע בנדרים פלוס תושהה.'
+            : 'האם אתה בטוח שברצונך להפעיל מנוי זה מחדש? הוראת הקבע בנדרים פלוס תחודש.'
         }
         type={confirmDialog.action === 'freeze' ? 'warning' : 'info'}
       />
 
-      {/* Cancel subscription dialog */}
+      {/* Cancel dialog */}
       {cancelDialog.isOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl" dir="rtl">
             <h3 className="text-lg font-bold text-gray-900 mb-2">ביטול מנוי</h3>
-            <p className="text-sm text-gray-600 mb-4">האם אתה בטוח שברצונך לבטל מנוי זה? לא ניתן לבטל פעולה זו.</p>
+            <p className="text-sm text-gray-600 mb-4">
+              האם אתה בטוח שברצונך לבטל מנוי זה?
+              {subscriptions.find(s => s.id === cancelDialog.subId)?.keva_id
+                ? ' הביטול יתבצע ישירות מול נדרים פלוס.'
+                : ' (ללא KevaId — עדכון מקומי בלבד)'}
+            </p>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">סיבת ביטול (אופציונלי)</label>
               <textarea
@@ -656,9 +590,10 @@ export const AdminSubscriptionsPage = () => {
             <div className="flex gap-3">
               <button
                 onClick={handleCancelSubscription}
-                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold text-sm"
+                disabled={actionProcessing}
+                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold text-sm disabled:opacity-50"
               >
-                בטל מנוי
+                {actionProcessing ? '...' : 'בטל מנוי'}
               </button>
               <button
                 onClick={() => setCancelDialog({ isOpen: false, subId: '', reason: '' })}
@@ -671,9 +606,7 @@ export const AdminSubscriptionsPage = () => {
         </div>
       )}
 
-      {toast.isOpen && (
-        <Toast message={toast.message} type={toast.type} onClose={hideToast} />
-      )}
+      {toast.isOpen && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </AdminLayout>
   );
 };

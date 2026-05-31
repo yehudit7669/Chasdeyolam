@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, AlertTriangle, X, Info } from 'lucide-react';
+import { Heart, AlertTriangle, X, Info, Pause, Play, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { callNedarimKevaService } from '../lib/nedarimKevaService';
 import DonorLayout from '../components/DonorLayout';
 
 interface Subscription {
@@ -11,6 +12,7 @@ interface Subscription {
   successful_payments_count: number;
   started_at: string;
   next_payment_date: string | null;
+  keva_id: string | null;
   plans: {
     id: string;
     name_he: string;
@@ -20,19 +22,19 @@ interface Subscription {
   };
 }
 
+type DialogType = 'pause' | 'resume' | 'cancel' | null;
+
 export default function DonorManageSubscriptionPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [dialog, setDialog] = useState<DialogType>(null);
   const [processing, setProcessing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/signin');
-      return;
-    }
+    if (!user) { navigate('/signin'); return; }
     loadData();
   }, [user]);
 
@@ -41,20 +43,16 @@ export default function DonorManageSubscriptionPage() {
       const { data } = await supabase
         .from('subscriptions')
         .select(`
-          *,
-          plans (
-            id,
-            name_he,
-            monthly_amount,
-            required_successful_payments,
-            hotel_level
-          )
+          id, status, successful_payments_count, started_at, next_payment_date, keva_id,
+          plans (id, name_he, monthly_amount, required_successful_payments, hotel_level)
         `)
         .eq('user_id', user!.id)
-        .eq('status', 'active')
+        .in('status', ['active', 'frozen'])
+        .order('started_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
-      if (data) setSubscription(data as any);
+      if (data) setSubscription(data as unknown as Subscription);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -62,22 +60,38 @@ export default function DonorManageSubscriptionPage() {
     }
   };
 
-  const handleCancelSubscription = async () => {
+  const handleAction = async (type: DialogType) => {
+    if (!type || !subscription) return;
     setProcessing(true);
-    try {
-      const { error } = await supabase
-        .from('subscriptions')
-        .update({ status: 'canceled', canceled_at: new Date().toISOString() })
-        .eq('id', subscription!.id);
+    setErrorMsg(null);
 
-      if (error) throw error;
-      alert('המנוי בוטל בהצלחה. הוראת הקבע בנדרים פלוס תבוטל בנפרד.');
-      navigate('/plans');
-    } catch (err: any) {
-      alert('שגיאה בביטול מנוי: ' + err.message);
+    const operationMap: Record<NonNullable<DialogType>, 'DisableKeva' | 'EnableKevaNew' | 'DeleteKeva'> = {
+      pause: 'DisableKeva',
+      resume: 'EnableKevaNew',
+      cancel: 'DeleteKeva',
+    };
+
+    try {
+      const result = await callNedarimKevaService({
+        operation: operationMap[type],
+        subscriptionId: subscription.id,
+        notes: type === 'cancel' ? 'ביטול עצמי על ידי תורם' : undefined,
+      });
+
+      if (result.success) {
+        if (type === 'cancel') {
+          navigate('/plans');
+        } else {
+          await loadData();
+          setDialog(null);
+        }
+      } else {
+        setErrorMsg(result.error ?? 'שגיאה לא ידועה');
+      }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'שגיאה בביצוע הפעולה');
     } finally {
       setProcessing(false);
-      setShowCancelDialog(false);
     }
   };
 
@@ -111,6 +125,17 @@ export default function DonorManageSubscriptionPage() {
     );
   }
 
+  const isActive = subscription.status === 'active';
+  const isFrozen = subscription.status === 'frozen';
+  const hasKevaId = !!subscription.keva_id;
+
+  const statusLabel = isActive ? 'פעיל' : isFrozen ? 'מוקפא' : subscription.status;
+  const statusColor = isActive
+    ? 'bg-[#626D58] text-white'
+    : isFrozen
+    ? 'bg-blue-500 text-white'
+    : 'bg-gray-400 text-white';
+
   return (
     <DonorLayout>
       <div className="max-w-2xl mx-auto space-y-6">
@@ -139,7 +164,7 @@ export default function DonorManageSubscriptionPage() {
                     <span className="text-white/40 text-sm font-normal mr-1">/ לחודש</span>
                   </div>
                 </div>
-                <span className="px-3 py-1.5 bg-[#626D58] text-white text-xs font-bold rounded-xl">פעיל</span>
+                <span className={`px-3 py-1.5 text-xs font-bold rounded-xl ${statusColor}`}>{statusLabel}</span>
               </div>
             </div>
           </div>
@@ -147,13 +172,23 @@ export default function DonorManageSubscriptionPage() {
           <div className="p-6">
             <div className="grid grid-cols-2 gap-4 mb-6">
               {[
-                { label: 'תשלומים שבוצעו', value: `${subscription.successful_payments_count} / ${subscription.plans.required_successful_payments}` },
+                {
+                  label: 'תשלומים שבוצעו',
+                  value: `${subscription.successful_payments_count} / ${subscription.plans.required_successful_payments}`,
+                },
                 { label: 'רמת זכאות', value: subscription.plans.hotel_level },
-                { label: 'תאריך התחלה', value: new Date(subscription.started_at).toLocaleDateString('he-IL') },
+                {
+                  label: 'תאריך התחלה',
+                  value: new Date(subscription.started_at).toLocaleDateString('he-IL'),
+                },
                 {
                   label: 'חיוב הבא',
                   value: subscription.next_payment_date
-                    ? new Date(subscription.next_payment_date).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' })
+                    ? new Date(subscription.next_payment_date).toLocaleDateString('he-IL', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })
                     : '—',
                 },
               ].map(({ label, value }) => (
@@ -164,16 +199,45 @@ export default function DonorManageSubscriptionPage() {
               ))}
             </div>
 
-            <button
-              onClick={() => setShowCancelDialog(true)}
-              className="w-full py-3.5 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors border-2 border-red-100"
-            >
-              בטל מנוי
-            </button>
+            {/* Action buttons */}
+            <div className="space-y-3">
+              {isActive && hasKevaId && (
+                <button
+                  onClick={() => setDialog('pause')}
+                  className="w-full py-3.5 bg-blue-50 text-blue-700 font-semibold rounded-xl hover:bg-blue-100 transition-colors border-2 border-blue-100 flex items-center justify-center gap-2"
+                >
+                  <Pause size={16} />
+                  השהה הוראת קבע
+                </button>
+              )}
+              {isFrozen && hasKevaId && (
+                <button
+                  onClick={() => setDialog('resume')}
+                  className="w-full py-3.5 bg-green-50 text-green-700 font-semibold rounded-xl hover:bg-green-100 transition-colors border-2 border-green-100 flex items-center justify-center gap-2"
+                >
+                  <Play size={16} />
+                  חדש הוראת קבע
+                </button>
+              )}
+              {hasKevaId && (
+                <button
+                  onClick={() => setDialog('cancel')}
+                  className="w-full py-3.5 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors border-2 border-red-100 flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={16} />
+                  בטל מנוי לצמיתות
+                </button>
+              )}
+              {!hasKevaId && (
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-800 text-center">
+                  לביצוע שינויים במנוי צור קשר עם התמיכה
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Change plan — not supported via self-service */}
+        {/* Info — change plan */}
         <div
           className="flex items-start gap-4 p-5 rounded-2xl border border-[#0A192F]/10"
           style={{ backgroundColor: 'rgba(10,25,47,0.03)' }}
@@ -200,53 +264,102 @@ export default function DonorManageSubscriptionPage() {
               <li>ביטול מנוי יבטל את ההתקדמות הנוכחית שלך</li>
               <li>ביטול מנוי יבטל את כל הזכאויות למלונות</li>
               <li>תשלומים שכבר בוצעו לא יוחזרו</li>
-              <li>הביטול בנדרים פלוס יבוצע בנפרד על ידי הצוות שלנו</li>
+              <li>השהיה תאפשר לך לחדש את המנוי בעתיד</li>
             </ul>
           </div>
         </div>
       </div>
 
-      {/* Cancel Dialog */}
-      {showCancelDialog && (
+      {/* Dialogs */}
+      {dialog && (
         <div className="fixed inset-0 bg-[#0A192F]/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div
             className="bg-white rounded-[2rem] max-w-md w-full p-8 border border-[#E5E1D8]/60"
             style={{ boxShadow: '0 24px 60px rgba(10,25,47,0.2)' }}
           >
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-black text-[#0A192F]">ביטול מנוי</h3>
+              <h3 className="text-xl font-black text-[#0A192F]">
+                {dialog === 'pause' && 'השהיית הוראת קבע'}
+                {dialog === 'resume' && 'חידוש הוראת קבע'}
+                {dialog === 'cancel' && 'ביטול מנוי לצמיתות'}
+              </h3>
               <button
-                onClick={() => setShowCancelDialog(false)}
+                onClick={() => { setDialog(null); setErrorMsg(null); }}
                 className="p-2 text-[#33332D]/40 hover:text-[#33332D] transition-colors rounded-xl hover:bg-[#F7F5F0]"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-5 rounded-2xl bg-red-50 border border-red-200 mb-6">
-              <p className="font-bold text-red-800 mb-2">האם אתה בטוח?</p>
-              <p className="text-sm text-red-700 font-light leading-relaxed">
-                ביטול המנוי יגרום לאובדן כל ההטבות והזכאויות למלונות. תשלומים שבוצעו לא יוחזרו.
-                הביטול בנדרים פלוס יבוצע על ידי הצוות שלנו בנפרד.
+            <div
+              className={`p-5 rounded-2xl border mb-6 ${
+                dialog === 'cancel'
+                  ? 'bg-red-50 border-red-200'
+                  : dialog === 'pause'
+                  ? 'bg-blue-50 border-blue-200'
+                  : 'bg-green-50 border-green-200'
+              }`}
+            >
+              <p
+                className={`font-bold mb-2 ${
+                  dialog === 'cancel' ? 'text-red-800' : dialog === 'pause' ? 'text-blue-800' : 'text-green-800'
+                }`}
+              >
+                {dialog === 'pause' && 'האם להשהות את הוראת הקבע?'}
+                {dialog === 'resume' && 'האם לחדש את הוראת הקבע?'}
+                {dialog === 'cancel' && 'האם אתה בטוח?'}
+              </p>
+              <p
+                className={`text-sm font-light leading-relaxed ${
+                  dialog === 'cancel' ? 'text-red-700' : dialog === 'pause' ? 'text-blue-700' : 'text-green-700'
+                }`}
+              >
+                {dialog === 'pause' &&
+                  'הוראת הקבע תושהה בנדרים פלוס. לא יבוצעו חיובים נוספים עד לחידוש המנוי. ניתן לחדש בכל עת.'}
+                {dialog === 'resume' &&
+                  'הוראת הקבע תחודש בנדרים פלוס. החיובים החודשיים יתחדשו.'}
+                {dialog === 'cancel' &&
+                  'ביטול הוראת הקבע הוא סופי ולא ניתן לביטול. כל ההתקדמות והזכאויות יאבדו. תשלומים שבוצעו לא יוחזרו.'}
               </p>
             </div>
 
+            {errorMsg && (
+              <div className="p-4 rounded-2xl bg-red-50 border border-red-200 mb-4 text-sm text-red-700">
+                {errorMsg}
+              </div>
+            )}
+
             <div className="flex gap-3">
               <button
-                onClick={handleCancelSubscription}
+                onClick={() => handleAction(dialog)}
                 disabled={processing}
-                className="flex-1 py-3.5 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+                className={`flex-1 py-3.5 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
+                  dialog === 'cancel'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : dialog === 'pause'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
               >
                 {processing ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : 'כן, בטל מנוי'}
+                ) : (
+                  <>
+                    {dialog === 'pause' && <Pause size={16} />}
+                    {dialog === 'resume' && <Play size={16} />}
+                    {dialog === 'cancel' && <Trash2 size={16} />}
+                    {dialog === 'pause' && 'כן, השהה'}
+                    {dialog === 'resume' && 'כן, חדש'}
+                    {dialog === 'cancel' && 'כן, בטל לצמיתות'}
+                  </>
+                )}
               </button>
               <button
-                onClick={() => setShowCancelDialog(false)}
+                onClick={() => { setDialog(null); setErrorMsg(null); }}
                 disabled={processing}
                 className="flex-1 py-3.5 bg-[#F7F5F0] text-[#33332D] font-semibold rounded-xl hover:bg-[#E5E1D8] transition-colors"
               >
-                ביטול
+                חזור
               </button>
             </div>
           </div>
