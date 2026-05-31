@@ -193,7 +193,7 @@ export function RecommendationsSection() {
 
         {/* ── Carousel ── */}
         <div
-          className="relative"
+          className="relative max-w-3xl mx-auto"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
           onTouchStart={handleTouchStart}
@@ -201,7 +201,7 @@ export function RecommendationsSection() {
         >
           {/* Single-row track — never wraps */}
           <div
-            className="flex gap-5 overflow-hidden"
+            className="flex gap-4 overflow-hidden"
             style={{ flexWrap: 'nowrap' }}
           >
             {visibleIndices.map((recIdx, slot) => {
@@ -211,7 +211,7 @@ export function RecommendationsSection() {
                 <div
                   key={`${recIdx}-${slot}`}
                   className="group cursor-pointer flex-shrink-0 transition-all duration-500"
-                  style={{ width: `calc((100% - ${(visibleCount - 1) * 20}px) / ${visibleCount})` }}
+                  style={{ width: `calc((100% - ${(visibleCount - 1) * 16}px) / ${visibleCount})` }}
                   onClick={() => openLightbox(recIdx)}
                 >
                   <div
@@ -301,23 +301,23 @@ export function RecommendationsSection() {
           onTouchStart={handleLbTouchStart}
           onTouchEnd={handleLbTouchEnd}
         >
-          {/* Modal */}
+          {/* Centered image with header/footer overlaid */}
           <div
-            className="relative flex flex-col rounded-2xl overflow-hidden shadow-2xl"
-            style={{ maxWidth: '90vw', maxHeight: '90vh', width: 'max-content' }}
+            className="relative"
             onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '85vw', maxHeight: '85vh' }}
           >
-            {/* Header */}
-            <div className="bg-[#0A192F] px-5 py-3 flex items-center justify-between flex-shrink-0" dir="rtl">
+            {/* Header bar */}
+            <div className="absolute top-0 inset-x-0 z-10 bg-[#0A192F]/90 backdrop-blur-sm px-4 py-2.5 flex items-center justify-between rounded-t-xl" dir="rtl">
               <div>
-                <div className="text-white font-bold text-sm">
+                <div className="text-white font-bold text-sm leading-tight">
                   {RECOMMENDATIONS[lightboxIndex].rabbiName}
                 </div>
                 <div className="text-[#C6A75E] text-xs mt-0.5">
                   {RECOMMENDATIONS[lightboxIndex].title} · {RECOMMENDATIONS[lightboxIndex].institution}
                 </div>
               </div>
-              <div className="flex items-center gap-2 mr-6">
+              <div className="flex items-center gap-2 mr-4">
                 <button
                   onClick={() => setZoom(z => Math.max(z - 0.25, 0.5))}
                   className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
@@ -346,29 +346,25 @@ export function RecommendationsSection() {
               </div>
             </div>
 
-            {/* Image — always visible, no page scroll */}
-            <div
-              className="bg-[#F9F8F4] flex items-center justify-center overflow-auto flex-1"
-              style={{ maxHeight: 'calc(90vh - 100px)' }}
-            >
+            {/* Image */}
+            <div className="overflow-auto rounded-xl" style={{ maxWidth: '85vw', maxHeight: '85vh' }}>
               <img
                 src={RECOMMENDATIONS[lightboxIndex].imageSrc}
                 alt={`מכתב המלצה – ${RECOMMENDATIONS[lightboxIndex].rabbiName}`}
-                className="transition-transform duration-200 select-none"
+                className="block transition-transform duration-200 select-none rounded-xl"
                 style={{
                   transform: `scale(${zoom})`,
                   transformOrigin: 'center center',
-                  maxWidth: '90vw',
-                  maxHeight: 'calc(90vh - 100px)',
+                  maxWidth: '85vw',
+                  maxHeight: '85vh',
                   objectFit: 'contain',
-                  display: 'block',
                 }}
                 draggable={false}
               />
             </div>
 
             {/* Footer nav */}
-            <div className="bg-[#0A192F]/95 px-5 py-2.5 flex items-center justify-between flex-shrink-0" dir="rtl">
+            <div className="absolute bottom-0 inset-x-0 z-10 bg-[#0A192F]/90 backdrop-blur-sm px-4 py-2 flex items-center justify-between rounded-b-xl" dir="rtl">
               <button
                 onClick={lightboxPrev}
                 className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors text-sm font-medium"
@@ -399,7 +395,7 @@ export function RecommendationsSection() {
             </div>
           </div>
 
-          {/* Desktop side arrows — outside modal, don't overlap */}
+          {/* Desktop side arrows */}
           <button
             onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}
             className="absolute right-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center text-white transition-colors hidden lg:flex"
