@@ -45,18 +45,37 @@ const RECOMMENDATIONS: Recommendation[] = [
   },
 ];
 
+// How many cards are visible per breakpoint
+const VISIBLE = { mobile: 1, tablet: 2, desktop: 3 } as const;
+
+function useVisibleCount() {
+  const [count, setCount] = useState(3);
+  useEffect(() => {
+    const update = () => {
+      if (window.innerWidth < 640) setCount(1);
+      else if (window.innerWidth < 1024) setCount(2);
+      else setCount(3);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return count;
+}
+
 export function RecommendationsSection() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [lbTouchStart, setLbTouchStart] = useState<number | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const total = RECOMMENDATIONS.length;
+  const visibleCount = useVisibleCount();
 
-  // Intersection observer for fade-in
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
@@ -74,14 +93,12 @@ export function RecommendationsSection() {
     setActiveIndex((i) => (i - 1 + total) % total);
   }, [total]);
 
-  // Auto-scroll
   useEffect(() => {
     if (isPaused || lightboxIndex !== null) return;
     autoScrollRef.current = setInterval(next, 6000);
     return () => { if (autoScrollRef.current) clearInterval(autoScrollRef.current); };
   }, [isPaused, lightboxIndex, next]);
 
-  // Keyboard navigation for lightbox
   useEffect(() => {
     if (lightboxIndex === null) return;
     const handler = (e: KeyboardEvent) => {
@@ -117,43 +134,30 @@ export function RecommendationsSection() {
     setZoom(1);
   };
 
-  // Swipe handlers for carousel
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.touches[0].clientX);
-  };
-
+  // Carousel swipe
+  const handleTouchStart = (e: React.TouchEvent) => setTouchStart(e.touches[0].clientX);
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStart === null) return;
     const diff = touchStart - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) next();
-      else prev();
-    }
+    if (Math.abs(diff) > 50) diff > 0 ? next() : prev();
     setTouchStart(null);
   };
 
   // Lightbox swipe
-  const [lbTouchStart, setLbTouchStart] = useState<number | null>(null);
   const handleLbTouchStart = (e: React.TouchEvent) => setLbTouchStart(e.touches[0].clientX);
   const handleLbTouchEnd = (e: React.TouchEvent) => {
     if (lbTouchStart === null) return;
     const diff = lbTouchStart - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) lightboxNext();
-      else lightboxPrev();
-    }
+    if (Math.abs(diff) > 50) diff > 0 ? lightboxNext() : lightboxPrev();
     setLbTouchStart(null);
   };
 
-  // Compute visible cards based on screen — we use CSS grid with responsive columns
-  // activeIndex determines center card
-
-  const getCardOffset = (cardIndex: number) => {
-    let diff = cardIndex - activeIndex;
-    if (diff > total / 2) diff -= total;
-    if (diff < -total / 2) diff += total;
-    return diff;
-  };
+  // Build the ordered list of indices to render in the single row.
+  // We always show `visibleCount` cards starting from activeIndex.
+  const visibleIndices = Array.from(
+    { length: visibleCount },
+    (_, k) => (activeIndex + k) % total
+  );
 
   return (
     <section
@@ -163,11 +167,11 @@ export function RecommendationsSection() {
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
       }`}
     >
-      {/* Subtle background decoration */}
+      {/* Background decoration */}
       <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-gradient-to-br from-[#C6A75E]/5 to-transparent rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-gradient-to-tl from-[#626D58]/4 to-transparent rounded-full translate-x-1/2 translate-y-1/2 blur-3xl pointer-events-none" />
 
-      <div className="max-w-6xl mx-auto px-4 relative z-10">
+      <div className="max-w-5xl mx-auto px-6 relative z-10">
 
         {/* Section header */}
         <div className="text-center mb-20">
@@ -187,7 +191,7 @@ export function RecommendationsSection() {
           </p>
         </div>
 
-        {/* Carousel */}
+        {/* ── Carousel ── */}
         <div
           className="relative"
           onMouseEnter={() => setIsPaused(true)}
@@ -195,66 +199,50 @@ export function RecommendationsSection() {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Cards grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 relative min-h-[420px]">
-            {RECOMMENDATIONS.map((rec, i) => {
-              const offset = getCardOffset(i);
-              const isCenter = offset === 0;
-              const isVisible2 =
-                Math.abs(offset) <= 1 ||
-                (typeof window !== 'undefined' && window.innerWidth < 640 && offset === 0) ||
-                (typeof window !== 'undefined' && window.innerWidth < 1024 && Math.abs(offset) <= 1);
-
+          {/* Single-row track — never wraps */}
+          <div
+            className="flex gap-5 overflow-hidden"
+            style={{ flexWrap: 'nowrap' }}
+          >
+            {visibleIndices.map((recIdx, slot) => {
+              const rec = RECOMMENDATIONS[recIdx];
+              const isFirst = slot === 0;
               return (
                 <div
-                  key={rec.id}
-                  className={`group cursor-pointer transition-all duration-500 ${
-                    isCenter
-                      ? 'lg:scale-105 z-10'
-                      : 'scale-95 opacity-80 hover:opacity-100 hover:scale-100'
-                  } ${
-                    // Hide on mobile if not center; hide 3rd+ on tablet
-                    offset === 0 ? '' :
-                    Math.abs(offset) === 1 ? 'hidden sm:block' :
-                    'hidden lg:block'
-                  }`}
-                  onClick={() => openLightbox(i)}
+                  key={`${recIdx}-${slot}`}
+                  className="group cursor-pointer flex-shrink-0 transition-all duration-500"
+                  style={{ width: `calc((100% - ${(visibleCount - 1) * 20}px) / ${visibleCount})` }}
+                  onClick={() => openLightbox(recIdx)}
                 >
                   <div
-                    className={`rounded-2xl overflow-hidden border transition-all duration-500 h-full flex flex-col ${
-                      isCenter
+                    className={`rounded-2xl overflow-hidden border transition-all duration-500 flex flex-col h-full ${
+                      isFirst && visibleCount === 1
                         ? 'border-[#C6A75E]/40 shadow-[0_20px_60px_rgba(176,141,87,0.18)]'
                         : 'border-[#E5E1D8] shadow-[0_4px_24px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(176,141,87,0.14)] hover:border-[#C6A75E]/30'
                     } bg-white`}
                   >
-                    {/* Image preview */}
-                    <div className="relative overflow-hidden bg-[#F9F8F4] flex-1" style={{ minHeight: '280px' }}>
+                    {/* Image */}
+                    <div className="relative overflow-hidden bg-[#F9F8F4]" style={{ aspectRatio: '3/4' }}>
                       <img
                         src={rec.imageSrc}
                         alt={`מכתב המלצה – ${rec.rabbiName}`}
-                        className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
-                        style={{ minHeight: '280px', objectFit: 'cover', objectPosition: 'top' }}
+                        className="w-full h-full transition-transform duration-700 group-hover:scale-105"
+                        style={{ objectFit: 'contain', objectPosition: 'top' }}
                         loading="lazy"
                         decoding="async"
                       />
-                      {/* Overlay on hover */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0A192F]/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-6">
-                        <span className="text-white text-sm font-semibold bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/30 flex items-center gap-2">
-                          <ZoomIn size={14} />
+                      {/* Hover overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#0A192F]/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-5">
+                        <span className="text-white text-xs font-semibold bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/30 flex items-center gap-1.5">
+                          <ZoomIn size={13} />
                           לחץ לצפייה
                         </span>
                       </div>
-                      {/* Decorative corner badge */}
-                      {isCenter && (
-                        <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-[#C6A75E] flex items-center justify-center shadow-md">
-                          <div className="w-2 h-2 rounded-full bg-white" />
-                        </div>
-                      )}
                     </div>
 
-                    {/* Card footer */}
-                    <div className="p-5 border-t border-[#F0EDE8] bg-white">
-                      <div className="text-[#0A192F] font-bold text-base leading-tight mb-1" dir="rtl">
+                    {/* Footer */}
+                    <div className="p-4 border-t border-[#F0EDE8] bg-white">
+                      <div className="text-[#0A192F] font-bold text-sm leading-tight mb-0.5" dir="rtl">
                         {rec.rabbiName}
                       </div>
                       <div className="text-[#B08D57] text-xs font-semibold mb-0.5">{rec.title}</div>
@@ -266,40 +254,39 @@ export function RecommendationsSection() {
             })}
           </div>
 
-          {/* Navigation arrows */}
+          {/* Arrows */}
           <button
             onClick={prev}
-            className="absolute -right-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white border border-[#E5E1D8] shadow-md flex items-center justify-center text-[#0A192F] hover:bg-[#0A192F] hover:text-white hover:border-[#0A192F] transition-all duration-200 z-20 hidden sm:flex"
+            className="absolute -right-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white border border-[#E5E1D8] shadow-md flex items-center justify-center text-[#0A192F] hover:bg-[#0A192F] hover:text-white hover:border-[#0A192F] transition-all duration-200 z-20"
             aria-label="הקודם"
           >
-            <ChevronRight size={18} />
+            <ChevronRight size={17} />
           </button>
           <button
             onClick={next}
-            className="absolute -left-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white border border-[#E5E1D8] shadow-md flex items-center justify-center text-[#0A192F] hover:bg-[#0A192F] hover:text-white hover:border-[#0A192F] transition-all duration-200 z-20 hidden sm:flex"
+            className="absolute -left-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white border border-[#E5E1D8] shadow-md flex items-center justify-center text-[#0A192F] hover:bg-[#0A192F] hover:text-white hover:border-[#0A192F] transition-all duration-200 z-20"
             aria-label="הבא"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={17} />
           </button>
         </div>
 
         {/* Dot navigation */}
-        <div className="flex justify-center gap-3 mt-10">
+        <div className="flex justify-center gap-2.5 mt-10">
           {RECOMMENDATIONS.map((_, i) => (
             <button
               key={i}
               onClick={() => setActiveIndex(i)}
               className={`transition-all duration-300 rounded-full ${
                 i === activeIndex
-                  ? 'w-8 h-2.5 bg-[#B08D57]'
-                  : 'w-2.5 h-2.5 bg-[#D4B483]/40 hover:bg-[#D4B483]/70'
+                  ? 'w-7 h-2 bg-[#B08D57]'
+                  : 'w-2 h-2 bg-[#D4B483]/40 hover:bg-[#D4B483]/70'
               }`}
               aria-label={`מכתב ${i + 1}`}
             />
           ))}
         </div>
 
-        {/* Mobile swipe hint */}
         <p className="text-center text-xs text-[#33332D]/40 mt-4 sm:hidden">
           החלק לצפייה בהמלצות נוספות
         </p>
@@ -308,89 +295,87 @@ export function RecommendationsSection() {
       {/* ─── LIGHTBOX ─── */}
       {lightboxIndex !== null && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(10, 25, 47, 0.92)' }}
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: 'rgba(10, 25, 47, 0.93)' }}
           onClick={closeLightbox}
           onTouchStart={handleLbTouchStart}
           onTouchEnd={handleLbTouchEnd}
         >
-          {/* Modal content */}
+          {/* Modal */}
           <div
-            className="relative max-w-2xl w-full max-h-[90vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl"
+            className="relative flex flex-col rounded-2xl overflow-hidden shadow-2xl"
+            style={{ maxWidth: '90vw', maxHeight: '90vh', width: 'max-content' }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Lightbox header */}
-            <div className="bg-[#0A192F] px-6 py-4 flex items-center justify-between flex-shrink-0" dir="rtl">
+            {/* Header */}
+            <div className="bg-[#0A192F] px-5 py-3 flex items-center justify-between flex-shrink-0" dir="rtl">
               <div>
-                <div className="text-white font-bold text-base">
+                <div className="text-white font-bold text-sm">
                   {RECOMMENDATIONS[lightboxIndex].rabbiName}
                 </div>
                 <div className="text-[#C6A75E] text-xs mt-0.5">
                   {RECOMMENDATIONS[lightboxIndex].title} · {RECOMMENDATIONS[lightboxIndex].institution}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Zoom controls */}
+              <div className="flex items-center gap-2 mr-6">
                 <button
                   onClick={() => setZoom(z => Math.max(z - 0.25, 0.5))}
-                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
                   title="הקטן"
                 >
-                  <ZoomOut size={15} />
+                  <ZoomOut size={14} />
                 </button>
-                <span className="text-white/60 text-xs min-w-[3rem] text-center">
+                <span className="text-white/60 text-xs w-10 text-center">
                   {Math.round(zoom * 100)}%
                 </span>
                 <button
                   onClick={() => setZoom(z => Math.min(z + 0.25, 3))}
-                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
                   title="הגדל"
                 >
-                  <ZoomIn size={15} />
+                  <ZoomIn size={14} />
                 </button>
-                <div className="w-px h-6 bg-white/20 mx-1" />
+                <div className="w-px h-5 bg-white/20 mx-1" />
                 <button
                   onClick={closeLightbox}
-                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-red-500/80 flex items-center justify-center text-white transition-colors"
+                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-red-500/80 flex items-center justify-center text-white transition-colors"
                   title="סגור (ESC)"
                 >
-                  <X size={15} />
+                  <X size={14} />
                 </button>
               </div>
             </div>
 
-            {/* Image area */}
-            <div className="overflow-auto bg-[#F9F8F4] flex-1" style={{ maxHeight: 'calc(90vh - 120px)' }}>
-              <div
-                className="flex items-start justify-center p-4 min-h-full"
-                style={{ minHeight: '400px' }}
-              >
-                <img
-                  src={RECOMMENDATIONS[lightboxIndex].imageSrc}
-                  alt={`מכתב המלצה – ${RECOMMENDATIONS[lightboxIndex].rabbiName}`}
-                  className="transition-transform duration-200 rounded-sm shadow-lg select-none"
-                  style={{
-                    transform: `scale(${zoom})`,
-                    transformOrigin: 'top center',
-                    maxWidth: '100%',
-                    width: '100%',
-                  }}
-                  draggable={false}
-                />
-              </div>
+            {/* Image — always visible, no page scroll */}
+            <div
+              className="bg-[#F9F8F4] flex items-center justify-center overflow-auto flex-1"
+              style={{ maxHeight: 'calc(90vh - 100px)' }}
+            >
+              <img
+                src={RECOMMENDATIONS[lightboxIndex].imageSrc}
+                alt={`מכתב המלצה – ${RECOMMENDATIONS[lightboxIndex].rabbiName}`}
+                className="transition-transform duration-200 select-none"
+                style={{
+                  transform: `scale(${zoom})`,
+                  transformOrigin: 'center center',
+                  maxWidth: '90vw',
+                  maxHeight: 'calc(90vh - 100px)',
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+                draggable={false}
+              />
             </div>
 
-            {/* Lightbox navigation */}
-            <div className="bg-[#0A192F]/95 px-6 py-3 flex items-center justify-between flex-shrink-0" dir="rtl">
+            {/* Footer nav */}
+            <div className="bg-[#0A192F]/95 px-5 py-2.5 flex items-center justify-between flex-shrink-0" dir="rtl">
               <button
                 onClick={lightboxPrev}
-                className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm font-medium"
+                className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors text-sm font-medium"
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={15} />
                 <span>הקודם</span>
               </button>
-
-              {/* Page indicator */}
               <div className="flex gap-1.5">
                 {RECOMMENDATIONS.map((_, i) => (
                   <button
@@ -404,27 +389,26 @@ export function RecommendationsSection() {
                   />
                 ))}
               </div>
-
               <button
                 onClick={lightboxNext}
-                className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm font-medium"
+                className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors text-sm font-medium"
               >
                 <span>הבא</span>
-                <ChevronLeft size={16} />
+                <ChevronLeft size={15} />
               </button>
             </div>
           </div>
 
-          {/* Side arrows for desktop */}
+          {/* Desktop side arrows — outside modal, don't overlap */}
           <button
             onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}
-            className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors hidden lg:flex"
+            className="absolute right-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center text-white transition-colors hidden lg:flex"
           >
             <ChevronRight size={22} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); lightboxNext(); }}
-            className="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors hidden lg:flex"
+            className="absolute left-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center text-white transition-colors hidden lg:flex"
           >
             <ChevronLeft size={22} />
           </button>
