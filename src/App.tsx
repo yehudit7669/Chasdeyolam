@@ -12,6 +12,7 @@ import { SignIn } from './pages/SignIn';
 import { SignUp } from './pages/SignUp';
 import { SupportPage } from './pages/SupportPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
+import TermsOfUsePage from './pages/TermsOfUsePage';
 
 function AppRoutes() {
   const { user, loading, isAdmin, canView } = useAuth();
@@ -104,6 +105,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/terms-of-use" element={<TermsOfUsePage />} />
       <Route
         path="/admin/*"
         element={

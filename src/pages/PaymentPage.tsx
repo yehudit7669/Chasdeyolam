@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, CheckCircle, XCircle, Loader2, Shield, Lock, CreditCard, Building2, X, Send, MessageSquare } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { ArrowRight, CheckCircle, XCircle, Loader2, Shield, Lock, CreditCard, Building2, X, Send, MessageSquare, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
@@ -157,6 +157,12 @@ export default function PaymentPage() {
 
   const startIframe = () => {
     if (!agreed || !plan || !user) return;
+    // Save terms acceptance to DB when proceeding
+    supabase
+      .from('profiles')
+      .update({ terms_accepted: true, terms_accepted_at: new Date().toISOString() })
+      .eq('id', user.id)
+      .then(() => {});
     setIframeHeight(500);
     setIframeVisible(false);
     setPageState('iframe');
@@ -166,6 +172,12 @@ export default function PaymentPage() {
     if (!user || !plan) return;
     setBankSubmitting(true);
     try {
+      // Save terms acceptance
+      await supabase
+        .from('profiles')
+        .update({ terms_accepted: true, terms_accepted_at: new Date().toISOString() })
+        .eq('id', user.id);
+
       const body = [
         'סוג בקשה: הצטרפות להוראת קבע בנקאית',
         '',
@@ -396,13 +408,14 @@ export default function PaymentPage() {
                     </div>
                   )}
 
-                  {/* Terms */}
+                  {/* Terms summary */}
                   <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-5 mb-6">
-                    <h4 className="font-semibold text-[#0A192F] text-sm mb-3">תנאי השירות</h4>
+                    <h4 className="font-semibold text-[#0A192F] text-sm mb-3">עיקרי תנאי השירות</h4>
                     <ul className="text-xs text-[#33332D]/60 space-y-2 leading-relaxed">
                       {[
                         'התשלומים יחויבו מדי חודש באופן אוטומטי',
                         'זכאות למלון תינתן רק לאחר השלמת כל התשלומים הנדרשים',
+                        'כל הכספים ששולמו מהווים תרומה ולא יוחזרו במקרה של ביטול',
                         'ניתן לבטל את המנוי בכל עת דרך הגדרות החשבון',
                       ].map((t) => (
                         <li key={t} className="flex items-start gap-2">
@@ -413,17 +426,42 @@ export default function PaymentPage() {
                     </ul>
                   </div>
 
-                  {/* Agreement checkbox */}
-                  <label className="flex items-start gap-3 p-4 rounded-2xl bg-[#D4B483]/5 border border-[#D4B483]/30 cursor-pointer mb-6">
-                    <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 accent-[#626D58] flex-shrink-0" />
-                    <span className="text-sm text-[#33332D]/70">
-                      אני מאשר/ת שקראתי והבנתי את תנאי השירות ומסכים/ה להם
+                  {/* Terms agreement checkbox */}
+                  <label className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer mb-2 transition-all ${
+                    agreed
+                      ? 'bg-[#626D58]/5 border-[#626D58]/40'
+                      : 'bg-[#D4B483]/5 border-[#D4B483]/30 hover:border-[#D4B483]/50'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={agreed}
+                      onChange={(e) => setAgreed(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-[#626D58] flex-shrink-0"
+                    />
+                    <span className="text-sm text-[#33332D]/70 leading-relaxed">
+                      קראתי ואני מאשר/ת את{' '}
+                      <Link
+                        to="/terms-of-use"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#0A192F] font-semibold underline underline-offset-2 hover:text-[#626D58] transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        תנאי השימוש ומדיניות התרומות
+                      </Link>
                     </span>
                   </label>
 
+                  {/* Blocking message */}
+                  {!agreed && (
+                    <div className="flex items-center gap-2 px-4 py-2.5 mb-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                      <AlertCircle size={14} className="flex-shrink-0" />
+                      <span>יש לאשר את תנאי השימוש לפני המשך התהליך</span>
+                    </div>
+                  )}
+
                   {/* TWO payment method buttons */}
-                  <div className="space-y-3">
+                  <div className="space-y-3 mt-4">
                     <p className="text-xs font-semibold text-[#33332D]/50 mb-2">בחר אמצעי תשלום:</p>
                     <div className="grid sm:grid-cols-2 gap-3">
                       {/* Credit card — Nedarim iframe */}

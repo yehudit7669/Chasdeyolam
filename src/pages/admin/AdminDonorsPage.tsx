@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { callNedarimKevaService } from '../../lib/nedarimKevaService';
-import { Search, Settings2, Pause, Play, Trash2, X, RefreshCw } from 'lucide-react';
+import { Search, Settings2, Pause, Play, Trash2, X, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 import { Toast } from '../../components/admin/Toast';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../contexts/AuthContext';
@@ -21,6 +21,8 @@ interface DonorRow {
   started_at: string;
   keva_id: string | null;
   next_payment_date: string | null;
+  terms_accepted: boolean;
+  terms_accepted_at: string | null;
 }
 
 interface KevaModal {
@@ -57,7 +59,7 @@ export const AdminDonorsPage = () => {
           started_at,
           keva_id,
           next_payment_date,
-          profiles!subscriptions_user_id_fkey(id, full_name, email, phone, created_at),
+          profiles!subscriptions_user_id_fkey(id, full_name, email, phone, created_at, terms_accepted, terms_accepted_at),
           plans!subscriptions_plan_id_fkey(name_he)
         `)
         .order('started_at', { ascending: false });
@@ -78,6 +80,8 @@ export const AdminDonorsPage = () => {
         started_at: s.started_at,
         keva_id: s.keva_id || null,
         next_payment_date: s.next_payment_date || null,
+        terms_accepted: s.profiles?.terms_accepted ?? false,
+        terms_accepted_at: s.profiles?.terms_accepted_at || null,
       }));
 
       setDonors(rows);
@@ -220,13 +224,14 @@ export const AdminDonorsPage = () => {
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">מקור</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תשלומים</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700 hidden md:table-cell">התחלה</th>
+              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תנאי שימוש</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">הוראת קבע</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-10 text-center text-gray-500">אין תורמים להצגה</td>
+                <td colSpan={8} className="px-6 py-10 text-center text-gray-500">אין תורמים להצגה</td>
               </tr>
             ) : (
               filtered.map((d) => (
@@ -241,6 +246,26 @@ export const AdminDonorsPage = () => {
                   <td className="px-6 py-4 text-sm font-semibold text-gray-900">{d.successful_payments_count}</td>
                   <td className="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">
                     {new Date(d.started_at).toLocaleDateString('he-IL')}
+                  </td>
+                  <td className="px-6 py-4">
+                    {d.terms_accepted ? (
+                      <div className="flex flex-col items-start gap-0.5">
+                        <span className="flex items-center gap-1 text-green-700 text-xs font-semibold">
+                          <CheckCircle size={13} className="text-green-600" />
+                          אושר
+                        </span>
+                        {d.terms_accepted_at && (
+                          <span className="text-xs text-gray-400">
+                            {new Date(d.terms_accepted_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="flex items-center gap-1 text-gray-400 text-xs">
+                        <XCircle size={13} />
+                        טרם אושר
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     {canEdit && d.keva_id && (d.subscription_status === 'active' || d.subscription_status === 'frozen') ? (
@@ -287,6 +312,12 @@ export const AdminDonorsPage = () => {
                   { label: 'תוכנית', value: kevaModal.donor.plan_name || '—' },
                   { label: 'סטטוס', value: kevaModal.donor.subscription_status === 'active' ? 'פעיל' : 'מוקפא' },
                   { label: 'תשלומים', value: String(kevaModal.donor.successful_payments_count) },
+                  {
+                    label: 'תנאי שימוש',
+                    value: kevaModal.donor.terms_accepted
+                      ? `אושר${kevaModal.donor.terms_accepted_at ? ' · ' + new Date(kevaModal.donor.terms_accepted_at).toLocaleDateString('he-IL') : ''}`
+                      : 'טרם אושר',
+                  },
                   {
                     label: 'חיוב הבא',
                     value: kevaModal.donor.next_payment_date
