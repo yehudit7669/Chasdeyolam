@@ -34,6 +34,15 @@ interface KevaModal {
   confirmAction: 'pause' | 'resume' | 'cancel' | null;
 }
 
+interface SyncDetail {
+  subscription_id: string;
+  keva_id: string;
+  old_status: string;
+  new_status: string | null;
+  classification: 'synced' | 'unchanged' | 'error';
+  reason: string;
+}
+
 interface SyncStats {
   synced: number;
   unchanged: number;
@@ -41,6 +50,7 @@ interface SyncStats {
   total: number;
   durationMs: number;
   completedAt: string;
+  details: SyncDetail[];
 }
 
 export const AdminDonorsPage = () => {
@@ -144,6 +154,7 @@ export const AdminDonorsPage = () => {
         total,
         durationMs,
         completedAt: new Date().toISOString(),
+        details: json.details ?? [],
       });
       await loadDonors();
       showToast(`סנכרון הסתיים — ${json.synced ?? 0} עודכנו`, 'success');
@@ -303,6 +314,41 @@ export const AdminDonorsPage = () => {
                 <div className="col-span-3 text-center text-[10px] text-gray-400 pt-1">
                   {lastSync.total} מנויים נבדקו · {(lastSync.durationMs / 1000).toFixed(1)}ש׳
                 </div>
+              </div>
+            )}
+
+            {/* Per-subscription detail table */}
+            {lastSync && lastSync.details.length > 0 && (
+              <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-2 py-1.5 text-right text-gray-500 font-medium">KevaId</th>
+                      <th className="px-2 py-1.5 text-right text-gray-500 font-medium">לפני</th>
+                      <th className="px-2 py-1.5 text-right text-gray-500 font-medium">אחרי</th>
+                      <th className="px-2 py-1.5 text-right text-gray-500 font-medium">תוצאה</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {lastSync.details.map((d) => {
+                      const cls = d.classification === 'synced'
+                        ? 'text-blue-700 bg-blue-50'
+                        : d.classification === 'error'
+                        ? 'text-red-700 bg-red-50'
+                        : 'text-gray-500';
+                      const label = d.classification === 'synced' ? 'עודכן' : d.classification === 'error' ? 'שגיאה' : 'ללא שינוי';
+                      const statusLabel = (s: string | null) => s === 'active' ? 'פעיל' : s === 'frozen' ? 'מוקפא' : s === 'canceled' ? 'בוטל' : s ?? '—';
+                      return (
+                        <tr key={d.subscription_id} className="bg-white" title={d.reason}>
+                          <td className="px-2 py-1.5 font-mono text-gray-600">{d.keva_id}</td>
+                          <td className="px-2 py-1.5 text-gray-600">{statusLabel(d.old_status)}</td>
+                          <td className="px-2 py-1.5 text-gray-700 font-medium">{statusLabel(d.new_status)}</td>
+                          <td className={`px-2 py-1.5 font-semibold rounded-sm ${cls}`}>{label}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

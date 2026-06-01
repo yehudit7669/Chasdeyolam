@@ -95,7 +95,7 @@ function toDateOnly(iso: string | null): string | null {
 async function syncSubscription(
   sub: { id: string; user_id: string; status: string; keva_id: string; plan_id: string; next_payment_date: string | null },
   svc: ReturnType<typeof makeServiceClient>
-): Promise<{ result: "synced" | "unchanged" | "error"; reason: string }> {
+): Promise<{ result: "synced" | "unchanged" | "error"; reason: string; newStatus?: string }> {
   const tag = `[sync] sub ${sub.id} keva ${sub.keva_id}`;
   try {
     const resp = await callNedarim("GetKevaId", { KevaId: sub.keva_id });
@@ -183,7 +183,7 @@ async function syncSubscription(
     }
 
     if (statusChanged) {
-      await svc.from("subscription_actions").insert({
+      const { error: auditErr } = await svc.from("subscription_actions").insert({
         subscription_id: sub.id,
         user_id: sub.user_id,
         performed_by: null,
@@ -194,7 +194,8 @@ async function syncSubscription(
         nedarim_response: data,
         success: true,
         notes: "auto-sync via daily job",
-      }).catch((e: unknown) => console.warn(`${tag}: audit log warning:`, e));
+      });
+      if (auditErr) console.warn(`${tag}: audit log warning: ${auditErr.message}`);
     }
 
     const changed = statusChanged || dateChanged;
@@ -202,7 +203,7 @@ async function syncSubscription(
       ? [statusChanged && `status ${sub.status}→${nedarimStatus}`, dateChanged && `nextDate ${toDateOnly(sub.next_payment_date)}→${toDateOnly(nextPaymentDate)}`].filter(Boolean).join(", ")
       : `KevaStatus=${kevaStatus}, no field changes`;
     console.log(`${tag}: ${changed ? "SYNCED" : "UNCHANGED"} — ${reason}`);
-    return { result: changed ? "synced" : "unchanged", reason };
+    return { result: changed ? "synced" : "unchanged", reason, newStatus: nedarimStatus };
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     console.error(`${tag}: ERROR — ${reason}`);
@@ -210,7 +211,16 @@ async function syncSubscription(
   }
 }
 
-async function runSync(): Promise<{ synced: number; unchanged: number; errors: number }> {
+interface SubDetail {
+  subscription_id: string;
+  keva_id: string;
+  old_status: string;
+  new_status: string | null;
+  classification: "synced" | "unchanged" | "error";
+  reason: string;
+}
+
+async function runSync(): Promise<{ synced: number; unchanged: number; errors: number; details: SubDetail[] }> {
   const svc = makeServiceClient();
 
   const { data: subs, error } = await svc
@@ -220,25 +230,31 @@ async function runSync(): Promise<{ synced: number; unchanged: number; errors: n
     .not("keva_id", "is", null);
 
   if (error) throw new Error("Failed to fetch subscriptions: " + error.message);
-  if (!subs || subs.length === 0) return { synced: 0, unchanged: 0, errors: 0 };
+  if (!subs || subs.length === 0) return { synced: 0, unchanged: 0, errors: 0, details: [] };
 
   let synced = 0;
   let unchanged = 0;
   let errors = 0;
+  const details: SubDetail[] = [];
 
-  for (const sub of subs) {
-    const { result } = await syncSubscription(sub as {
-      id: string; user_id: string; status: string;
-      keva_id: string; plan_id: string; next_payment_date: string | null
-    }, svc);
+  for (const sub of subs as { id: string; user_id: string; status: string; keva_id: string; plan_id: string; next_payment_date: string | null }[]) {
+    const oldStatus = sub.status;
+    const { result, reason, newStatus } = await syncSubscription(sub, svc);
     if (result === "synced") synced++;
     else if (result === "unchanged") unchanged++;
     else errors++;
-    // Small delay between requests to avoid overwhelming the API
+    details.push({
+      subscription_id: sub.id,
+      keva_id: sub.keva_id,
+      old_status: oldStatus,
+      new_status: newStatus ?? null,
+      classification: result,
+      reason,
+    });
     await new Promise((r) => setTimeout(r, 300));
   }
 
-  return { synced, unchanged, errors };
+  return { synced, unchanged, errors, details };
 }
 
 Deno.serve(async (req: Request) => {
