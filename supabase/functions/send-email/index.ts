@@ -316,7 +316,8 @@ Deno.serve(async (req: Request) => {
       relatedType?: string;
     };
 
-    if (!template || !to) {
+    const ADMIN_TEMPLATES = ["new_support_ticket", "support_user_reply"];
+    if (!template || (!to && !ADMIN_TEMPLATES.includes(template))) {
       return new Response(JSON.stringify({ error: "template and to are required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
