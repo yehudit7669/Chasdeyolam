@@ -84,24 +84,39 @@ async function getRequiredPayments(
   return data?.required_successful_payments ?? 15;
 }
 
+// Normalise a DB timestamptz or JS ISO string to a plain YYYY-MM-DD date string
+// so we can compare "same calendar day" without false-positives from timezone
+// formatting differences (e.g. "2026-07-01 00:00:00+00" vs "2026-07-01T00:00:00.000Z").
+function toDateOnly(iso: string | null): string | null {
+  if (!iso) return null;
+  return iso.slice(0, 10); // "YYYY-MM-DD"
+}
+
 async function syncSubscription(
   sub: { id: string; user_id: string; status: string; keva_id: string; plan_id: string; next_payment_date: string | null },
   svc: ReturnType<typeof makeServiceClient>
-): Promise<"synced" | "unchanged" | "error"> {
+): Promise<{ result: "synced" | "unchanged" | "error"; reason: string }> {
+  const tag = `[sync] sub ${sub.id} keva ${sub.keva_id}`;
   try {
     const resp = await callNedarim("GetKevaId", { KevaId: sub.keva_id });
     if (typeof resp !== "object" || !resp || !("KevaId" in (resp as object))) {
-      console.warn(`[sync] sub ${sub.id}: unexpected GetKevaId response`, resp);
-      return "error";
+      const reason = `unexpected GetKevaId response: ${JSON.stringify(resp)}`;
+      console.warn(`${tag}: ERROR — ${reason}`);
+      return { result: "error", reason };
     }
     const data = resp as Record<string, unknown>;
 
     // --- Status ---
     const kevaStatus = String(data["KevaStatus"] ?? "1");
-    const nedarimStatus = kevaStatus === "1" ? "active" : "frozen";
-    const statusChanged = nedarimStatus !== sub.status && (sub.status === "active" || sub.status === "frozen");
+    // KevaStatus: "1" = active, "2" or "0" = frozen, "3" = canceled
+    const nedarimStatus: "active" | "frozen" | "canceled" =
+      kevaStatus === "1" ? "active" : kevaStatus === "3" ? "canceled" : "frozen";
+    const statusChanged =
+      nedarimStatus !== sub.status && (sub.status === "active" || sub.status === "frozen");
 
     // --- Next payment date ---
+    // Compare only the calendar date (YYYY-MM-DD) to avoid false-positives from
+    // timezone formatting differences between DB timestamptz and JS ISO strings.
     const nextDateIso = parseDdMmYy(data["KevaNextDate"]);
     let nextPaymentDate: string | null = sub.next_payment_date;
     if (nextDateIso) {
@@ -110,7 +125,7 @@ async function syncSubscription(
         nextPaymentDate = candidate.toISOString();
       }
     }
-    const dateChanged = nextPaymentDate !== sub.next_payment_date;
+    const dateChanged = toDateOnly(nextPaymentDate) !== toDateOnly(sub.next_payment_date);
 
     // --- Payment history ---
     const historyRaw = data["HistoryData"];
@@ -135,20 +150,18 @@ async function syncSubscription(
           { onConflict: "subscription_id,charge_date,status", ignoreDuplicates: false }
         );
       } catch (e) {
-        console.warn(`[sync] history upsert sub ${sub.id}:`, e);
+        console.warn(`${tag}: history upsert warning:`, e);
       }
     }
 
     // --- Recalculate eligibility ---
-    const successCount = records.filter((r) => {
-      const n = String(r["Name"] ?? "");
-      return classifyCharge(n) === "success";
-    }).length;
+    const successCount = records.filter((r) => classifyCharge(String(r["Name"] ?? "")) === "success").length;
     const required = await getRequiredPayments(sub.plan_id, svc);
     const nowEligible = successCount >= required;
 
-    // --- Persist all updates ---
+    // --- Build update payload ---
     const updates: Record<string, unknown> = {
+      nedarim_raw_status: kevaStatus,
       successful_payments_count: successCount,
       is_eligible: nowEligible,
       nedarim_last_synced_at: new Date().toISOString(),
@@ -158,30 +171,42 @@ async function syncSubscription(
       updates.status = nedarimStatus;
       if (nedarimStatus === "frozen") updates.frozen_at = new Date().toISOString();
       if (nedarimStatus === "active") updates.frozen_at = null;
+      if (nedarimStatus === "canceled") updates.canceled_at = new Date().toISOString();
     }
     if (dateChanged) updates.next_payment_date = nextPaymentDate;
 
-    await svc.from("subscriptions").update(updates).eq("id", sub.id);
+    const { error: updateErr } = await svc.from("subscriptions").update(updates).eq("id", sub.id);
+    if (updateErr) {
+      const reason = `DB update failed: ${updateErr.message}`;
+      console.error(`${tag}: ERROR — ${reason}`);
+      return { result: "error", reason };
+    }
 
     if (statusChanged) {
       await svc.from("subscription_actions").insert({
         subscription_id: sub.id,
         user_id: sub.user_id,
         performed_by: null,
-        action: nedarimStatus === "frozen" ? "admin_disabled" : "admin_enabled",
+        action: nedarimStatus === "frozen" ? "admin_disabled" : nedarimStatus === "canceled" ? "admin_canceled" : "admin_enabled",
         old_status: sub.status,
         new_status: nedarimStatus,
         nedarim_keva_id: sub.keva_id,
         nedarim_response: data,
         success: true,
         notes: "auto-sync via daily job",
-      }).catch((e: unknown) => console.warn("[sync] audit log:", e));
+      }).catch((e: unknown) => console.warn(`${tag}: audit log warning:`, e));
     }
 
-    return statusChanged || dateChanged ? "synced" : "unchanged";
+    const changed = statusChanged || dateChanged;
+    const reason = changed
+      ? [statusChanged && `status ${sub.status}→${nedarimStatus}`, dateChanged && `nextDate ${toDateOnly(sub.next_payment_date)}→${toDateOnly(nextPaymentDate)}`].filter(Boolean).join(", ")
+      : `KevaStatus=${kevaStatus}, no field changes`;
+    console.log(`${tag}: ${changed ? "SYNCED" : "UNCHANGED"} — ${reason}`);
+    return { result: changed ? "synced" : "unchanged", reason };
   } catch (e) {
-    console.error(`[sync] sub ${sub.id} error:`, e);
-    return "error";
+    const reason = e instanceof Error ? e.message : String(e);
+    console.error(`${tag}: ERROR — ${reason}`);
+    return { result: "error", reason };
   }
 }
 
@@ -202,7 +227,7 @@ async function runSync(): Promise<{ synced: number; unchanged: number; errors: n
   let errors = 0;
 
   for (const sub of subs) {
-    const result = await syncSubscription(sub as {
+    const { result } = await syncSubscription(sub as {
       id: string; user_id: string; status: string;
       keva_id: string; plan_id: string; next_payment_date: string | null
     }, svc);
