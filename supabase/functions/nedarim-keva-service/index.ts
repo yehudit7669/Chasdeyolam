@@ -259,8 +259,14 @@ async function handle(req: Request): Promise<Response> {
 
   // ── GetKevaId ─────────────────────────────────────────────────────────────
   if (op === "GetKevaId") {
-    if (role !== "admin") return err("Forbidden", 403);
     if (!body.kevaId && !body.subscriptionId && !body.clientId) return err("kevaId, subscriptionId, or clientId required", 400);
+
+    // Donors may only query their own subscription
+    if (role !== "admin") {
+      if (!body.subscriptionId) return err("subscriptionId required for non-admin", 400);
+      const sub = await getSub(body.subscriptionId, svc);
+      if (!sub || sub.user_id !== user.id) return err("Forbidden", 403);
+    }
 
     let kevaId = body.kevaId;
     if (!kevaId && body.subscriptionId) {
