@@ -171,13 +171,20 @@ async function processKeva(
 
       if (existingSub) {
         subscriptionId = existingSub.id;
-        const upd: Record<string, unknown> = { status: "active", updated_at: new Date().toISOString() };
+        const upd: Record<string, unknown> = {
+          status: "active",
+          keva_id: payload.KevaId,
+          subscription_source: "nedarim_iframe",
+          updated_at: new Date().toISOString(),
+        };
         if (nextPaymentDate) upd.next_payment_date = nextPaymentDate;
         await supabase.from("subscriptions").update(upd).eq("id", existingSub.id);
       } else if (planId) {
         const { data: newSub } = await supabase
           .from("subscriptions").insert({
             user_id: profileId, plan_id: planId, status: "active",
+            keva_id: payload.KevaId,
+            subscription_source: "nedarim_iframe",
             successful_payments_count: 0, failed_payment_attempts: 0,
             is_eligible: false, started_at: new Date().toISOString(),
             next_payment_date: nextPaymentDate,
