@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, AlertTriangle, X, Info, Pause, Play, Trash2, RefreshCw, CheckCircle } from 'lucide-react';
+import { Heart, AlertTriangle, X, Info, Pause, Play, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { callNedarimKevaService } from '../lib/nedarimKevaService';
@@ -25,13 +25,6 @@ interface Subscription {
 
 type DialogType = 'pause' | 'resume' | 'cancel' | null;
 
-interface SyncResult {
-  prevStatus: string;
-  newStatus: string;
-  changed: boolean;
-  syncedAt: string;
-}
-
 export default function DonorManageSubscriptionPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -40,9 +33,6 @@ export default function DonorManageSubscriptionPage() {
   const [dialog, setDialog] = useState<DialogType>(null);
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) { navigate('/signin'); return; }
@@ -68,33 +58,6 @@ export default function DonorManageSubscriptionPage() {
       console.error('Error loading data:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleRefreshNedarim = async () => {
-    if (!subscription?.keva_id) return;
-    setSyncing(true);
-    setSyncResult(null);
-    setSyncError(null);
-    try {
-      const result = await callNedarimKevaService({
-        operation: 'GetKevaId',
-        subscriptionId: subscription.id,
-        kevaId: subscription.keva_id,
-        syncPayments: true,
-      });
-      const r = result as Record<string, unknown>;
-      setSyncResult({
-        prevStatus: String(r._prevStatus ?? subscription.status),
-        newStatus: String(r._newStatus ?? subscription.status),
-        changed: Boolean(r._statusChanged),
-        syncedAt: String(r._syncedAt ?? new Date().toISOString()),
-      });
-      await loadData();
-    } catch (err: unknown) {
-      setSyncError(err instanceof Error ? err.message : 'שגיאה בסנכרון');
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -271,43 +234,6 @@ export default function DonorManageSubscriptionPage() {
               {!canSelfManage && (
                 <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-800 text-center">
                   לביצוע שינויים במנוי צור קשר עם התמיכה
-                </div>
-              )}
-
-              {/* Nedarim sync */}
-              {canSelfManage && (
-                <div className="pt-2 border-t border-[#E5E1D8]/60">
-                  <button
-                    onClick={handleRefreshNedarim}
-                    disabled={syncing}
-                    className="w-full py-3 bg-[#F9F8F4] text-[#33332D]/60 text-sm font-semibold rounded-xl hover:bg-[#F0EDE6] transition-colors border border-[#E5E1D8] flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
-                    {syncing ? 'מסנכרן עם נדרים פלוס...' : 'רענן מנדרים פלוס'}
-                  </button>
-                  {syncResult && (
-                    <div className={`mt-3 p-4 rounded-2xl border text-sm ${syncResult.changed ? 'bg-orange-50 border-orange-200' : 'bg-[#F9F8F4] border-[#E5E1D8]'}`}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <CheckCircle size={15} className={syncResult.changed ? 'text-orange-600' : 'text-[#626D58]'} />
-                        <span className={`font-bold ${syncResult.changed ? 'text-orange-800' : 'text-[#0A192F]'}`}>
-                          {syncResult.changed ? 'סטטוס עודכן' : 'הסטטוס עדכני'}
-                        </span>
-                      </div>
-                      {syncResult.changed && (
-                        <p className="text-orange-700 mb-1">
-                          {syncResult.prevStatus === 'active' ? 'פעיל' : 'מוקפא'} ← {syncResult.newStatus === 'active' ? 'פעיל' : 'מוקפא'}
-                        </p>
-                      )}
-                      <p className="text-[#33332D]/40 text-xs">
-                        סונכרן: {new Date(syncResult.syncedAt).toLocaleTimeString('he-IL')}
-                      </p>
-                    </div>
-                  )}
-                  {syncError && (
-                    <div className="mt-3 p-4 rounded-2xl bg-red-50 border border-red-200 text-sm text-red-700">
-                      {syncError}
-                    </div>
-                  )}
                 </div>
               )}
             </div>

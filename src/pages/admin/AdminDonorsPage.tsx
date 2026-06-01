@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { callNedarimKevaService } from '../../lib/nedarimKevaService';
-import { Search, Settings2, Pause, Play, Trash2, X, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import { Search, Settings2, Pause, Play, Trash2, X, RefreshCw, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { Toast } from '../../components/admin/Toast';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../contexts/AuthContext';
@@ -34,6 +34,15 @@ interface KevaModal {
   confirmAction: 'pause' | 'resume' | 'cancel' | null;
 }
 
+interface SyncStats {
+  synced: number;
+  unchanged: number;
+  errors: number;
+  total: number;
+  durationMs: number;
+  completedAt: string;
+}
+
 export const AdminDonorsPage = () => {
   const [donors, setDonors] = useState<DonorRow[]>([]);
   const [filtered, setFiltered] = useState<DonorRow[]>([]);
@@ -41,6 +50,9 @@ export const AdminDonorsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [kevaModal, setKevaModal] = useState<KevaModal | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<SyncStats | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const { toast, showToast, hideToast } = useToast();
   const { canEdit } = useAuth();
 
@@ -103,6 +115,45 @@ export const AdminDonorsPage = () => {
       result = result.filter(d => d.subscription_status === statusFilter);
     }
     setFiltered(result);
+  };
+
+  const handleGlobalSync = async () => {
+    setSyncing(true);
+    setSyncError(null);
+    const startedAt = Date.now();
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nedarim-keva-sync`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      const durationMs = Date.now() - startedAt;
+      const total = (json.synced ?? 0) + (json.unchanged ?? 0) + (json.errors ?? 0);
+      setLastSync({
+        synced: json.synced ?? 0,
+        unchanged: json.unchanged ?? 0,
+        errors: json.errors ?? 0,
+        total,
+        durationMs,
+        completedAt: new Date().toISOString(),
+      });
+      await loadDonors();
+      showToast(`סנכרון הסתיים — ${json.synced ?? 0} עודכנו`, 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'שגיאת סנכרון';
+      setSyncError(msg);
+      showToast(msg, 'error');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const openKevaModal = (donor: DonorRow) => {
@@ -199,9 +250,63 @@ export const AdminDonorsPage = () => {
 
   return (
     <AdminLayout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#0B3C5D]">תורמים</h1>
-        <p className="text-gray-600 mt-2">כל מי שיש לו מנוי קיים או היסטורי ({donors.length} רשומות)</p>
+      {/* Page header */}
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-[#0B3C5D]">תורמים</h1>
+          <p className="text-gray-600 mt-1">כל מי שיש לו מנוי קיים או היסטורי ({donors.length} רשומות)</p>
+        </div>
+
+        {/* Nedarim sync tool */}
+        {canEdit && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 min-w-[280px]">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-bold text-[#0B3C5D]">סנכרון נדרים פלוס</span>
+              {lastSync && (
+                <span className="flex items-center gap-1 text-xs text-gray-400">
+                  <Clock size={11} />
+                  {new Date(lastSync.completedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+
+            <button
+              onClick={handleGlobalSync}
+              disabled={syncing}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[#0B3C5D] text-white text-sm font-semibold rounded-lg hover:bg-[#0B3C5D]/90 transition-colors disabled:opacity-60"
+            >
+              <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
+              {syncing ? 'מסנכרן...' : 'סנכרן מנדרים פלוס'}
+            </button>
+
+            {syncError && (
+              <div className="mt-3 flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+                <AlertCircle size={13} className="flex-shrink-0 mt-0.5" />
+                {syncError}
+              </div>
+            )}
+
+            {lastSync && !syncError && (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="text-center p-2 bg-blue-50 rounded-lg">
+                  <div className="text-lg font-black text-blue-700">{lastSync.synced}</div>
+                  <div className="text-[10px] text-blue-500 font-medium">עודכנו</div>
+                </div>
+                <div className="text-center p-2 bg-gray-50 rounded-lg">
+                  <div className="text-lg font-black text-gray-600">{lastSync.unchanged}</div>
+                  <div className="text-[10px] text-gray-400 font-medium">ללא שינוי</div>
+                </div>
+                <div className="text-center p-2 bg-red-50 rounded-lg">
+                  <div className="text-lg font-black text-red-600">{lastSync.errors}</div>
+                  <div className="text-[10px] text-red-400 font-medium">שגיאות</div>
+                </div>
+                <div className="col-span-3 text-center text-[10px] text-gray-400 pt-1">
+                  {lastSync.total} מנויים נבדקו · {(lastSync.durationMs / 1000).toFixed(1)}ש׳
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
