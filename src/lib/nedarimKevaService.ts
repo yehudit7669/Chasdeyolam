@@ -13,6 +13,7 @@ interface NedarimRequest {
   clientId?: string;
   kevaId?: string;
   notes?: string;
+  syncPayments?: boolean;
 }
 
 interface NedarimResult {

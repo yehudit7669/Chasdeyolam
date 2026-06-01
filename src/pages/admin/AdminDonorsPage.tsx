@@ -114,8 +114,10 @@ export const AdminDonorsPage = () => {
     setKevaModal(m => m ? { ...m, liveLoading: true, liveError: null } : null);
     try {
       const result = await callNedarimKevaService({
-        operation: 'GetKevaJson',
+        operation: 'GetKevaId',
         subscriptionId: kevaModal.donor.subscription_id,
+        kevaId: kevaModal.donor.keva_id ?? undefined,
+        syncPayments: true,
       });
       setKevaModal(m => m ? { ...m, liveData: result as Record<string, unknown>, liveLoading: false } : null);
     } catch (err: unknown) {
@@ -341,24 +343,69 @@ export const AdminDonorsPage = () => {
               {/* Live data from Nedarim */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-700">פרטים מנדרים פלוס</span>
+                  <span className="text-sm font-semibold text-gray-700">פרטים מנדרים פלוס (סנכרון חי)</span>
                   <button
                     onClick={loadLiveKevaData}
                     disabled={kevaModal.liveLoading}
                     className="flex items-center gap-1 text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
                   >
                     <RefreshCw size={12} className={kevaModal.liveLoading ? 'animate-spin' : ''} />
-                    {kevaModal.liveLoading ? 'טוען...' : 'טען'}
+                    {kevaModal.liveLoading ? 'טוען ומסנכרן...' : 'טען וסנכרן'}
                   </button>
                 </div>
                 {kevaModal.liveError && (
                   <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{kevaModal.liveError}</p>
                 )}
-                {kevaModal.liveData && (
-                  <pre className="text-xs bg-gray-50 p-3 rounded-lg overflow-auto max-h-32 text-gray-700" dir="ltr">
-                    {JSON.stringify(kevaModal.liveData, null, 2)}
-                  </pre>
-                )}
+                {kevaModal.liveData && (() => {
+                  const d = kevaModal.liveData;
+                  const history = Array.isArray(d.HistoryData) ? d.HistoryData as Record<string, unknown>[] : [];
+                  return (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { label: 'KevaStatus', value: d.KevaStatus === '1' ? 'פעיל' : d.KevaStatus === '0' ? 'מוקפא' : String(d.KevaStatus ?? '—') },
+                          { label: 'KevaNextDate', value: String(d.KevaNextDate ?? '—') },
+                          { label: 'KevaSuccess', value: String(d.KevaSuccess ?? '—') },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="bg-gray-50 rounded-lg p-2">
+                            <div className="text-[10px] text-gray-400">{label}</div>
+                            <div className="text-xs font-semibold text-gray-700 mt-0.5">{value}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {history.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-gray-600 mb-1.5">היסטוריית חיובים ({history.length})</div>
+                          <div className="overflow-auto max-h-40 rounded-lg border border-gray-200">
+                            <table className="w-full text-xs">
+                              <thead className="bg-gray-50 sticky top-0">
+                                <tr>
+                                  <th className="px-2 py-1.5 text-right text-gray-500 font-medium">תאריך</th>
+                                  <th className="px-2 py-1.5 text-right text-gray-500 font-medium">סכום</th>
+                                  <th className="px-2 py-1.5 text-right text-gray-500 font-medium">סטטוס</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {history.map((rec, i) => {
+                                  const name = String(rec.Name ?? '');
+                                  const isSuccess = !name || (!name.includes('סירוב') && !name.includes('ביטול') && !name.includes('נדחה'));
+                                  const statusLabel = name.includes('סירוב') || name.includes('נדחה') ? 'נדחה' : name.includes('ביטול') ? 'בוטל' : 'הצליח';
+                                  return (
+                                    <tr key={i} className="bg-white hover:bg-gray-50">
+                                      <td className="px-2 py-1.5 text-gray-700">{String(rec.Date ?? '—')}</td>
+                                      <td className="px-2 py-1.5 font-semibold text-gray-900">₪{rec.Amount ?? '—'}</td>
+                                      <td className={`px-2 py-1.5 font-medium ${isSuccess ? 'text-green-700' : 'text-red-600'}`}>{statusLabel}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Confirm action prompt */}
