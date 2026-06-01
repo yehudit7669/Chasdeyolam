@@ -274,30 +274,63 @@ async function handle(req: Request): Promise<Response> {
       const resp = await callNedarim("GetKevaId", { KevaId: kevaId });
       const data = resp as Record<string, unknown>;
 
-      // If syncPayments and we have a subscriptionId, sync history too
+      // Always sync status when subscriptionId is provided
       let syncResult = null;
-      if (body.syncPayments && body.subscriptionId) {
+      if (body.subscriptionId) {
         const sub = await getSub(body.subscriptionId, svc);
-        if (sub?.plan_id) {
-          syncResult = await syncHistory(svc, sub.id, sub.plan_id, kevaId, data["HistoryData"]);
-          // Update next payment date from Nedarim
+        if (sub) {
+          // Nedarim: "1" = active, "0" or "2" = frozen, "3" = canceled
+          const kevaStatus = String(data["KevaStatus"] ?? "1");
+          const nedarimStatus: "active" | "frozen" | "canceled" =
+            kevaStatus === "1" ? "active" : kevaStatus === "3" ? "canceled" : "frozen";
+          const prevStatus = sub.status;
+          const statusChanged = nedarimStatus !== sub.status &&
+            (sub.status === "active" || sub.status === "frozen");
+
+          const updates: Record<string, unknown> = {
+            nedarim_raw_status: kevaStatus,
+            nedarim_last_synced_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
           const nextDate = parseDdMmYy(data["KevaNextDate"]);
           if (nextDate) {
             const candidate = new Date(nextDate + "T00:00:00Z");
             if (!isNaN(candidate.getTime()) && candidate > new Date()) {
-              await svc.from("subscriptions").update({ next_payment_date: candidate.toISOString() }).eq("id", sub.id);
+              updates.next_payment_date = candidate.toISOString();
             }
           }
-          // Map KevaStatus to local status
-          const kevaStatus = String(data["KevaStatus"] ?? "1");
-          const nedarimStatus = kevaStatus === "1" ? "active" : "frozen";
-          if (nedarimStatus !== sub.status && (sub.status === "active" || sub.status === "frozen")) {
-            await svc.from("subscriptions").update({
-              status: nedarimStatus,
-              updated_at: new Date().toISOString(),
-              ...(nedarimStatus === "frozen" ? { frozen_at: new Date().toISOString() } : { frozen_at: null }),
-            }).eq("id", sub.id);
+
+          if (statusChanged) {
+            updates.status = nedarimStatus;
+            if (nedarimStatus === "frozen") updates.frozen_at = new Date().toISOString();
+            if (nedarimStatus === "active") updates.frozen_at = null;
+            if (nedarimStatus === "canceled") { updates.canceled_at = new Date().toISOString(); }
           }
+
+          await svc.from("subscriptions").update(updates).eq("id", sub.id);
+
+          if (statusChanged) {
+            await auditLog(svc, {
+              subscription_id: sub.id, user_id: sub.user_id, performed_by: user.id,
+              action: "admin_sync", old_status: prevStatus, new_status: nedarimStatus,
+              nedarim_keva_id: kevaId, nedarim_response: data, success: true,
+              notes: "manual admin sync via GetKevaId",
+            });
+          }
+
+          if (body.syncPayments && sub.plan_id) {
+            syncResult = await syncHistory(svc, sub.id, sub.plan_id, kevaId, data["HistoryData"]);
+          }
+
+          return ok({
+            ...data,
+            _prevStatus: prevStatus,
+            _newStatus: statusChanged ? nedarimStatus : sub.status,
+            _statusChanged: statusChanged,
+            _syncedAt: new Date().toISOString(),
+            _syncResult: syncResult,
+          });
         }
       }
       return ok({ ...data, _syncResult: syncResult });

@@ -7,6 +7,8 @@ import {
   CheckCircle,
   XCircle,
   Hotel,
+  AlertTriangle,
+  Settings,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -131,6 +133,8 @@ export default function DonorDashboardPage() {
   const remainingPayments = subscription.plans.required_successful_payments - subscription.successful_payments_count;
   const totalPaid = subscription.successful_payments_count * subscription.plans.monthly_amount;
 
+  const isFrozen = subscription.status === 'frozen';
+
   return (
     <DonorLayout>
       <div className="space-y-6">
@@ -142,17 +146,54 @@ export default function DonorDashboardPage() {
           <p className="text-[#33332D]/50 text-sm mt-1 font-light">שמחים לראות אותך שוב בקהילת החסד שלנו</p>
         </div>
 
+        {/* Frozen subscription banner */}
+        {isFrozen && (
+          <div
+            className="flex items-start gap-4 p-5 rounded-2xl border-2 border-orange-300"
+            style={{ backgroundColor: 'rgba(251, 146, 60, 0.08)' }}
+          >
+            <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="text-orange-600" size={20} />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-orange-800 text-base mb-1">המנוי מושהה</p>
+              <p className="text-sm text-orange-700/80 font-light leading-relaxed">
+                הוראת הקבע שלך מושהית כרגע. לא יבוצעו חיובים עד לחידוש המנוי.
+                חידוש המנוי יאפשר המשך צבירת תשלומים לזכאות.
+              </p>
+              <button
+                onClick={() => navigate('/donor/manage-subscription')}
+                className="flex items-center gap-1.5 mt-3 text-sm font-semibold text-orange-700 hover:text-orange-800 transition-colors"
+              >
+                <Settings size={14} />
+                נהל מנוי
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Stats Cards */}
         <div className="grid md:grid-cols-3 gap-4">
           {/* Featured dark card */}
           <div
             className="relative rounded-[2rem] p-7 overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, #0A192F 0%, #2D3E40 100%)', boxShadow: '0 20px 60px rgba(10,25,47,0.15)' }}
+            style={{
+              background: isFrozen
+                ? 'linear-gradient(135deg, #92400e 0%, #b45309 100%)'
+                : 'linear-gradient(135deg, #0A192F 0%, #2D3E40 100%)',
+              boxShadow: '0 20px 60px rgba(10,25,47,0.15)',
+            }}
           >
             <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#D4B483]/10 blur-2xl pointer-events-none" />
             <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#D4B483]/60 mb-4">התוכנית שלי</div>
             <div className="text-xl font-bold text-white mb-1">{subscription.plans.name_he}</div>
-            <div className="text-[#D4B483] font-black text-2xl mt-3">
+            {isFrozen && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-200/20 border border-orange-300/30 mt-2 mb-2">
+                <AlertTriangle size={12} className="text-orange-300" />
+                <span className="text-xs font-bold text-orange-200">מושהה</span>
+              </div>
+            )}
+            <div className="text-[#D4B483] font-black text-2xl mt-1">
               ₪{subscription.plans.monthly_amount.toLocaleString()}
               <span className="text-sm font-normal text-white/40 mr-1">/ לחודש</span>
             </div>

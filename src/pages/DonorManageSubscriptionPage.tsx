@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, AlertTriangle, X, Info, Pause, Play, Trash2 } from 'lucide-react';
+import { Heart, AlertTriangle, X, Info, Pause, Play, Trash2, RefreshCw, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { callNedarimKevaService } from '../lib/nedarimKevaService';
@@ -9,6 +9,7 @@ import DonorLayout from '../components/DonorLayout';
 interface Subscription {
   id: string;
   status: string;
+  subscription_source: string;
   successful_payments_count: number;
   started_at: string;
   next_payment_date: string | null;
@@ -24,6 +25,13 @@ interface Subscription {
 
 type DialogType = 'pause' | 'resume' | 'cancel' | null;
 
+interface SyncResult {
+  prevStatus: string;
+  newStatus: string;
+  changed: boolean;
+  syncedAt: string;
+}
+
 export default function DonorManageSubscriptionPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -32,6 +40,9 @@ export default function DonorManageSubscriptionPage() {
   const [dialog, setDialog] = useState<DialogType>(null);
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) { navigate('/signin'); return; }
@@ -43,7 +54,7 @@ export default function DonorManageSubscriptionPage() {
       const { data } = await supabase
         .from('subscriptions')
         .select(`
-          id, status, successful_payments_count, started_at, next_payment_date, keva_id,
+          id, status, subscription_source, successful_payments_count, started_at, next_payment_date, keva_id,
           plans (id, name_he, monthly_amount, required_successful_payments, hotel_level)
         `)
         .eq('user_id', user!.id)
@@ -57,6 +68,33 @@ export default function DonorManageSubscriptionPage() {
       console.error('Error loading data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefreshNedarim = async () => {
+    if (!subscription?.keva_id) return;
+    setSyncing(true);
+    setSyncResult(null);
+    setSyncError(null);
+    try {
+      const result = await callNedarimKevaService({
+        operation: 'GetKevaId',
+        subscriptionId: subscription.id,
+        kevaId: subscription.keva_id,
+        syncPayments: true,
+      });
+      const r = result as Record<string, unknown>;
+      setSyncResult({
+        prevStatus: String(r._prevStatus ?? subscription.status),
+        newStatus: String(r._newStatus ?? subscription.status),
+        changed: Boolean(r._statusChanged),
+        syncedAt: String(r._syncedAt ?? new Date().toISOString()),
+      });
+      await loadData();
+    } catch (err: unknown) {
+      setSyncError(err instanceof Error ? err.message : 'שגיאה בסנכרון');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -127,13 +165,15 @@ export default function DonorManageSubscriptionPage() {
 
   const isActive = subscription.status === 'active';
   const isFrozen = subscription.status === 'frozen';
+  const isNedarim = subscription.subscription_source !== 'manual_bank';
   const hasKevaId = !!subscription.keva_id;
+  const canSelfManage = isNedarim && hasKevaId;
 
   const statusLabel = isActive ? 'פעיל' : isFrozen ? 'מוקפא' : subscription.status;
   const statusColor = isActive
     ? 'bg-[#626D58] text-white'
     : isFrozen
-    ? 'bg-blue-500 text-white'
+    ? 'bg-orange-500 text-white'
     : 'bg-gray-400 text-white';
 
   return (
@@ -201,7 +241,7 @@ export default function DonorManageSubscriptionPage() {
 
             {/* Action buttons */}
             <div className="space-y-3">
-              {isActive && hasKevaId && (
+              {canSelfManage && isActive && (
                 <button
                   onClick={() => setDialog('pause')}
                   className="w-full py-3.5 bg-blue-50 text-blue-700 font-semibold rounded-xl hover:bg-blue-100 transition-colors border-2 border-blue-100 flex items-center justify-center gap-2"
@@ -210,7 +250,7 @@ export default function DonorManageSubscriptionPage() {
                   השהה הוראת קבע
                 </button>
               )}
-              {isFrozen && hasKevaId && (
+              {canSelfManage && isFrozen && (
                 <button
                   onClick={() => setDialog('resume')}
                   className="w-full py-3.5 bg-green-50 text-green-700 font-semibold rounded-xl hover:bg-green-100 transition-colors border-2 border-green-100 flex items-center justify-center gap-2"
@@ -219,7 +259,7 @@ export default function DonorManageSubscriptionPage() {
                   חדש הוראת קבע
                 </button>
               )}
-              {hasKevaId && (
+              {canSelfManage && (
                 <button
                   onClick={() => setDialog('cancel')}
                   className="w-full py-3.5 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors border-2 border-red-100 flex items-center justify-center gap-2"
@@ -228,9 +268,46 @@ export default function DonorManageSubscriptionPage() {
                   בטל מנוי לצמיתות
                 </button>
               )}
-              {!hasKevaId && (
+              {!canSelfManage && (
                 <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-800 text-center">
                   לביצוע שינויים במנוי צור קשר עם התמיכה
+                </div>
+              )}
+
+              {/* Nedarim sync */}
+              {canSelfManage && (
+                <div className="pt-2 border-t border-[#E5E1D8]/60">
+                  <button
+                    onClick={handleRefreshNedarim}
+                    disabled={syncing}
+                    className="w-full py-3 bg-[#F9F8F4] text-[#33332D]/60 text-sm font-semibold rounded-xl hover:bg-[#F0EDE6] transition-colors border border-[#E5E1D8] flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
+                    {syncing ? 'מסנכרן עם נדרים פלוס...' : 'רענן מנדרים פלוס'}
+                  </button>
+                  {syncResult && (
+                    <div className={`mt-3 p-4 rounded-2xl border text-sm ${syncResult.changed ? 'bg-orange-50 border-orange-200' : 'bg-[#F9F8F4] border-[#E5E1D8]'}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle size={15} className={syncResult.changed ? 'text-orange-600' : 'text-[#626D58]'} />
+                        <span className={`font-bold ${syncResult.changed ? 'text-orange-800' : 'text-[#0A192F]'}`}>
+                          {syncResult.changed ? 'סטטוס עודכן' : 'הסטטוס עדכני'}
+                        </span>
+                      </div>
+                      {syncResult.changed && (
+                        <p className="text-orange-700 mb-1">
+                          {syncResult.prevStatus === 'active' ? 'פעיל' : 'מוקפא'} ← {syncResult.newStatus === 'active' ? 'פעיל' : 'מוקפא'}
+                        </p>
+                      )}
+                      <p className="text-[#33332D]/40 text-xs">
+                        סונכרן: {new Date(syncResult.syncedAt).toLocaleTimeString('he-IL')}
+                      </p>
+                    </div>
+                  )}
+                  {syncError && (
+                    <div className="mt-3 p-4 rounded-2xl bg-red-50 border border-red-200 text-sm text-red-700">
+                      {syncError}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

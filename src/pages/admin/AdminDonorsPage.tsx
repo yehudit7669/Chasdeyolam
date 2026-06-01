@@ -106,7 +106,21 @@ export const AdminDonorsPage = () => {
   };
 
   const openKevaModal = (donor: DonorRow) => {
-    setKevaModal({ donor, liveData: null, liveLoading: false, liveError: null, actionProcessing: false, confirmAction: null });
+    const modal: KevaModal = { donor, liveData: null, liveLoading: true, liveError: null, actionProcessing: false, confirmAction: null };
+    setKevaModal(modal);
+    // Auto-fetch live data immediately on open
+    callNedarimKevaService({
+      operation: 'GetKevaId',
+      subscriptionId: donor.subscription_id,
+      kevaId: donor.keva_id ?? undefined,
+      syncPayments: true,
+    }).then((result) => {
+      setKevaModal(m => m ? { ...m, liveData: result as Record<string, unknown>, liveLoading: false } : null);
+      // Reload table to reflect any status change written to DB
+      loadDonors();
+    }).catch((err: unknown) => {
+      setKevaModal(m => m ? { ...m, liveLoading: false, liveError: err instanceof Error ? err.message : 'שגיאה' } : null);
+    });
   };
 
   const loadLiveKevaData = async () => {

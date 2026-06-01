@@ -38,6 +38,7 @@ export default function PaymentPage() {
   const [iframeVisible, setIframeVisible] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [profile, setProfile] = useState<{ full_name: string; phone: string | null } | null>(null);
 
   // Bank transfer modal state
   const [showBankModal, setShowBankModal] = useState(false);
@@ -50,7 +51,18 @@ export default function PaymentPage() {
     if (!user) { navigate('/signin'); return; }
     if (!planId) { navigate('/plans'); return; }
     loadPlan();
+    loadProfile();
   }, [user, planId]);
+
+  const loadProfile = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('full_name, phone')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (data) setProfile(data);
+  };
 
   const loadPlan = async () => {
     try {
@@ -125,6 +137,16 @@ export default function PaymentPage() {
     const cfg = PLAN_CONFIG[plan.monthly_amount];
     if (!cfg) { setErrorMsg('תוכנית לא נתמכת'); setPageState('failure'); return; }
 
+    // Split full_name into first/last (Hebrew names: last word = last name)
+    const fullName = profile?.full_name?.trim() ?? '';
+    const nameParts = fullName.split(/\s+/);
+    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : fullName;
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    const phone = profile?.phone ?? '';
+    const mail = user.email ?? '';
+
+    console.log('[PaymentPage] Nedarim payload fields:', { FirstName: firstName, LastName: lastName, Phone: phone, Mail: mail });
+
     const payload = {
       Name: 'FinishTransaction2',
       Value: {
@@ -133,12 +155,12 @@ export default function PaymentPage() {
         PaymentType: cfg.paymentType,
         Currency: '1',
         Zeout: '',
-        FirstName: '',
-        LastName: '',
+        FirstName: firstName,
+        LastName: lastName,
         Street: '',
         City: '',
-        Phone: '',
-        Mail: user.email ?? '',
+        Phone: phone,
+        Mail: mail,
         Amount: String(plan.monthly_amount),
         Tashlumim: cfg.tashlumim,
         Groupe: 'תשלום דרך אתר נציבים',
@@ -153,7 +175,7 @@ export default function PaymentPage() {
 
     setPageState('paying');
     postNedarim(payload);
-  }, [plan, user, postNedarim]);
+  }, [plan, user, profile, postNedarim]);
 
   const startIframe = () => {
     if (!agreed || !plan || !user) return;
