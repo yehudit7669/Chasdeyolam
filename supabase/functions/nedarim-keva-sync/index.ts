@@ -39,6 +39,26 @@ function makeServiceClient() {
   );
 }
 
+async function fireEmail(
+  base: string,
+  svcKey: string,
+  to: string,
+  template: string,
+  data: Record<string, string>,
+  relatedId: string
+): Promise<void> {
+  try {
+    await fetch(`${base}/functions/v1/send-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${svcKey}` },
+      body: JSON.stringify({ template, to, data, relatedId, relatedType: "subscription" }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (e) {
+    console.warn("[sync] email fire failed:", e);
+  }
+}
+
 async function callNedarim(action: string, extra: Record<string, string> = {}): Promise<unknown> {
   const c = getCredentials();
   const url = new URL(NEDARIM_BASE);
@@ -196,6 +216,19 @@ async function syncSubscription(
         notes: "auto-sync via daily job",
       });
       if (auditErr) console.warn(`${tag}: audit log warning: ${auditErr.message}`);
+
+      // Email donor about the status change
+      const { data: profile } = await svc.from("profiles").select("email, full_name").eq("id", sub.user_id).maybeSingle();
+      if (profile?.email) {
+        await fireEmail(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+          profile.email,
+          "subscription_sync_change",
+          { donorName: profile.full_name || profile.email },
+          sub.id
+        );
+      }
     }
 
     const changed = statusChanged || dateChanged;

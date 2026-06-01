@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
+import { sendEmail } from '../../lib/sendEmail';
 import { MessageSquare, Lock, Unlock, Send, Building2, CheckCircle, X } from 'lucide-react';
 import { Toast } from '../../components/admin/Toast';
 import { useToast } from '../../hooks/useToast';
@@ -184,6 +185,23 @@ export const AdminSupportPage = () => {
       if (error) throw error;
 
       await supabase.from('support_threads').update({ updated_at: new Date().toISOString() }).eq('id', selectedThread.id);
+
+      // Notify donor that admin replied
+      if (selectedThread.profiles?.email) {
+        sendEmail({
+          template: 'support_admin_reply',
+          to: selectedThread.profiles.email,
+          data: {
+            donorName: selectedThread.profiles.full_name || selectedThread.profiles.email,
+            subject: selectedThread.subject,
+            messagePreview: newMessage.slice(0, 200),
+            threadId: selectedThread.id,
+          },
+          relatedId: selectedThread.id,
+          relatedType: 'support_thread',
+        });
+      }
+
       showToast('הודעה נשלחה', 'success');
       setNewMessage('');
       await loadMessages(selectedThread.id);
@@ -289,6 +307,20 @@ export const AdminSupportPage = () => {
       });
 
       showToast('מנוי הוקם בהצלחה', 'success');
+
+      // Notify donor their bank subscription was approved
+      if (selectedThread.profiles?.email) {
+        sendEmail({
+          template: 'subscription_bank_approved',
+          to: selectedThread.profiles.email,
+          data: {
+            donorName: selectedThread.profiles.full_name || selectedThread.profiles.email,
+          },
+          relatedId: sub.id,
+          relatedType: 'subscription',
+        });
+      }
+
       setShowApproveModal(false);
       setSelectedThread({ ...selectedThread, status: 'closed', linked_subscription_id: sub.id });
       await loadMessages(selectedThread.id);

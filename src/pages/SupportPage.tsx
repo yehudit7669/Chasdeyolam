@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
+import { sendEmail } from '../lib/sendEmail';
 import { MessageSquare, Send, X, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import DonorLayout from '../components/DonorLayout';
@@ -99,6 +100,25 @@ export const SupportPage = () => {
             is_admin: false,
           });
 
+        // Notify admins
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+        sendEmail({
+          template: 'new_support_ticket',
+          to: '',
+          data: {
+            donorName: profile?.full_name || user.email || '',
+            subject: newThreadSubject,
+            messagePreview: newThreadMessage.slice(0, 200),
+            threadId: thread.id,
+          },
+          relatedId: thread.id,
+          relatedType: 'support_thread',
+        });
+
         setNewThreadSubject('');
         setNewThreadMessage('');
         setShowNewThread(false);
@@ -122,6 +142,26 @@ export const SupportPage = () => {
           message: replyMessage,
           is_admin: false,
         });
+
+      // Notify admins of user reply
+      const thread = threads.find(t => t.id === threadId);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle();
+      sendEmail({
+        template: 'support_user_reply',
+        to: '',
+        data: {
+          donorName: profile?.full_name || user.email || '',
+          subject: thread?.subject,
+          messagePreview: replyMessage.slice(0, 200),
+          threadId,
+        },
+        relatedId: threadId,
+        relatedType: 'support_thread',
+      });
 
       setReplyMessage('');
       await loadThreads();

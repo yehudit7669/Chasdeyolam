@@ -199,6 +199,29 @@ async function processKeva(
         console.log("[nedarim-keva-callback] Subscription linked", {
           subscriptionId, kevaId: payload.KevaId, identitySource,
         });
+
+        // Fire subscription_created email for new subscriptions only
+        if (!existingSub) {
+          const base = Deno.env.get("SUPABASE_URL")!;
+          const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          const { data: profile } = await supabase
+            .from("profiles").select("email, full_name").eq("id", profileId!).maybeSingle();
+          if (profile?.email) {
+            EdgeRuntime.waitUntil(
+              fetch(`${base}/functions/v1/send-email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${svcKey}` },
+                body: JSON.stringify({
+                  template: "subscription_created",
+                  to: profile.email,
+                  data: { donorName: profile.full_name || profile.email },
+                  relatedId: subscriptionId,
+                  relatedType: "subscription",
+                }),
+              }).catch((e: unknown) => console.error("[nedarim-keva-callback] email error:", e))
+            );
+          }
+        }
       }
     } else {
       processingError = `No profile found — Param1=${payload.Param1} Param2=${payload.Param2} Mail=${payload.Mail}`;
