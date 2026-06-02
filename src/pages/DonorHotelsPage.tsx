@@ -9,7 +9,7 @@ import {
   ChevronRight,
   Star,
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import DonorLayout from '../components/DonorLayout';
 
@@ -178,7 +178,7 @@ export default function DonorHotelsPage() {
             </div>
             <h2 className="text-xl font-black text-[#0A192F] mb-2">אין מלונות זמינים</h2>
             <p className="text-[#33332D]/50 text-sm font-light">
-              לא נמצאו מלונות ברמת הזכאות שלך: {subscription.plans.hotel_level}
+              לא נמצאו מלונות ברמת הזכאות שלך: {hotelLevelLabel(subscription.plans.hotel_level)}
             </p>
           </div>
         ) : (

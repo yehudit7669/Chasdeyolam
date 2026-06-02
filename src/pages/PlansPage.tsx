@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { Layout } from '../components/Layout';
-import { supabase } from '../lib/supabase';
+import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { formatCurrency } from '../lib/stripe';
 import { CheckCircle } from 'lucide-react';
 
@@ -112,7 +112,7 @@ export const PlansPage = () => {
                   <div className="flex items-start gap-2">
                     <CheckCircle className="text-green-600 flex-shrink-0 mt-1" size={18} />
                     <span className="text-sm text-gray-700">
-                      זכאות לשהייה ברמה: {plan.hotel_level}
+                      זכאות לשהייה ברמה: {hotelLevelLabel(plan.hotel_level)}
                     </span>
                   </div>
                   <div className="flex items-start gap-2">

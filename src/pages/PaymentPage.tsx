@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle, XCircle, Loader2, Shield, Lock, CreditCard, Building2, X, Send, MessageSquare, AlertCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
 interface Plan {
@@ -207,7 +207,7 @@ export default function PaymentPage() {
         `• שם תוכנית: ${plan.name_he}`,
         `• סכום חודשי: ₪${plan.monthly_amount.toLocaleString()}`,
         `• מספר תשלומים: ${plan.required_successful_payments}`,
-        `• רמת מלון: ${plan.hotel_level}`,
+        `• רמת מלון: ${hotelLevelLabel(plan.hotel_level)}`,
         `• סה"כ: ₪${(plan.monthly_amount * plan.required_successful_payments).toLocaleString()}`,
         '',
         'פרטי מבקש:',
@@ -424,7 +424,7 @@ export default function PaymentPage() {
                         </div>
                         <div>
                           <div className="text-white/40 text-xs mb-0.5">רמת מלון</div>
-                          <div className="font-bold">{plan.hotel_level}</div>
+                          <div className="font-bold">{hotelLevelLabel(plan.hotel_level)}</div>
                         </div>
                       </div>
                     </div>
@@ -609,7 +609,7 @@ export default function PaymentPage() {
                   סיכום הזמנה
                 </div>
                 <h2 className="text-xl font-bold text-white mb-1">{plan.name_he}</h2>
-                <div className="text-xs text-white/40 mb-6">{plan.hotel_level}</div>
+                <div className="text-xs text-white/40 mb-6">{hotelLevelLabel(plan.hotel_level)}</div>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between items-center">
                     <span className="text-white/50">תשלום חודשי</span>
@@ -666,7 +666,7 @@ export default function PaymentPage() {
                 <div><span className="text-[#33332D]/40">תוכנית: </span><span className="font-semibold text-[#0A192F]">{plan.name_he}</span></div>
                 <div><span className="text-[#33332D]/40">סכום חודשי: </span><span className="font-semibold text-[#626D58]">₪{plan.monthly_amount.toLocaleString()}</span></div>
                 <div><span className="text-[#33332D]/40">תשלומים: </span><span className="font-semibold text-[#0A192F]">{plan.required_successful_payments}</span></div>
-                <div><span className="text-[#33332D]/40">רמת מלון: </span><span className="font-semibold text-[#0A192F]">{plan.hotel_level}</span></div>
+                <div><span className="text-[#33332D]/40">רמת מלון: </span><span className="font-semibold text-[#0A192F]">{hotelLevelLabel(plan.hotel_level)}</span></div>
                 <div className="col-span-2 pt-2 border-t border-[#E5E1D8]/60 mt-1">
                   <span className="text-[#33332D]/40">סה"כ: </span>
                   <span className="font-bold text-[#B08D57]">₪{(plan.monthly_amount * plan.required_successful_payments).toLocaleString()}</span>

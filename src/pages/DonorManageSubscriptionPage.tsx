@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, AlertTriangle, X, Info, Pause, Play, Trash2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { callNedarimKevaService } from '../lib/nedarimKevaService';
 import DonorLayout from '../components/DonorLayout';
@@ -179,7 +179,7 @@ export default function DonorManageSubscriptionPage() {
                   label: 'תשלומים שבוצעו',
                   value: `${subscription.successful_payments_count} / ${subscription.plans.required_successful_payments}`,
                 },
-                { label: 'רמת זכאות', value: subscription.plans.hotel_level },
+                { label: 'רמת זכאות', value: hotelLevelLabel(subscription.plans.hotel_level) },
                 {
                   label: 'תאריך התחלה',
                   value: new Date(subscription.started_at).toLocaleDateString('he-IL'),

@@ -10,7 +10,7 @@ import {
   AlertTriangle,
   Settings,
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import DonorLayout from '../components/DonorLayout';
 
@@ -272,7 +272,7 @@ export default function DonorDashboardPage() {
               <div>
                 <p className="font-bold text-[#0A192F] mb-1">מזל טוב! אתה זכאי לשהייה</p>
                 <p className="text-sm text-[#33332D]/50 font-light">
-                  ניתן להזמין מלון ברמה {subscription.plans.hotel_level}
+                  ניתן להזמין מלון ברמה {hotelLevelLabel(subscription.plans.hotel_level)}
                 </p>
                 <button
                   onClick={() => navigate('/donor/hotels')}

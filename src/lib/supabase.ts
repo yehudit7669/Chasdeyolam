@@ -9,6 +9,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+export const hotelLevelLabel = (level: string): string => {
+  switch (level?.toLowerCase()) {
+    case 'bronze': return 'בסיסי';
+    case 'platinum': return 'פרימיום';
+    case 'gold': return 'זהב';
+    case 'silver': return 'כסף';
+    default: return level ?? '';
+  }
+};
+
 export type Database = {
   public: {
     Tables: {

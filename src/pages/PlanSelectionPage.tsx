@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Hotel, Heart, ShieldCheck, Star } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Layout } from '../components/Layout';
 
@@ -290,7 +290,7 @@ export default function PlanSelectionPage() {
 
                   <div className="p-8 flex flex-col flex-1">
                     <div className={`text-xs font-bold uppercase tracking-[0.25em] mb-6 ${isFeatured ? 'text-[#D4B483]/60 mt-6' : 'text-[#33332D]/30'}`}>
-                      {plan.hotel_level}
+                      {hotelLevelLabel(plan.hotel_level)}
                     </div>
 
                     <h3 className={`text-2xl font-bold mb-2 ${isFeatured ? 'text-white' : 'text-[#0A192F]'}`}>

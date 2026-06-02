@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
-import { supabase } from '../../lib/supabase';
+import { supabase, hotelLevelLabel } from '../../lib/supabase';
 import { Plus, CreditCard as Edit2, Power, PowerOff, Image as ImageIcon, Trash2, ChevronLeft, ChevronRight, Upload, Link as LinkIcon, X, Loader2 } from 'lucide-react';
 import { Modal } from '../../components/admin/Modal';
 import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
@@ -445,7 +445,7 @@ export const AdminHotelsPage = () => {
                 <h3 className="text-lg font-bold text-gray-900 mb-1">{hotel.name_he}</h3>
                 <p className="text-sm text-gray-600 mb-3">{hotel.city_he}</p>
                 <div className="space-y-1 text-sm text-gray-700 mb-4">
-                  <div className="flex justify-between"><span>רמה:</span><span className="font-medium">{hotel.level}</span></div>
+                  <div className="flex justify-between"><span>רמה:</span><span className="font-medium">{hotelLevelLabel(hotel.level)}</span></div>
                   <div className="flex justify-between"><span>חדרים בסיס:</span><span className="font-medium">{hotel.base_rooms}</span></div>
                   {hasImages && (
                     <div className="flex justify-between"><span>תמונות:</span><span className="font-medium">{hotel.images!.length}</span></div>
@@ -537,10 +537,10 @@ export const AdminHotelsPage = () => {
               onChange={(e) => setFormData({ ...formData, level: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="bronze">ארד</option>
+              <option value="bronze">בסיסי</option>
               <option value="silver">כסף</option>
               <option value="gold">זהב</option>
-              <option value="platinum">פלטינום</option>
+              <option value="platinum">פרימיום</option>
             </select>
           </div>
 

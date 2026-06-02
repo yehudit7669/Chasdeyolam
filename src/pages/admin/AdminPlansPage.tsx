@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
-import { supabase } from '../../lib/supabase';
+import { supabase, hotelLevelLabel } from '../../lib/supabase';
 import { Plus, Edit2, Power, PowerOff, CheckCircle, XCircle, Hotel, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/admin/Modal';
 import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
@@ -310,7 +310,7 @@ export const AdminPlansPage = () => {
                   <div className="flex items-center justify-between py-2 border-b border-gray-200">
                     <span className="text-sm text-gray-600">רמת מלון:</span>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getLevelBadgeColor(plan.hotel_level)}`}>
-                      {plan.hotel_level.toUpperCase()}
+                      {hotelLevelLabel(plan.hotel_level)}
                     </span>
                   </div>
                 </div>
@@ -490,10 +490,10 @@ export const AdminPlansPage = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C5D] focus:border-transparent"
                 required
               >
-                <option value="bronze">Bronze</option>
-                <option value="silver">Silver</option>
-                <option value="gold">Gold</option>
-                <option value="platinum">Platinum</option>
+                <option value="bronze">בסיסי</option>
+                <option value="silver">כסף</option>
+                <option value="gold">זהב</option>
+                <option value="platinum">פרימיום</option>
               </select>
             </div>
           </div>
