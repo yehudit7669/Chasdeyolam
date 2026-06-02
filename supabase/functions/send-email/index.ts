@@ -33,7 +33,7 @@ const corsHeaders = {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const FROM_ADDRESS = Deno.env.get("EMAIL_FROM") ?? "noreply@chasdei-olam.co.il";
+const FROM_ADDRESS = Deno.env.get("EMAIL_FROM") ?? "support@chasdeyolam.com";
 const FROM_NAME = Deno.env.get("EMAIL_FROM_NAME") ?? "חסדי עולם";
 const APP_URL = Deno.env.get("APP_URL") ?? "https://chasdei-olam.co.il";
 
@@ -90,8 +90,9 @@ function wrapEmail(bodyHtml: string): string {
           ${bodyHtml}
         </td></tr>
         <!-- footer -->
-        <tr><td style="padding:20px 36px;background:#F9F8F4;text-align:center;color:#999;font-size:12px;border-top:1px solid #eeece8;">
-          הודעה זו נשלחה אוטומטית ממערכת חסדי עולם
+        <tr><td style="padding:20px 36px;background:#F9F8F4;text-align:center;color:#999;font-size:12px;border-top:1px solid #eeece8;direction:rtl;">
+          <p style="margin:0 0 6px;">הודעה זו נשלחה אוטומטית ממערכת חסדי עולם</p>
+          <p style="margin:0;">אין להשיב למייל זה. לכל פנייה או תגובה יש להיכנס לאזור האישי באתר.</p>
         </td></tr>
       </table>
     </td></tr>
@@ -257,6 +258,7 @@ async function sendViaResend(to: string, subject: string, html: string): Promise
       to: [to],
       subject,
       html,
+      reply_to: [],
     }),
     signal: AbortSignal.timeout(10000),
   });
