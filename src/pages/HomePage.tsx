@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft, Gift, Users, Hotel, Star } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useStore } from '../store/useStore';
@@ -40,8 +40,8 @@ export default function HomePage() {
 
           <p className="text-xl md:text-2xl text-[#33332D]/70 max-w-2xl mx-auto leading-relaxed mb-14 font-light">
             {isRtl
-              ? 'הצטרפו להיות מנציבי הגמ"ח ע"י תרומה חודשית [אפשר ממעשרות*]\nשתעניק לך זכות לחופשה זוגית'
-              : "Join as GMACH delegates with a monthly donation [tithes accepted*] that grants you the right to a couples' vacation."}
+              ? 'הצטרפו להיות מנציבי הגמ"ח ע"י תרומה חודשית [אפשר ממעשרות*]\nשתעניק לך זכות לחופשה זוגית**'
+              : "Join as GMACH delegates with a monthly donation [tithes accepted*] that grants you the right to a couples' vacation.**"}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
@@ -81,6 +81,17 @@ export default function HomePage() {
               ? '* החופשה אינה מקוזזת מהתרומה , אלא מכספי קרן שהוקמה ע"י אחד מהתורמים.'
               : '* The vacation is not deducted from the donation, but from a fund established by one of the donors.'}
           </p>
+          {isRtl && (
+            <p className="mt-2 text-xs text-[#33332D]/50 max-w-xl mx-auto leading-relaxed">
+              ** בכפוף לתאריכים הניתנים ע"י הגמ"ח, לא כולל בין הזמנים וחגים.{' '}
+              <Link
+                to="/terms-of-use"
+                className="underline underline-offset-2 hover:text-[#626D58] transition-colors"
+              >
+                קרא עוד
+              </Link>
+            </p>
+          )}
         </div>
       </section>
 
