@@ -33,9 +33,15 @@ const corsHeaders = {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const FROM_ADDRESS = Deno.env.get("EMAIL_FROM") ?? "support@chasdeyolam.com";
+// Always use the verified domain address. The EMAIL_FROM secret may hold a
+// stale placeholder (onboarding@resend.dev); we override it here so Resend
+// accepts delivery to any recipient, not just the account owner.
+const _FROM_SECRET = Deno.env.get("EMAIL_FROM") ?? "";
+const FROM_ADDRESS = (_FROM_SECRET && !_FROM_SECRET.endsWith("@resend.dev"))
+  ? _FROM_SECRET
+  : "support@chasdeyolam.com";
 const FROM_NAME = Deno.env.get("EMAIL_FROM_NAME") ?? "חסדי עולם";
-const APP_URL = Deno.env.get("APP_URL") ?? "https://chasdei-olam.co.il";
+const APP_URL = Deno.env.get("APP_URL") ?? "https://chasdeyolam.com";
 
 // Admin email(s) to notify for support tickets
 const ADMIN_NOTIFICATION_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "";
