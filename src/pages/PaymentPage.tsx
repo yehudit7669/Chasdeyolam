@@ -20,11 +20,8 @@ const MOSAD = '7010422';
 const API_VALID = 'Rd8QEQCDEY';
 const SUPABASE_FN_BASE = 'https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1';
 const CALLBACK_URL = `${SUPABASE_FN_BASE}/nedarim-keva-callback`;
-
-const PLAN_CONFIG: Record<number, { paymentType: string; tashlumim: string }> = {
-  290: { paymentType: 'HK', tashlumim: '15' },
-  350: { paymentType: 'HK', tashlumim: '15' },
-};
+const NEDARIM_PAYMENT_TYPE = 'HK';
+const NEDARIM_TASHLUMIM = '15';
 
 export default function PaymentPage() {
   const navigate = useNavigate();
@@ -134,8 +131,6 @@ export default function PaymentPage() {
 
   const handlePayClick = useCallback(() => {
     if (!plan || !user) return;
-    const cfg = PLAN_CONFIG[plan.monthly_amount];
-    if (!cfg) { setErrorMsg('תוכנית לא נתמכת'); setPageState('failure'); return; }
 
     // Split full_name into first/last (Hebrew names: last word = last name)
     const fullName = profile?.full_name?.trim() ?? '';
@@ -152,7 +147,7 @@ export default function PaymentPage() {
       Value: {
         Mosad: MOSAD,
         ApiValid: API_VALID,
-        PaymentType: cfg.paymentType,
+        PaymentType: NEDARIM_PAYMENT_TYPE,
         Currency: '1',
         Zeout: '',
         FirstName: firstName,
@@ -162,7 +157,7 @@ export default function PaymentPage() {
         Phone: phone,
         Mail: mail,
         Amount: String(plan.monthly_amount),
-        Tashlumim: cfg.tashlumim,
+        Tashlumim: NEDARIM_TASHLUMIM,
         Groupe: 'תשלום דרך אתר נציבים',
         Comment: '',
         Param1: user.id,
