@@ -24,7 +24,13 @@ export const SignIn = () => {
       await signIn(email, password);
       navigate('/dashboard');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to sign in');
+      console.error('Sign in error:', err);
+      const msg = err instanceof Error ? err.message.toLowerCase() : '';
+      if (msg.includes('rate limit') || msg.includes('too many')) {
+        setError('יותר מדי ניסיונות התחברות. נסו שוב מאוחר יותר.');
+      } else {
+        setError('כתובת האימייל או הסיסמה שהוזנו אינם נכונים.');
+      }
     } finally {
       setLoading(false);
     }
