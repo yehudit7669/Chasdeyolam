@@ -1,9 +1,84 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Check, Hotel, Heart, ShieldCheck, Star } from 'lucide-react';
+import { ArrowRight, Check, Hotel, Heart, ShieldCheck, Star, ChevronDown } from 'lucide-react';
 import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Layout } from '../components/Layout';
+
+const HOTELS_INITIALLY_VISIBLE = 4;
+
+function HotelList({ hotels, isFeatured }: { hotels: HotelItem[]; isFeatured: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const extraRef = useRef<HTMLDivElement>(null);
+  const [extraHeight, setExtraHeight] = useState(0);
+
+  const visible = hotels.slice(0, HOTELS_INITIALLY_VISIBLE);
+  const extra = hotels.slice(HOTELS_INITIALLY_VISIBLE);
+  const hasExtra = extra.length > 0;
+
+  useEffect(() => {
+    if (!extraRef.current) return;
+    setExtraHeight(expanded ? extraRef.current.scrollHeight : 0);
+  }, [expanded]);
+
+  const itemCls = `flex items-start gap-2 text-sm ${isFeatured ? 'text-white/60' : 'text-[#33332D]/60'}`;
+  const checkCls = `mt-0.5 flex-shrink-0 ${isFeatured ? 'text-[#D4B483]' : 'text-[#626D58]'}`;
+
+  return (
+    <ul className="space-y-2">
+      {visible.map((hotel) => (
+        <li key={hotel.id} className={itemCls}>
+          <Check size={14} className={checkCls} />
+          <span>{hotel.name_he} — {hotel.city_he}</span>
+        </li>
+      ))}
+
+      {hasExtra && (
+        <>
+          {/* Animated extra hotels */}
+          <li className="list-none p-0">
+            <div
+              ref={extraRef}
+              className="overflow-hidden"
+              style={{
+                maxHeight: extraHeight,
+                opacity: expanded ? 1 : 0,
+                transition: 'max-height 0.35s ease, opacity 0.25s ease',
+              }}
+              aria-hidden={!expanded}
+            >
+              <ul className="space-y-2 pt-2">
+                {extra.map((hotel) => (
+                  <li key={hotel.id} className={itemCls}>
+                    <Check size={14} className={checkCls} />
+                    <span>{hotel.name_he} — {hotel.city_he}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </li>
+
+          <li className="list-none">
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className={`flex items-center gap-1 text-xs font-semibold transition-colors ${
+                isFeatured
+                  ? 'text-[#D4B483]/70 hover:text-[#D4B483]'
+                  : 'text-[#626D58]/70 hover:text-[#626D58]'
+              }`}
+            >
+              <ChevronDown
+                size={13}
+                className={`transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
+              />
+              {expanded ? 'הצג פחות' : `+${extra.length} מלונות נוספים`}
+            </button>
+          </li>
+        </>
+      )}
+    </ul>
+  );
+}
 
 interface Plan {
   id: string;
@@ -324,19 +399,7 @@ export default function PlanSelectionPage() {
                         <span>זכאות למלונות</span>
                       </div>
                       {eligibleHotels.length > 0 ? (
-                        <ul className="space-y-2">
-                          {eligibleHotels.slice(0, 4).map((hotel) => (
-                            <li key={hotel.id} className={`flex items-start gap-2 text-sm ${isFeatured ? 'text-white/60' : 'text-[#33332D]/60'}`}>
-                              <Check size={14} className={`mt-0.5 flex-shrink-0 ${isFeatured ? 'text-[#D4B483]' : 'text-[#626D58]'}`} />
-                              <span>{hotel.name_he} — {hotel.city_he}</span>
-                            </li>
-                          ))}
-                          {eligibleHotels.length > 4 && (
-                            <li className={`text-xs ${isFeatured ? 'text-white/30' : 'text-[#33332D]/30'}`}>
-                              +{eligibleHotels.length - 4} מלונות נוספים
-                            </li>
-                          )}
-                        </ul>
+                        <HotelList hotels={eligibleHotels} isFeatured={isFeatured} />
                       ) : (
                         <p className={`text-sm ${isFeatured ? 'text-white/30' : 'text-[#33332D]/30'}`}>
                           לא נמצאו מלונות זמינים
