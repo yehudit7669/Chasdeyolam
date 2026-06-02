@@ -253,6 +253,23 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ───────────────── DONATION REQUEST IMAGE ───────────────── */}
+      <section className="py-16 md:py-24 bg-[#F7F5F0]">
+        <div className="max-w-5xl mx-auto px-4">
+          <div
+            className="overflow-hidden rounded-[2rem] shadow-[0_8px_40px_0_rgba(98,109,88,0.12),0_2px_10px_0_rgba(51,51,45,0.08)]"
+          >
+            <img
+              src={donationRequestImg}
+              alt={isRtl ? 'בקשת תרומה גמ"ח חסדי עולם' : 'Chasdei Olam GMACH Donation Request'}
+              className="w-full h-auto block"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        </div>
+      </section>
+
       {/* ───────────────── HOW IT WORKS ───────────────── */}
       <section id="how-it-works" className="py-40 bg-[#F7F5F0] border-y border-[#E5E1D8]/30">
         <div className="max-w-6xl mx-auto px-4" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -310,23 +327,6 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ───────────────── DONATION REQUEST IMAGE ───────────────── */}
-      <section className="py-16 md:py-24 bg-[#F7F5F0]">
-        <div className="max-w-5xl mx-auto px-4">
-          <div
-            className="overflow-hidden rounded-[2rem] shadow-[0_8px_40px_0_rgba(98,109,88,0.12),0_2px_10px_0_rgba(51,51,45,0.08)]"
-          >
-            <img
-              src={donationRequestImg}
-              alt={isRtl ? 'בקשת תרומה גמ"ח חסדי עולם' : 'Chasdei Olam GMACH Donation Request'}
-              className="w-full h-auto block"
-              loading="lazy"
-              decoding="async"
-            />
           </div>
         </div>
       </section>
