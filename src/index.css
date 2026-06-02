@@ -69,3 +69,20 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+
+/* ── Accessibility toolbar modes ─────────────────────────────────────────── */
+html.a11y-grayscale {
+  filter: grayscale(100%);
+}
+
+html.a11y-high-contrast {
+  filter: contrast(180%);
+}
+
+html.a11y-grayscale.a11y-high-contrast {
+  filter: grayscale(100%) contrast(180%);
+}
+
+html.a11y-underline-links a {
+  text-decoration: underline !important;
+}

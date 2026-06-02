@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { useStore } from '../store/useStore';
 import { LogOut, Menu, X, Globe, Heart } from 'lucide-react';
+import AccessibilityToolbar from './AccessibilityToolbar';
 
 interface LayoutProps {
   children: ReactNode;
@@ -187,6 +188,8 @@ export const Layout = ({ children }: LayoutProps) => {
       <main className="pt-16 md:pt-20">
         {children}
       </main>
+
+      <AccessibilityToolbar />
 
       <footer className="bg-[#0A192F] text-white mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
