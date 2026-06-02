@@ -86,3 +86,28 @@ html.a11y-grayscale.a11y-high-contrast {
 html.a11y-underline-links a {
   text-decoration: underline !important;
 }
+
+/*
+  Reduce motion: disable transitions, animations, and auto-playing carousels.
+  Also honours the OS-level prefers-reduced-motion media query so the setting
+  matches what the browser would apply automatically.
+*/
+html.a11y-reduce-motion *,
+html.a11y-reduce-motion *::before,
+html.a11y-reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

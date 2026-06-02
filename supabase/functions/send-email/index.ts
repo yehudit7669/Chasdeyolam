@@ -44,198 +44,163 @@ const FROM_NAME = Deno.env.get("EMAIL_FROM_NAME") ?? "חסדי עולם";
 const APP_URL = Deno.env.get("APP_URL") ?? "https://chasdeyolam.com";
 
 // Admin email(s) to notify for support tickets
-const ADMIN_NOTIFICATION_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "";
+const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "support@chasdeyolam.com";
 
-// ── Supabase service client ───────────────────────────────────────────────────
-function makeSvc() {
-  return createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
-}
+// ── Supabase client (service role for logging) ────────────────────────────────
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+);
 
-// ── Template renderer ─────────────────────────────────────────────────────────
+// ── Template registry ─────────────────────────────────────────────────────────
 interface TemplateData {
   donorName?: string;
+  adminName?: string;
   subject?: string;
   threadId?: string;
-  subscriptionId?: string;
   messagePreview?: string;
+  subscriptionId?: string;
+  appUrl?: string;
 }
 
-interface EmailContent {
+interface EmailPayload {
+  to: string;
   subject: string;
   html: string;
 }
 
-function renderButton(label: string, url: string): string {
-  return `
-    <table cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;">
-      <tr>
-        <td bgcolor="#0B3C5D" style="border-radius:8px;padding:14px 28px;">
-          <a href="${url}" style="color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;font-family:Arial,sans-serif;">${label}</a>
-        </td>
-      </tr>
-    </table>`;
-}
-
-function wrapEmail(bodyHtml: string): string {
-  return `<!DOCTYPE html>
-<html dir="rtl" lang="he">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#F9F8F4;font-family:Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0">
-    <tr><td align="center" style="padding:40px 16px;">
-      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-        <!-- header -->
-        <tr><td bgcolor="#0B3C5D" style="padding:28px 36px;">
-          <span style="color:#ffffff;font-size:20px;font-weight:700;">חסדי עולם</span>
-        </td></tr>
-        <!-- body -->
-        <tr><td style="padding:36px;color:#1a1a1a;font-size:15px;line-height:1.7;direction:rtl;text-align:right;">
-          ${bodyHtml}
-        </td></tr>
-        <!-- footer -->
-        <tr><td style="padding:20px 36px;background:#F9F8F4;text-align:center;color:#999;font-size:12px;border-top:1px solid #eeece8;direction:rtl;">
-          <p style="margin:0 0 6px;">הודעה זו נשלחה אוטומטית ממערכת חסדי עולם</p>
-          <p style="margin:0;">אין להשיב למייל זה. לכל פנייה או תגובה יש להיכנס לאזור האישי באתר.</p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-}
-
-function renderTemplate(template: string, data: TemplateData, appUrl: string): EmailContent | null {
-  const adminSupportUrl = `${appUrl}/admin/support${data.threadId ? `?thread=${data.threadId}` : ""}`;
-  const userSupportUrl = `${appUrl}/support`;
-  const userDashboardUrl = `${appUrl}/dashboard`;
+function buildEmail(template: string, data: TemplateData, appUrl: string): EmailPayload | null {
+  const url = data.appUrl ?? appUrl;
 
   switch (template) {
-    // ── Support: new ticket ────────────────────────────────────────────────
     case "new_support_ticket":
       return {
-        subject: "פנייה חדשה התקבלה",
-        html: wrapEmail(`
-          <p style="font-size:18px;font-weight:700;margin:0 0 16px;">פנייה חדשה התקבלה</p>
-          <p>התקבלה פנייה חדשה במערכת.</p>
-          ${data.donorName ? `<p><strong>תורם:</strong> ${escHtml(data.donorName)}</p>` : ""}
-          ${data.subject ? `<p><strong>נושא:</strong> ${escHtml(data.subject)}</p>` : ""}
-          ${data.messagePreview ? `<p style="background:#f4f4f4;padding:12px 16px;border-radius:8px;margin:16px 0;font-style:italic;">${escHtml(data.messagePreview)}</p>` : ""}
-          ${renderButton("פתח פנייה", adminSupportUrl)}
-        `),
+        to: ADMIN_EMAIL,
+        subject: `פנייה חדשה: ${data.subject ?? "ללא נושא"}`,
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0B3C5D;">פנייה חדשה התקבלה</h2>
+            <p><strong>שם התורם:</strong> ${data.donorName ?? "לא ידוע"}</p>
+            <p><strong>נושא:</strong> ${data.subject ?? "ללא נושא"}</p>
+            ${data.messagePreview ? `<p><strong>תוכן:</strong> ${data.messagePreview}</p>` : ""}
+            <a href="${url}/admin/support${data.threadId ? `?thread=${data.threadId}` : ""}"
+               style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
+              צפה בפנייה
+            </a>
+          </div>`,
       };
 
-    // ── Support: user replied ──────────────────────────────────────────────
     case "support_user_reply":
       return {
-        subject: "תגובה חדשה התקבלה",
-        html: wrapEmail(`
-          <p style="font-size:18px;font-weight:700;margin:0 0 16px;">תגובה חדשה התקבלה</p>
-          <p>התקבלה תגובה חדשה ממשתמש.</p>
-          ${data.donorName ? `<p><strong>תורם:</strong> ${escHtml(data.donorName)}</p>` : ""}
-          ${data.subject ? `<p><strong>פנייה:</strong> ${escHtml(data.subject)}</p>` : ""}
-          ${data.messagePreview ? `<p style="background:#f4f4f4;padding:12px 16px;border-radius:8px;margin:16px 0;font-style:italic;">${escHtml(data.messagePreview)}</p>` : ""}
-          ${renderButton("פתח פנייה", adminSupportUrl)}
-        `),
+        to: ADMIN_EMAIL,
+        subject: `תגובה חדשה: ${data.subject ?? "ללא נושא"}`,
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0B3C5D;">תגובה חדשה מהתורם</h2>
+            <p><strong>שם התורם:</strong> ${data.donorName ?? "לא ידוע"}</p>
+            <p><strong>נושא:</strong> ${data.subject ?? "ללא נושא"}</p>
+            ${data.messagePreview ? `<p><strong>תוכן:</strong> ${data.messagePreview}</p>` : ""}
+            <a href="${url}/admin/support${data.threadId ? `?thread=${data.threadId}` : ""}"
+               style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
+              צפה וענה
+            </a>
+          </div>`,
       };
 
-    // ── Support: admin replied → user ─────────────────────────────────────
     case "support_admin_reply":
       return {
-        subject: "התקבלה תגובה מהתמיכה",
-        html: wrapEmail(`
-          <p style="font-size:18px;font-weight:700;margin:0 0 16px;">מחכה לך תגובה חדשה</p>
-          <p>מחכה לך תגובה חדשה מצוות התמיכה.</p>
-          ${data.subject ? `<p><strong>נושא הפנייה:</strong> ${escHtml(data.subject)}</p>` : ""}
-          ${data.messagePreview ? `<p style="background:#f0f7ff;padding:12px 16px;border-radius:8px;margin:16px 0;">${escHtml(data.messagePreview)}</p>` : ""}
-          ${renderButton("לצפייה בפנייה", userSupportUrl)}
-        `),
+        to: data.donorName ? "" : "", // caller must supply `to`
+        subject: `תשובה לפנייתך: ${data.subject ?? "ללא נושא"}`,
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0B3C5D;">קיבלת תשובה לפנייתך</h2>
+            <p>שלום ${data.donorName ?? ""},</p>
+            ${data.messagePreview ? `<p>${data.messagePreview}</p>` : ""}
+            <a href="${url}/support${data.threadId ? `?thread=${data.threadId}` : ""}"
+               style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
+              צפה בשיחה
+            </a>
+          </div>`,
       };
 
-    // ── Subscription: created ─────────────────────────────────────────────
     case "subscription_created":
       return {
-        subject: "המנוי הופעל בהצלחה",
-        html: wrapEmail(`
-          <p style="font-size:18px;font-weight:700;margin:0 0 16px;">ברוך הבא!</p>
-          ${data.donorName ? `<p>שלום ${escHtml(data.donorName)},</p>` : ""}
-          <p>תודה על הצטרפותך לפעילות הגמ"ח. המנוי שלך הופעל בהצלחה.</p>
-          ${renderButton("לאזור האישי", userDashboardUrl)}
-        `),
+        to: "",
+        subject: "ברוכים הבאים לחסדי עולם!",
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0B3C5D;">תרומתך נרשמה בהצלחה</h2>
+            <p>שלום ${data.donorName ?? ""},</p>
+            <p>תודה שהצטרפת לחסדי עולם. תרומתך נרשמה בהצלחה.</p>
+            <a href="${url}/dashboard"
+               style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
+              לאזור האישי
+            </a>
+          </div>`,
       };
 
-    // ── Subscription: paused (frozen) ─────────────────────────────────────
     case "subscription_frozen":
       return {
-        subject: "המנוי הושהה",
-        html: wrapEmail(`
-          <p style="font-size:18px;font-weight:700;margin:0 0 16px;">המנוי הושהה</p>
-          ${data.donorName ? `<p>שלום ${escHtml(data.donorName)},</p>` : ""}
-          <p>המנוי שלך הושהה. ניתן לחדשו בכל עת דרך האזור האישי.</p>
-          ${renderButton("לאזור האישי", userDashboardUrl)}
-        `),
+        to: "",
+        subject: "תרומתך הושהתה זמנית",
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0B3C5D;">תרומתך הושהתה</h2>
+            <p>שלום ${data.donorName ?? ""},</p>
+            <p>תרומתך הושהתה זמנית לפי בקשתך.</p>
+            <a href="${url}/donor/manage-subscription"
+               style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
+              נהל תרומה
+            </a>
+          </div>`,
       };
 
-    // ── Subscription: resumed ─────────────────────────────────────────────
     case "subscription_resumed":
       return {
-        subject: "המנוי חודש",
-        html: wrapEmail(`
-          <p style="font-size:18px;font-weight:700;margin:0 0 16px;">המנוי חודש בהצלחה</p>
-          ${data.donorName ? `<p>שלום ${escHtml(data.donorName)},</p>` : ""}
-          <p>המנוי שלך חודש בהצלחה.</p>
-          ${renderButton("לאזור האישי", userDashboardUrl)}
-        `),
+        to: "",
+        subject: "תרומתך חודשה",
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0B3C5D;">תרומתך חודשה בהצלחה</h2>
+            <p>שלום ${data.donorName ?? ""},</p>
+            <p>תרומתך חודשה ותהיה פעילה מחדש.</p>
+            <a href="${url}/dashboard"
+               style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
+              לאזור האישי
+            </a>
+          </div>`,
       };
 
-    // ── Subscription: canceled ────────────────────────────────────────────
     case "subscription_canceled":
       return {
-        subject: "המנוי בוטל",
-        html: wrapEmail(`
-          <p style="font-size:18px;font-weight:700;margin:0 0 16px;">המנוי בוטל</p>
-          ${data.donorName ? `<p>שלום ${escHtml(data.donorName)},</p>` : ""}
-          <p>המנוי שלך בוטל. אם מדובר בטעות או ברצונך להצטרף מחדש, אנחנו כאן.</p>
-          ${renderButton("לאזור האישי", userDashboardUrl)}
-        `),
+        to: "",
+        subject: "תרומתך בוטלה",
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0B3C5D;">תרומתך בוטלה</h2>
+            <p>שלום ${data.donorName ?? ""},</p>
+            <p>תרומתך בוטלה. נשמח לראותך שוב בעתיד.</p>
+            <a href="${url}/plans"
+               style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
+              הצטרף מחדש
+            </a>
+          </div>`,
       };
 
-    // ── Subscription: status changed by sync ──────────────────────────────
     case "subscription_sync_change":
       return {
-        subject: "עדכון במצב המנוי",
-        html: wrapEmail(`
-          <p style="font-size:18px;font-weight:700;margin:0 0 16px;">עדכון במצב המנוי</p>
-          ${data.donorName ? `<p>שלום ${escHtml(data.donorName)},</p>` : ""}
-          <p>זוהה שינוי במצב המנוי שלך.</p>
-          ${renderButton("לאזור האישי", userDashboardUrl)}
-        `),
-      };
-
-    // ── Subscription: bank direct debit approved ──────────────────────────
-    case "subscription_bank_approved":
-      return {
-        subject: "הוראת קבע בנקאית אושרה",
-        html: wrapEmail(`
-          <p style="font-size:18px;font-weight:700;margin:0 0 16px;">הוראת הקבע הבנקאית אושרה</p>
-          ${data.donorName ? `<p>שלום ${escHtml(data.donorName)},</p>` : ""}
-          <p>הבקשה לחברות בגמ"ח באמצעות הוראת קבע בנקאית אושרה והמנוי הוקם בהצלחה.</p>
-          ${renderButton("לאזור האישי", userDashboardUrl)}
-        `),
-      };
-
-    // ── Subscription: bank direct debit canceled ──────────────────────────
-    case "subscription_bank_canceled":
-      return {
-        subject: "הוראת הקבע הבנקאית בוטלה",
-        html: wrapEmail(`
-          <p style="font-size:18px;font-weight:700;margin:0 0 16px;">הוראת הקבע הבנקאית בוטלה</p>
-          ${data.donorName ? `<p>שלום ${escHtml(data.donorName)},</p>` : ""}
-          <p>הוראת הקבע הבנקאית שלך בוטלה.</p>
-          ${renderButton("לאזור האישי", userDashboardUrl)}
-        `),
+        to: "",
+        subject: "עדכון בסטטוס תרומתך",
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0B3C5D;">עדכון בתרומתך</h2>
+            <p>שלום ${data.donorName ?? ""},</p>
+            <p>חל שינוי בסטטוס תרומתך. לפרטים נוספים היכנס לאזור האישי.</p>
+            <a href="${url}/dashboard"
+               style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
+              לאזור האישי
+            </a>
+          </div>`,
       };
 
     default:
@@ -243,16 +208,8 @@ function renderTemplate(template: string, data: TemplateData, appUrl: string): E
   }
 }
 
-// ── HTML escape ───────────────────────────────────────────────────────────────
-function escHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-// ── Resend API call (single attempt) ─────────────────────────────────────────
-async function sendViaResend(to: string, subject: string, html: string): Promise<{ ok: boolean; providerResponse: unknown }> {
-  if (!RESEND_API_KEY) {
-    return { ok: false, providerResponse: { error: "RESEND_API_KEY not configured" } };
-  }
+// ── Send via Resend ───────────────────────────────────────────────────────────
+async function sendViaResend(to: string, subject: string, html: string): Promise<{ id: string }> {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -264,137 +221,99 @@ async function sendViaResend(to: string, subject: string, html: string): Promise
       to: [to],
       subject,
       html,
-      reply_to: [],
     }),
-    signal: AbortSignal.timeout(10000),
   });
-  const body = await res.json().catch(() => ({ status: res.status }));
-  return { ok: res.ok, providerResponse: body };
-}
 
-// ── Log to DB ─────────────────────────────────────────────────────────────────
-async function logEmail(svc: ReturnType<typeof makeSvc>, opts: {
-  recipient: string;
-  template: string;
-  subject: string;
-  relatedId?: string;
-  relatedType?: string;
-  success: boolean;
-  providerResponse: unknown;
-  errorMessage?: string;
-  retryCount: number;
-}) {
-  try {
-    await svc.from("email_log").insert({
-      recipient: opts.recipient,
-      template: opts.template,
-      subject: opts.subject,
-      related_id: opts.relatedId ?? null,
-      related_type: opts.relatedType ?? null,
-      success: opts.success,
-      provider_response: opts.providerResponse,
-      error_message: opts.errorMessage ?? null,
-      retry_count: opts.retryCount,
-      sent_at: new Date().toISOString(),
-    });
-  } catch (e) {
-    console.error("[email-log] Failed to write log:", e);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Resend ${res.status}: ${body}`);
   }
+
+  return res.json();
 }
 
-// ── Main handler ──────────────────────────────────────────────────────────────
+// ── Main handler ─────────────────────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
 
   try {
     const body = await req.json();
-    const { template, to, data = {}, relatedId, relatedType } = body as {
-      template: string;
-      to: string;
-      data?: TemplateData;
-      relatedId?: string;
-      relatedType?: string;
-    };
+    const {
+      template,
+      to: recipientOverride,
+      data = {},
+      relatedId,
+      relatedType,
+    } = body;
 
-    const ADMIN_TEMPLATES = ["new_support_ticket", "support_user_reply"];
-    if (!template || (!to && !ADMIN_TEMPLATES.includes(template))) {
-      return new Response(JSON.stringify({ error: "template and to are required" }), {
+    if (!template) {
+      return new Response(JSON.stringify({ ok: false, error: "missing template" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const svc = makeSvc();
-    const appUrl = data.appUrl || APP_URL;
+    const email = buildEmail(template, data, APP_URL);
 
-    // For admin-directed templates, always send to ADMIN_NOTIFICATION_EMAIL
-    // (the caller may pass to="" and rely on the env-configured address)
-    const isAdminTemplate = ["new_support_ticket", "support_user_reply"].includes(template);
-    let recipient = to;
-    if (isAdminTemplate) {
-      recipient = ADMIN_NOTIFICATION_EMAIL || to;
-      if (!recipient) {
-        console.warn(`[send-email] No admin email for template ${template}`);
-        return new Response(JSON.stringify({ ok: false, error: "No admin email configured" }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
-    const content = renderTemplate(template, data, appUrl);
-    if (!content) {
-      console.warn(`[send-email] Unknown template: ${template}`);
-      return new Response(JSON.stringify({ ok: false, error: `Unknown template: ${template}` }), {
-        status: 200,
+    if (!email) {
+      return new Response(JSON.stringify({ ok: false, error: `unknown template: ${template}` }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Send with one retry on failure
-    let result = await sendViaResend(recipient, content.subject, content.html);
-    let retryCount = 0;
+    // Caller-supplied `to` overrides template default
+    const finalTo = recipientOverride || email.to;
 
-    if (!result.ok) {
-      // Retry once after 1s for transient errors
-      await new Promise((r) => setTimeout(r, 1000));
-      result = await sendViaResend(recipient, content.subject, content.html);
-      retryCount = 1;
+    if (!finalTo) {
+      return new Response(JSON.stringify({ ok: false, error: "missing recipient" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    await logEmail(svc, {
-      recipient,
-      template,
-      subject: content.subject,
-      relatedId,
-      relatedType,
-      success: result.ok,
-      providerResponse: result.providerResponse,
-      errorMessage: result.ok ? undefined : JSON.stringify(result.providerResponse),
-      retryCount,
-    });
+    let providerResponse: Record<string, unknown> = {};
+    let success = false;
+    let errorMessage = "";
 
-    console.log(`[send-email] template=${template} to=${recipient} ok=${result.ok} retries=${retryCount}`);
+    // Attempt with one retry on transient failure
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        providerResponse = await sendViaResend(finalTo, email.subject, email.html);
+        success = true;
+        break;
+      } catch (err) {
+        errorMessage = err instanceof Error ? err.message : String(err);
+        if (attempt === 0 && errorMessage.includes("5")) continue; // retry on 5xx
+        break;
+      }
+    }
 
-    return new Response(JSON.stringify({ ok: result.ok }), {
-      status: 200,
+    // Log to email_log (best effort)
+    try {
+      await supabase.from("email_log").insert({
+        template,
+        recipient: finalTo,
+        success,
+        error_message: success ? null : errorMessage,
+        provider_response: providerResponse,
+        retry_count: success ? 0 : 1,
+        related_id: relatedId ?? null,
+        related_type: relatedType ?? null,
+      });
+    } catch (_) {
+      // logging failure must not affect response
+    }
+
+    return new Response(JSON.stringify({ ok: true, success, id: providerResponse.id ?? null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Internal error";
-    console.error("[send-email] Fatal:", msg);
-    // Never return 5xx — log and return ok:false
-    return new Response(JSON.stringify({ ok: false, error: msg }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });

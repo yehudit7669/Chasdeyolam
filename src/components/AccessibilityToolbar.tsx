@@ -6,6 +6,7 @@ import {
   Contrast,
   Baseline,
   Link as LinkIcon,
+  PauseCircle,
   RotateCcw,
   X,
 } from 'lucide-react';
@@ -13,10 +14,11 @@ import {
 const STORAGE_KEY = 'a11y-settings';
 
 interface A11ySettings {
-  fontSize: number;     // delta steps: -2..+4
+  fontSize: number;       // delta steps: -2..+4
   highContrast: boolean;
   grayscale: boolean;
   underlineLinks: boolean;
+  reduceMotion: boolean;
 }
 
 const DEFAULTS: A11ySettings = {
@@ -24,6 +26,7 @@ const DEFAULTS: A11ySettings = {
   highContrast: false,
   grayscale: false,
   underlineLinks: false,
+  reduceMotion: false,
 };
 
 function loadSettings(): A11ySettings {
@@ -44,7 +47,6 @@ function applySettings(s: A11ySettings) {
   const root = document.documentElement;
 
   // Font size: each step = 10% of base (1rem)
-  root.style.setProperty('--a11y-font-scale', s.fontSize !== 0 ? `${1 + s.fontSize * 0.1}` : '');
   if (s.fontSize !== 0) {
     root.style.fontSize = `${1 + s.fontSize * 0.1}rem`;
   } else {
@@ -55,6 +57,7 @@ function applySettings(s: A11ySettings) {
   root.classList.toggle('a11y-high-contrast', s.highContrast);
   root.classList.toggle('a11y-grayscale', s.grayscale);
   root.classList.toggle('a11y-underline-links', s.underlineLinks);
+  root.classList.toggle('a11y-reduce-motion', s.reduceMotion);
 }
 
 export default function AccessibilityToolbar() {
@@ -76,7 +79,8 @@ export default function AccessibilityToolbar() {
     settings.fontSize !== 0 ||
     settings.highContrast ||
     settings.grayscale ||
-    settings.underlineLinks;
+    settings.underlineLinks ||
+    settings.reduceMotion;
 
   return (
     <>
@@ -145,9 +149,10 @@ export default function AccessibilityToolbar() {
 
             {/* Toggle rows */}
             {([
-              { key: 'highContrast', label: 'ניגודיות גבוהה', Icon: Contrast },
-              { key: 'grayscale', label: 'גווני אפור', Icon: Baseline },
-              { key: 'underlineLinks', label: 'הדגש קישורים', Icon: LinkIcon },
+              { key: 'highContrast',  label: 'ניגודיות גבוהה',  Icon: Contrast     },
+              { key: 'grayscale',     label: 'גווני אפור',       Icon: Baseline     },
+              { key: 'underlineLinks',label: 'הדגש קישורים',    Icon: LinkIcon     },
+              { key: 'reduceMotion',  label: 'עצור אנימציות',   Icon: PauseCircle  },
             ] as const).map(({ key, label, Icon }) => (
               <button
                 key={key}
@@ -165,16 +170,14 @@ export default function AccessibilityToolbar() {
                   <span>{label}</span>
                 </div>
                 <div
-                  className={`w-8 h-4.5 rounded-full relative transition-colors ${
+                  style={{ height: '18px' }}
+                  className={`w-8 rounded-full relative transition-colors ${
                     settings[key] ? 'bg-white/30' : 'bg-[#D4CFC6]'
                   }`}
-                  style={{ height: '18px' }}
                 >
                   <div
                     className={`absolute top-0.5 w-3.5 h-3.5 rounded-full transition-all ${
-                      settings[key]
-                        ? 'bg-white right-0.5'
-                        : 'bg-white left-0.5'
+                      settings[key] ? 'bg-white right-0.5' : 'bg-white left-0.5'
                     }`}
                   />
                 </div>
