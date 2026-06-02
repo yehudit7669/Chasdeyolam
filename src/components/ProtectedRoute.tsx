@@ -49,21 +49,14 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
     return <Navigate to="/signin" replace />;
   }
 
+  // Profile fetch is still in-flight — user exists but profile hasn't landed yet.
+  // Show a spinner rather than a false "not found" message.
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
-          <AlertCircle className="mx-auto text-yellow-600 mb-4" size={48} />
-          <h2 className="text-xl font-bold text-gray-800 mb-4">פרופיל לא נמצא</h2>
-          <p className="text-gray-600 mb-6">
-            לא הצלחנו לטעון את הפרופיל שלך. אנא התנתק והתחבר שוב.
-          </p>
-          <a
-            href="/signin"
-            className="block w-full bg-[#0B3C5D] text-white py-3 rounded-lg hover:bg-opacity-90"
-          >
-            חזור לדף התחברות
-          </a>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0B3C5D] mx-auto mb-4"></div>
+          <p className="text-gray-600">טוען...</p>
         </div>
       </div>
     );
