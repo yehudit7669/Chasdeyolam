@@ -282,14 +282,14 @@ export default function HomePage() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-16">
+          <div className="grid md:grid-cols-3 gap-16 items-stretch">
             {(
               [
                 {
                   Icon: Gift,
                   title: isRtl ? 'נתינה מתמדת' : 'Continuous Giving',
                   desc: isRtl
-                    ? 'בחרו תוכנית תרומה שמתאימה לכם והצטרפו לקהילת החסד שלנו.'
+                    ? 'בחרו תוכנית תרומה שמתאימה לכם ותהיו שותפים לגמ"ח שלנו.'
                     : 'Select a monthly plan that reflects your philanthropic goals.',
                   step: 'I',
                 },
@@ -297,7 +297,7 @@ export default function HomePage() {
                   Icon: Users,
                   title: isRtl ? 'צבירת זכויות' : 'Growing Equity',
                   desc: isRtl
-                    ? 'כל תשלום מקרב אתכם ליעד הזכאות ומחזק את פעילות הארגון.'
+                    ? 'כל תשלום מקרב אתכם ליעד הזכאות ומגדיל את פעילות הגמ"ח.'
                     : 'Each contribution builds your eligibility while funding vital missions.',
                   step: 'II',
                 },
@@ -311,19 +311,19 @@ export default function HomePage() {
                 },
               ] as const
             ).map(({ Icon, title, desc, step }, i) => (
-              <div key={i} className="group relative">
+              <div key={i} className="group relative h-full">
                 <div
-                  className="p-12 text-center bg-white rounded-[2rem] border border-[#E5E1D8]/40 hover:border-[#B08D57]/30 transition-all duration-500 hover:-translate-y-2"
+                  className="h-full flex flex-col items-center p-12 text-center bg-white rounded-[2rem] border border-[#E5E1D8]/40 hover:border-[#B08D57]/30 transition-all duration-500 hover:-translate-y-2"
                   style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
                 >
-                  <div className="mb-10 w-24 h-24 mx-auto bg-[#F9F8F4] text-[#B08D57] rounded-full flex items-center justify-center relative z-10 transition-all duration-500 group-hover:bg-[#B08D57] group-hover:text-white">
+                  <div className="mb-10 w-24 h-24 bg-[#F9F8F4] text-[#B08D57] rounded-full flex items-center justify-center relative z-10 transition-all duration-500 group-hover:bg-[#B08D57] group-hover:text-white shrink-0">
                     <Icon size={40} strokeWidth={1} />
                   </div>
-                  <span className="block text-sm font-bold text-[#B08D57]/40 tracking-widest mb-4">
+                  <span className="block text-sm font-bold text-[#B08D57]/40 tracking-widest mb-4 shrink-0">
                     {step}
                   </span>
-                  <h3 className="text-2xl font-bold text-[#2D3E40] mb-5">{title}</h3>
-                  <p className="text-[#33332D]/70 leading-relaxed font-light">{desc}</p>
+                  <h3 className="text-2xl font-bold text-[#2D3E40] mb-5 shrink-0">{title}</h3>
+                  <p className="text-[#33332D]/70 leading-relaxed font-light flex-1">{desc}</p>
                 </div>
               </div>
             ))}
