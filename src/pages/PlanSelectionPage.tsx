@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Hotel, Heart, ShieldCheck, Star, ChevronDown } from 'lucide-react';
 import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { useTranslation } from '../hooks/useTranslation';
 import { Layout } from '../components/Layout';
 
 const HOTELS_INITIALLY_VISIBLE = 4;
 
-function HotelList({ hotels, isFeatured }: { hotels: HotelItem[]; isFeatured: boolean }) {
+function HotelList({ hotels, isFeatured, showLess, moreHotels }: { hotels: HotelItem[]; isFeatured: boolean; showLess: string; moreHotels: (n: number) => string }) {
   const [expanded, setExpanded] = useState(false);
   const extraRef = useRef<HTMLDivElement>(null);
   const [extraHeight, setExtraHeight] = useState(0);
@@ -71,7 +72,7 @@ function HotelList({ hotels, isFeatured }: { hotels: HotelItem[]; isFeatured: bo
                 size={13}
                 className={`transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
               />
-              {expanded ? 'הצג פחות' : `+${extra.length} מלונות נוספים`}
+              {expanded ? showLess : moreHotels(extra.length)}
             </button>
           </li>
         </>
@@ -99,6 +100,8 @@ interface HotelItem {
 export default function PlanSelectionPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useTranslation();
+  const ps = t.planSelection;
   const [plans, setPlans] = useState<Plan[]>([]);
   const [hotelsByLevel, setHotelsByLevel] = useState<Record<string, HotelItem[]>>({});
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
@@ -156,11 +159,11 @@ export default function PlanSelectionPage() {
     setError('');
 
     if (formData.password !== formData.confirmPassword) {
-      setError('הסיסמאות אינן תואמות');
+      setError(ps.errorPasswordMismatch);
       return;
     }
     if (formData.password.length < 6) {
-      setError('הסיסמה חייבת להכיל לפחות 6 תווים');
+      setError(ps.errorPasswordShort);
       return;
     }
 
@@ -190,13 +193,13 @@ export default function PlanSelectionPage() {
     } catch (err: any) {
       const msg = (err?.message || '').toLowerCase();
       if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already')) {
-        setError('כתובת האימייל כבר רשומה במערכת. נסו להתחבר במקום.');
+        setError(ps.errorEmailExists);
       } else if (msg.includes('invalid email')) {
-        setError('כתובת האימייל אינה תקינה.');
+        setError(ps.errorInvalidEmail);
       } else if (msg.includes('rate limit') || msg.includes('too many')) {
-        setError('יותר מדי ניסיונות הרשמה. נסו שוב מאוחר יותר.');
+        setError(ps.errorRateLimit);
       } else {
-        setError('אירעה שגיאה בהרשמה. נסו שוב.');
+        setError(ps.errorGeneral);
       }
     } finally {
       setRegistering(false);
@@ -209,7 +212,7 @@ export default function PlanSelectionPage() {
         <div className="min-h-[60vh] flex items-center justify-center" dir="rtl">
           <div className="text-center">
             <div className="w-12 h-12 border-2 border-[#E5E1D8] border-t-[#626D58] rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-[#33332D]/50 text-sm">טוען תוכניות...</p>
+            <p className="text-[#33332D]/50 text-sm">{ps.loading}</p>
           </div>
         </div>
       </Layout>
@@ -226,7 +229,7 @@ export default function PlanSelectionPage() {
               className="flex items-center gap-2 text-sm text-[#33332D]/50 hover:text-[#33332D] mb-8 transition-colors"
             >
               <ArrowRight size={16} />
-              <span>חזרה לבחירת תוכנית</span>
+              <span>{ps.backToPlanSelection}</span>
             </button>
 
             {/* Selected plan summary */}
@@ -234,10 +237,10 @@ export default function PlanSelectionPage() {
               className="p-5 rounded-2xl border border-[#D4B483]/40 mb-6"
               style={{ background: 'linear-gradient(135deg, #D4B483/5 0%, transparent 100%)', backgroundColor: 'rgba(212,180,131,0.05)' }}
             >
-              <div className="text-xs font-bold uppercase tracking-widest text-[#D4B483] mb-1">תוכנית נבחרה</div>
+              <div className="text-xs font-bold uppercase tracking-widest text-[#D4B483] mb-1">{ps.selectedPlanLabel}</div>
               <div className="font-bold text-[#0A192F]">{selectedPlan.name_he}</div>
               <div className="text-sm text-[#33332D]/60 mt-0.5">
-                ₪{selectedPlan.monthly_amount.toLocaleString()} לחודש · {selectedPlan.required_successful_payments} תשלומים
+                ₪{selectedPlan.monthly_amount.toLocaleString()} {ps.perMonth} · {selectedPlan.required_successful_payments} {ps.paymentsCount}
               </div>
             </div>
 
@@ -245,7 +248,7 @@ export default function PlanSelectionPage() {
               className="bg-white rounded-[2rem] p-8 border border-[#E5E1D8]/60"
               style={{ boxShadow: '0 8px 40px 0 rgba(98,109,88,0.1)' }}
             >
-              <h2 className="text-2xl font-black text-[#0A192F] mb-6">הרשמה למערכת</h2>
+              <h2 className="text-2xl font-black text-[#0A192F] mb-6">{ps.registrationTitle}</h2>
 
               {error && (
                 <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl mb-6 text-red-700 text-sm">
@@ -255,11 +258,11 @@ export default function PlanSelectionPage() {
 
               <form onSubmit={handleRegistration} className="space-y-4">
                 {[
-                  { label: 'שם מלא *', type: 'text', key: 'fullName', placeholder: 'ישראל ישראלי', dir: 'rtl' },
-                  { label: 'אימייל *', type: 'email', key: 'email', placeholder: 'your@email.com', dir: 'ltr' },
-                  { label: 'טלפון', type: 'tel', key: 'phone', placeholder: '050-000-0000', dir: 'ltr' },
-                  { label: 'סיסמה *', type: 'password', key: 'password', placeholder: 'לפחות 6 תווים', dir: 'rtl' },
-                  { label: 'אימות סיסמה *', type: 'password', key: 'confirmPassword', placeholder: '••••••••', dir: 'rtl' },
+                  { label: ps.fieldFullName, type: 'text', key: 'fullName', placeholder: ps.fieldFullNamePlaceholder, dir: 'rtl' },
+                  { label: ps.fieldEmail, type: 'email', key: 'email', placeholder: 'your@email.com', dir: 'ltr' },
+                  { label: ps.fieldPhone, type: 'tel', key: 'phone', placeholder: '050-000-0000', dir: 'ltr' },
+                  { label: ps.fieldPassword, type: 'password', key: 'password', placeholder: ps.fieldPasswordPlaceholder, dir: 'rtl' },
+                  { label: ps.fieldConfirmPassword, type: 'password', key: 'confirmPassword', placeholder: ps.fieldConfirmPasswordPlaceholder, dir: 'rtl' },
                 ].map(({ label, type, key, placeholder, dir }) => (
                   <div key={key}>
                     <label className="block text-sm font-semibold text-[#33332D]/70 mb-2">{label}</label>
@@ -283,18 +286,18 @@ export default function PlanSelectionPage() {
                   {registering ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    'הרשמה ומעבר לתשלום'
+                    ps.registerButton
                   )}
                 </button>
               </form>
 
               <p className="mt-6 text-center text-sm text-[#33332D]/50">
-                כבר יש לך חשבון?{' '}
+                {ps.hasAccount}{' '}
                 <button
                   onClick={() => navigate('/signin', { state: { returnTo: '/plans', planId: selectedPlan.id } })}
                   className="text-[#626D58] font-semibold hover:text-[#626D58]/80 transition-colors"
                 >
-                  התחבר כאן
+                  {ps.signInLink}
                 </button>
               </p>
             </div>
@@ -317,19 +320,19 @@ export default function PlanSelectionPage() {
               className="inline-flex items-center gap-2 text-sm text-[#33332D]/50 hover:text-[#33332D] mb-6 transition-colors"
             >
               <ArrowRight size={16} />
-              <span>חזרה לדף הבית</span>
+              <span>{ps.backToHome}</span>
             </button>
 
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#626D58]/10 text-[#626D58] text-xs font-semibold uppercase tracking-widest mb-4">
               <Star size={12} fill="currentColor" />
-              <span>חבילות חסד</span>
+              <span>{ps.badge}</span>
             </div>
 
             <h1 className="text-4xl md:text-5xl font-black text-[#0A192F] tracking-tight mb-4">
-              בחר את התוכנית שלך
+              {ps.title}
             </h1>
             <p className="text-[#33332D]/50 max-w-lg mx-auto font-light">
-              כל תוכנית מעניקה עולם שלם של חסד ואפשרות לחופשה חלומית
+              {ps.subtitle}
             </p>
           </div>
 
@@ -358,7 +361,7 @@ export default function PlanSelectionPage() {
                     <div className="absolute top-5 start-5">
                       <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#D4B483] text-[#0A192F] text-[10px] font-bold uppercase tracking-widest">
                         <Star size={10} fill="currentColor" />
-                        הכי פופולרי
+                        {ps.mostPopular}
                       </span>
                     </div>
                   )}
@@ -384,11 +387,11 @@ export default function PlanSelectionPage() {
                           ₪{plan.monthly_amount.toLocaleString()}
                         </span>
                         <span className={`text-sm font-light ${isFeatured ? 'text-white/50' : 'text-[#33332D]/50'}`}>
-                          / לחודש
+                          {ps.perMonth}
                         </span>
                       </div>
                       <div className={`text-xs mt-1.5 ${isFeatured ? 'text-white/40' : 'text-[#33332D]/40'}`}>
-                        {plan.required_successful_payments} תשלומים · סה"כ ₪{totalAmount.toLocaleString()}
+                        {plan.required_successful_payments} {ps.paymentsTotal} ₪{totalAmount.toLocaleString()}
                       </div>
                     </div>
 
@@ -396,13 +399,13 @@ export default function PlanSelectionPage() {
                     <div className="mb-8 flex-1">
                       <div className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-widest mb-3 ${isFeatured ? 'text-[#D4B483]/70' : 'text-[#33332D]/40'}`}>
                         <Hotel size={12} />
-                        <span>זכאות למלונות</span>
+                        <span>{ps.hotelEligibility}</span>
                       </div>
                       {eligibleHotels.length > 0 ? (
-                        <HotelList hotels={eligibleHotels} isFeatured={isFeatured} />
+                        <HotelList hotels={eligibleHotels} isFeatured={isFeatured} showLess={ps.showLess} moreHotels={(n) => ps.moreHotels.replace('{n}', String(n))} />
                       ) : (
                         <p className={`text-sm ${isFeatured ? 'text-white/30' : 'text-[#33332D]/30'}`}>
-                          לא נמצאו מלונות זמינים
+                          {ps.noHotels}
                         </p>
                       )}
                     </div>
@@ -416,7 +419,7 @@ export default function PlanSelectionPage() {
                       }`}
                       style={isFeatured ? { background: 'linear-gradient(135deg, #D4B483 0%, #B08D57 100%)' } : {}}
                     >
-                      {user ? 'בחר תוכנית זו' : 'הירשם ובחר תוכנית זו'}
+                      {user ? ps.selectPlan : ps.selectPlanRegister}
                     </button>
                   </div>
                 </div>
@@ -427,15 +430,15 @@ export default function PlanSelectionPage() {
           {plans.length === 0 && (
             <div className="text-center py-16">
               <Heart className="mx-auto mb-4 text-[#33332D]/20" size={48} />
-              <p className="text-[#33332D]/50">אין תוכניות זמינות כרגע</p>
+              <p className="text-[#33332D]/50">{ps.noPlans}</p>
             </div>
           )}
 
           {/* Trust signals */}
           <div className="flex items-center justify-center gap-8 mt-12 flex-wrap">
             {[
-              { icon: ShieldCheck, text: 'תשלום מאובטח SSL' },
-              { icon: Check, text: 'ביטול בכל עת' },
+              { icon: ShieldCheck, text: ps.sslBadge },
+              { icon: Check, text: ps.cancelAnytime },
             ].map(({ icon: Icon, text }) => (
               <div key={text} className="flex items-center gap-2 text-sm text-[#33332D]/40">
                 <Icon size={16} className="text-[#626D58]" />

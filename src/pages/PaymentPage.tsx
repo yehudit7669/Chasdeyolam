@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle, XCircle, Loader2, Shield, Lock, CreditCard, Building2, X, Send, MessageSquare, AlertCircle } from 'lucide-react';
 import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface Plan {
   id: string;
@@ -27,6 +28,8 @@ export default function PaymentPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { t } = useTranslation();
+  const p = t.payment;
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -66,11 +69,11 @@ export default function PaymentPage() {
       const { data, error } = await supabase
         .from('plans').select('*').eq('id', planId).eq('active', true).maybeSingle();
       if (error) throw error;
-      if (!data) { setErrorMsg('תוכנית לא נמצאה'); setPageState('failure'); return; }
+      if (!data) { setErrorMsg(p.planNotFound); setPageState('failure'); return; }
       setPlan(data);
       setPageState('ready');
     } catch (err: any) {
-      setErrorMsg(err.message || 'שגיאה בטעינת תוכנית');
+      setErrorMsg(err.message || p.errorLoadingPlan);
       setPageState('failure');
     }
   };
@@ -106,7 +109,7 @@ export default function PaymentPage() {
       case 'TransactionResponse': {
         const resp = data.Value ?? {};
         if (resp.Status === 'Error') {
-          setErrorMsg(resp.Message ?? 'שגיאה בעיבוד התשלום');
+          setErrorMsg(resp.Message ?? p.errorProcessing);
           setPageState('failure');
         } else {
           setPageState('success');
@@ -158,7 +161,7 @@ export default function PaymentPage() {
         Mail: mail,
         Amount: String(plan.monthly_amount),
         Tashlumim: NEDARIM_TASHLUMIM,
-        Groupe: 'תשלום דרך אתר נציבים',
+        Groupe: p.nedarimGroup,
         Comment: '',
         Param1: user.id,
         Param2: plan.id,
@@ -256,7 +259,7 @@ export default function PaymentPage() {
       <div className="min-h-screen bg-[#F7F5F0] flex items-center justify-center" dir="rtl">
         <div className="text-center">
           <div className="w-12 h-12 border-2 border-[#E5E1D8] border-t-[#626D58] rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#33332D]/50 text-sm">טוען...</p>
+          <p className="text-[#33332D]/50 text-sm">{p.loading}</p>
         </div>
       </div>
     );
@@ -270,21 +273,21 @@ export default function PaymentPage() {
           <div className="w-16 h-16 rounded-full bg-[#626D58]/10 flex items-center justify-center mx-auto mb-5">
             <MessageSquare size={32} className="text-[#626D58]" />
           </div>
-          <h2 className="text-2xl font-black text-[#0A192F] mb-3">הפנייה נשלחה!</h2>
+          <h2 className="text-2xl font-black text-[#0A192F] mb-3">{p.bankSuccessTitle}</h2>
           <p className="text-[#33332D]/60 text-sm mb-2 leading-relaxed">
-            קיבלנו את בקשתך להצטרפות באמצעות הוראת קבע בנקאית.
+            {p.bankSuccessDesc1}
           </p>
           <p className="text-[#33332D]/60 text-sm mb-8 leading-relaxed">
-            נציג מצוות התמיכה שלנו יחזור אליך בהקדם כדי לסייע בהקמת הוראת הקבע.
+            {p.bankSuccessDesc2}
           </p>
           <div className="flex gap-3">
             <button onClick={() => navigate('/support')}
               className="flex-1 py-3.5 border border-[#E5E1D8] text-[#33332D]/70 font-semibold rounded-xl hover:bg-[#F7F5F0] transition-all text-sm">
-              צפה בפנייה
+              {p.viewRequest}
             </button>
             <button onClick={() => navigate('/dashboard')}
               className="flex-1 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all text-sm">
-              לדשבורד
+              {p.toDashboard}
             </button>
           </div>
         </div>
@@ -300,13 +303,13 @@ export default function PaymentPage() {
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5">
             <CheckCircle size={32} className="text-green-600" />
           </div>
-          <h2 className="text-2xl font-black text-[#0A192F] mb-3">התשלום הושלם!</h2>
+          <h2 className="text-2xl font-black text-[#0A192F] mb-3">{p.successTitle}</h2>
           <p className="text-[#33332D]/60 text-sm mb-8 leading-relaxed">
-            הוראת הקבע נרשמה בהצלחה. המנוי שלך פעיל וצבירת הזכאות מתחילה מעכשיו.
+            {p.successDesc}
           </p>
           <button onClick={() => navigate('/dashboard')}
             className="w-full py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all">
-            עבור ללוח הבקרה
+            {p.goToDashboard}
           </button>
         </div>
       </div>
@@ -321,16 +324,16 @@ export default function PaymentPage() {
           <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-5">
             <XCircle size={32} className="text-amber-500" />
           </div>
-          <h2 className="text-2xl font-black text-[#0A192F] mb-3">התשלום בוטל</h2>
-          <p className="text-[#33332D]/60 text-sm mb-8">ביטלת את תהליך התשלום.</p>
+          <h2 className="text-2xl font-black text-[#0A192F] mb-3">{p.cancelTitle}</h2>
+          <p className="text-[#33332D]/60 text-sm mb-8">{p.cancelDesc}</p>
           <div className="flex gap-3">
             <button onClick={() => navigate('/plans')}
               className="flex-1 py-3.5 border border-[#E5E1D8] text-[#33332D]/60 font-semibold rounded-xl hover:bg-[#F7F5F0] transition-all text-sm">
-              חזרה לתוכניות
+              {p.backToPlans}
             </button>
             <button onClick={() => { setPageState('ready'); setIframeVisible(false); }}
               className="flex-1 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all text-sm">
-              נסה שוב
+              {p.tryAgain}
             </button>
           </div>
         </div>
@@ -346,16 +349,16 @@ export default function PaymentPage() {
           <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-5">
             <XCircle size={32} className="text-red-500" />
           </div>
-          <h2 className="text-2xl font-black text-[#0A192F] mb-3">שגיאה בתשלום</h2>
-          <p className="text-[#33332D]/60 text-sm mb-8">{errorMsg || 'אירעה שגיאה. נסה שוב.'}</p>
+          <h2 className="text-2xl font-black text-[#0A192F] mb-3">{p.failureTitle}</h2>
+          <p className="text-[#33332D]/60 text-sm mb-8">{errorMsg || p.errorGeneral}</p>
           <div className="flex gap-3">
             <button onClick={() => navigate('/plans')}
               className="flex-1 py-3.5 border border-[#E5E1D8] text-[#33332D]/60 font-semibold rounded-xl hover:bg-[#F7F5F0] transition-all text-sm">
-              חזרה לתוכניות
+              {p.backToPlans}
             </button>
             <button onClick={() => { setPageState('ready'); setIframeVisible(false); setErrorMsg(''); }}
               className="flex-1 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all text-sm">
-              נסה שוב
+              {p.tryAgain}
             </button>
           </div>
         </div>
@@ -373,13 +376,13 @@ export default function PaymentPage() {
           <button onClick={() => navigate('/plans')}
             className="flex items-center gap-2 text-sm text-[#33332D]/50 hover:text-[#33332D] mb-8 transition-colors">
             <ArrowRight size={16} />
-            <span>חזרה לבחירת תוכניות</span>
+            <span>{p.backToSelectPlans}</span>
           </button>
         )}
 
         <div className="flex items-center gap-2 mb-6 text-xs text-[#626D58] font-semibold">
           <Lock size={13} />
-          <span>תשלום מאובטח SSL · נדרים פלוס PCI DSS</span>
+          <span>{p.sslBadge}</span>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -390,35 +393,35 @@ export default function PaymentPage() {
               {/* Step 1: choose payment method */}
               {pageState === 'ready' && (
                 <div className="p-8">
-                  <h1 className="text-2xl font-black text-[#0A192F] mb-6">פרטי תשלום</h1>
+                  <h1 className="text-2xl font-black text-[#0A192F] mb-6">{p.paymentDetails}</h1>
 
                   {/* Plan summary */}
                   {plan && (
                     <div className="rounded-2xl bg-[#0A192F] p-5 mb-6 text-white">
-                      <div className="text-xs font-bold uppercase tracking-[0.25em] text-[#D4B483]/60 mb-3">סיכום ההתחייבות</div>
+                      <div className="text-xs font-bold uppercase tracking-[0.25em] text-[#D4B483]/60 mb-3">{p.commitmentSummary}</div>
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <div className="text-white/40 text-xs mb-0.5">תוכנית</div>
+                          <div className="text-white/40 text-xs mb-0.5">{p.planLabel}</div>
                           <div className="font-bold">{plan.name_he}</div>
                         </div>
                         <div>
-                          <div className="text-white/40 text-xs mb-0.5">סוג תשלום</div>
-                          <div className="font-bold">הוראת קבע חודשית</div>
+                          <div className="text-white/40 text-xs mb-0.5">{p.paymentType}</div>
+                          <div className="font-bold">{p.standingOrder}</div>
                         </div>
                         <div>
-                          <div className="text-white/40 text-xs mb-0.5">תשלום חודשי</div>
+                          <div className="text-white/40 text-xs mb-0.5">{p.monthlyPayment}</div>
                           <div className="font-bold text-[#D4B483]">₪{plan.monthly_amount.toLocaleString()}</div>
                         </div>
                         <div>
-                          <div className="text-white/40 text-xs mb-0.5">מספר תשלומים</div>
-                          <div className="font-bold">{plan.required_successful_payments} חודשים</div>
+                          <div className="text-white/40 text-xs mb-0.5">{p.numPayments}</div>
+                          <div className="font-bold">{plan.required_successful_payments} {p.months}</div>
                         </div>
                         <div>
-                          <div className="text-white/40 text-xs mb-0.5">סה"כ התחייבות</div>
+                          <div className="text-white/40 text-xs mb-0.5">{p.totalCommitment}</div>
                           <div className="font-bold">₪{totalAmount.toLocaleString()}</div>
                         </div>
                         <div>
-                          <div className="text-white/40 text-xs mb-0.5">רמת מלון</div>
+                          <div className="text-white/40 text-xs mb-0.5">{p.hotelLevel}</div>
                           <div className="font-bold">{hotelLevelLabel(plan.hotel_level)}</div>
                         </div>
                       </div>
@@ -427,17 +430,12 @@ export default function PaymentPage() {
 
                   {/* Terms summary */}
                   <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-5 mb-6">
-                    <h4 className="font-semibold text-[#0A192F] text-sm mb-3">עיקרי תנאי השירות</h4>
+                    <h4 className="font-semibold text-[#0A192F] text-sm mb-3">{p.termsTitle}</h4>
                     <ul className="text-xs text-[#33332D]/60 space-y-2 leading-relaxed">
-                      {[
-                        'התשלומים יחויבו מדי חודש באופן אוטומטי',
-                        'זכאות למלון תינתן רק לאחר השלמת כל התשלומים הנדרשים',
-                        'כל הכספים ששולמו מהווים תרומה ולא יוחזרו במקרה של ביטול',
-                        'ניתן לבטל את המנוי בכל עת דרך הגדרות החשבון',
-                      ].map((t) => (
-                        <li key={t} className="flex items-start gap-2">
+                      {[p.termsBullet1, p.termsBullet2, p.termsBullet3, p.termsBullet4].map((item) => (
+                        <li key={item} className="flex items-start gap-2">
                           <CheckCircle size={12} className="text-[#626D58] mt-0.5 flex-shrink-0" />
-                          {t}
+                          {item}
                         </li>
                       ))}
                     </ul>
@@ -456,7 +454,7 @@ export default function PaymentPage() {
                       className="mt-0.5 w-4 h-4 accent-[#626D58] flex-shrink-0"
                     />
                     <span className="text-sm text-[#33332D]/70 leading-relaxed">
-                      קראתי ואני מאשר/ת את{' '}
+                      {p.termsAgreement}{' '}
                       <Link
                         to="/terms-of-use"
                         target="_blank"
@@ -464,7 +462,7 @@ export default function PaymentPage() {
                         className="text-[#0A192F] font-semibold underline underline-offset-2 hover:text-[#626D58] transition-colors"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        תנאי השימוש ומדיניות התרומות
+                        {p.termsLink}
                       </Link>
                     </span>
                   </label>
@@ -473,13 +471,13 @@ export default function PaymentPage() {
                   {!agreed && (
                     <div className="flex items-center gap-2 px-4 py-2.5 mb-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
                       <AlertCircle size={14} className="flex-shrink-0" />
-                      <span>יש לאשר את תנאי השימוש לפני המשך התהליך</span>
+                      <span>{p.termsWarning}</span>
                     </div>
                   )}
 
                   {/* TWO payment method buttons */}
                   <div className="space-y-3 mt-4">
-                    <p className="text-xs font-semibold text-[#33332D]/50 mb-2">בחר אמצעי תשלום:</p>
+                    <p className="text-xs font-semibold text-[#33332D]/50 mb-2">{p.choosePaymentMethod}</p>
                     <div className="grid sm:grid-cols-2 gap-3">
                       {/* Credit card — Nedarim iframe */}
                       <button
@@ -495,9 +493,9 @@ export default function PaymentPage() {
                           <CreditCard size={20} className={agreed ? 'text-white' : 'text-[#33332D]/30'} />
                         </div>
                         <div className="text-center">
-                          <div className="font-bold text-sm">כרטיס אשראי</div>
+                          <div className="font-bold text-sm">{p.creditCardLabel}</div>
                           <div className={`text-xs mt-0.5 ${agreed ? 'text-white/60' : 'text-[#33332D]/25'}`}>
-                            הוראת קבע דרך נדרים פלוס
+                            {p.creditCardSubtitle}
                           </div>
                         </div>
                       </button>
@@ -516,9 +514,9 @@ export default function PaymentPage() {
                           <Building2 size={20} className={agreed ? 'text-[#626D58]' : 'text-[#33332D]/30'} />
                         </div>
                         <div className="text-center">
-                          <div className={`font-bold text-sm ${agreed ? 'text-[#0A192F]' : ''}`}>הוראת קבע בנקאית</div>
+                          <div className={`font-bold text-sm ${agreed ? 'text-[#0A192F]' : ''}`}>{p.bankLabel}</div>
                           <div className={`text-xs mt-0.5 ${agreed ? 'text-[#33332D]/50' : 'text-[#33332D]/25'}`}>
-                            דרך הבנק — צוות התמיכה יסייע
+                            {p.bankSubtitle}
                           </div>
                         </div>
                       </button>
@@ -534,21 +532,21 @@ export default function PaymentPage() {
                     <div className="px-6 pt-5 pb-0">
                       <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-4 flex flex-wrap gap-x-6 gap-y-2 text-xs mb-1">
                         <span className="font-bold text-[#0A192F]">{plan.name_he}</span>
-                        <span className="text-[#33332D]/50">הוראת קבע</span>
-                        <span className="text-[#626D58] font-semibold">₪{plan.monthly_amount.toLocaleString()} × {plan.required_successful_payments} חודשים</span>
-                        <span className="text-[#B08D57] font-bold">סה"כ: ₪{totalAmount.toLocaleString()}</span>
+                        <span className="text-[#33332D]/50">{p.standingOrder}</span>
+                        <span className="text-[#626D58] font-semibold">₪{plan.monthly_amount.toLocaleString()} × {plan.required_successful_payments} {p.months}</span>
+                        <span className="text-[#B08D57] font-bold">{p.bankTotalLabel} ₪{totalAmount.toLocaleString()}</span>
                       </div>
                     </div>
                   )}
                   <div className="px-6 py-4 border-b border-[#E5E1D8]/60 flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#0A192F]">
                       <Shield size={16} className="text-[#626D58]" />
-                      <span>טופס תשלום מאובטח — נדרים פלוס</span>
+                      <span>{p.secureFormTitle}</span>
                     </div>
                     {pageState === 'iframe' && (
                       <button onClick={() => { setPageState('cancel'); setIframeVisible(false); }}
                         className="text-xs text-[#33332D]/40 hover:text-[#33332D]/70 transition-colors">
-                        ביטול
+                        {p.cancelBtn}
                       </button>
                     )}
                   </div>
@@ -557,7 +555,7 @@ export default function PaymentPage() {
                     <div className="flex items-center justify-center py-16">
                       <div className="text-center">
                         <Loader2 size={36} className="animate-spin text-[#626D58] mx-auto mb-3" />
-                        <p className="text-[#33332D]/50 text-sm">טוען טופס תשלום...</p>
+                        <p className="text-[#33332D]/50 text-sm">{p.loadingForm}</p>
                       </div>
                     </div>
                   )}
@@ -567,7 +565,7 @@ export default function PaymentPage() {
                     src={NEDARIM_IFRAME_SRC}
                     onLoad={handleIframeLoad}
                     style={{ width: '100%', height: `${iframeHeight}px`, border: 'none', display: iframeVisible ? 'block' : 'none' }}
-                    title="טופס תשלום נדרים פלוס"
+                    title={p.iframeTitle}
                     allow="payment"
                   />
 
@@ -576,10 +574,10 @@ export default function PaymentPage() {
                       <button onClick={handlePayClick}
                         className="w-full py-4 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2">
                         <Shield size={18} />
-                        <span>בצע תשלום</span>
+                        <span>{p.submitPayment}</span>
                       </button>
                       <p className="text-center text-xs text-[#33332D]/40 mt-3">
-                        לחיצה על "בצע תשלום" תשלח את פרטי הכרטיס לנדרים פלוס בצורה מוצפנת
+                        {p.submitNote}
                       </p>
                     </div>
                   )}
@@ -587,7 +585,7 @@ export default function PaymentPage() {
                   {pageState === 'paying' && (
                     <div className="px-6 py-5 border-t border-[#E5E1D8]/60 flex items-center justify-center gap-3">
                       <Loader2 size={20} className="animate-spin text-[#626D58]" />
-                      <span className="text-sm text-[#33332D]/60">מעבד תשלום...</span>
+                      <span className="text-sm text-[#33332D]/60">{p.processingPayment}</span>
                     </div>
                   )}
                 </div>
@@ -601,32 +599,32 @@ export default function PaymentPage() {
               <div className="bg-[#0A192F] text-white rounded-[2rem] p-6 sticky top-8"
                 style={{ boxShadow: '0 20px 60px rgba(10,25,47,0.15)' }}>
                 <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#D4B483]/60 mb-4">
-                  סיכום הזמנה
+                  {p.orderSummary}
                 </div>
                 <h2 className="text-xl font-bold text-white mb-1">{plan.name_he}</h2>
                 <div className="text-xs text-white/40 mb-6">{hotelLevelLabel(plan.hotel_level)}</div>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between items-center">
-                    <span className="text-white/50">תשלום חודשי</span>
+                    <span className="text-white/50">{p.monthlyAmount}</span>
                     <span className="font-semibold">₪{plan.monthly_amount.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-white/50">מספר תשלומים</span>
+                    <span className="text-white/50">{p.numPayments}</span>
                     <span className="font-semibold">{plan.required_successful_payments}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-white/50">סוג</span>
-                    <span className="font-semibold">הוראת קבע</span>
+                    <span className="text-white/50">{p.paymentType}</span>
+                    <span className="font-semibold">{p.standingOrderType}</span>
                   </div>
                   <div className="pt-3 border-t border-white/10 flex justify-between items-center">
-                    <span className="text-white/50">סה"כ צבירה</span>
+                    <span className="text-white/50">{p.totalAccumulation}</span>
                     <span className="text-[#D4B483] font-bold text-lg">₪{totalAmount.toLocaleString()}</span>
                   </div>
                 </div>
                 <div className="mt-6 p-3 rounded-xl bg-[#626D58]/20 border border-[#626D58]/30">
                   <div className="flex items-center gap-2 text-xs text-[#D4B483]">
                     <CheckCircle size={14} />
-                    <span>זכאות מיידית — הצבירה מתחילה כעת</span>
+                    <span>{p.immediateEligibility}</span>
                   </div>
                 </div>
               </div>
@@ -646,7 +644,7 @@ export default function PaymentPage() {
                 <div className="w-10 h-10 rounded-xl bg-[#626D58]/10 flex items-center justify-center flex-shrink-0">
                   <Building2 size={20} className="text-[#626D58]" />
                 </div>
-                <h2 className="text-xl font-black text-[#0A192F]">הצטרפות באמצעות הוראת קבע בנקאית</h2>
+                <h2 className="text-xl font-black text-[#0A192F]">{p.bankModalTitle}</h2>
               </div>
               <button onClick={() => setShowBankModal(false)}
                 className="p-2 text-[#33332D]/40 hover:text-[#33332D] transition-colors rounded-xl hover:bg-[#F7F5F0] flex-shrink-0">
@@ -656,14 +654,14 @@ export default function PaymentPage() {
 
             {/* Plan details */}
             <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-4 mb-5">
-              <div className="text-xs text-[#33332D]/50 mb-2 font-semibold uppercase tracking-wide">פרטי התוכנית שנבחרה</div>
+              <div className="text-xs text-[#33332D]/50 mb-2 font-semibold uppercase tracking-wide">{p.bankPlanDetailsTitle}</div>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div><span className="text-[#33332D]/40">תוכנית: </span><span className="font-semibold text-[#0A192F]">{plan.name_he}</span></div>
-                <div><span className="text-[#33332D]/40">סכום חודשי: </span><span className="font-semibold text-[#626D58]">₪{plan.monthly_amount.toLocaleString()}</span></div>
-                <div><span className="text-[#33332D]/40">תשלומים: </span><span className="font-semibold text-[#0A192F]">{plan.required_successful_payments}</span></div>
-                <div><span className="text-[#33332D]/40">רמת מלון: </span><span className="font-semibold text-[#0A192F]">{hotelLevelLabel(plan.hotel_level)}</span></div>
+                <div><span className="text-[#33332D]/40">{p.bankPlanLabel} </span><span className="font-semibold text-[#0A192F]">{plan.name_he}</span></div>
+                <div><span className="text-[#33332D]/40">{p.bankMonthlyLabel} </span><span className="font-semibold text-[#626D58]">₪{plan.monthly_amount.toLocaleString()}</span></div>
+                <div><span className="text-[#33332D]/40">{p.bankPaymentsLabel} </span><span className="font-semibold text-[#0A192F]">{plan.required_successful_payments}</span></div>
+                <div><span className="text-[#33332D]/40">{p.bankHotelLevelLabel} </span><span className="font-semibold text-[#0A192F]">{hotelLevelLabel(plan.hotel_level)}</span></div>
                 <div className="col-span-2 pt-2 border-t border-[#E5E1D8]/60 mt-1">
-                  <span className="text-[#33332D]/40">סה"כ: </span>
+                  <span className="text-[#33332D]/40">{p.bankTotalLabel} </span>
                   <span className="font-bold text-[#B08D57]">₪{(plan.monthly_amount * plan.required_successful_payments).toLocaleString()}</span>
                 </div>
               </div>
@@ -671,25 +669,24 @@ export default function PaymentPage() {
 
             {/* User details */}
             <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-4 mb-5">
-              <div className="text-xs text-[#33332D]/50 mb-2 font-semibold uppercase tracking-wide">פרטי הגשה</div>
+              <div className="text-xs text-[#33332D]/50 mb-2 font-semibold uppercase tracking-wide">{p.bankSubmissionTitle}</div>
               <div className="text-sm">
-                <span className="text-[#33332D]/40">אימייל: </span>
+                <span className="text-[#33332D]/40">{p.bankEmailLabel} </span>
                 <span className="font-semibold text-[#0A192F]">{user?.email ?? '—'}</span>
               </div>
             </div>
 
             <p className="text-sm text-[#33332D]/60 leading-relaxed mb-5">
-              אם ברצונך להצטרף למנוי באמצעות הוראת קבע מהבנק, יש ליצור קשר עם צוות התמיכה שלנו.
-              נציג יחזור אליך ויסייע בהקמת הוראת הקבע.
+              {p.bankDesc}
             </p>
 
             <div className="mb-5">
-              <label className="block text-sm font-semibold text-[#33332D]/70 mb-2">הערה (אופציונלי)</label>
+              <label className="block text-sm font-semibold text-[#33332D]/70 mb-2">{p.bankNoteLabel}</label>
               <textarea
                 value={bankNote}
                 onChange={(e) => setBankNote(e.target.value)}
                 rows={3}
-                placeholder='לדוגמה: "אני מעוניין לבצע הוראת קבע דרך בנק הפועלים"'
+                placeholder={p.bankNotePlaceholder}
                 className="w-full px-4 py-3 bg-[#F9F8F4] border border-[#E5E1D8] rounded-xl text-[#0A192F] placeholder-[#33332D]/30 focus:outline-none focus:ring-2 focus:ring-[#D4B483]/30 focus:border-[#D4B483] transition-all text-sm resize-none"
               />
             </div>
@@ -699,12 +696,12 @@ export default function PaymentPage() {
                 className="flex-1 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
                 {bankSubmitting
                   ? <Loader2 size={18} className="animate-spin" />
-                  : <><Send size={16} /><span>שלח בקשה</span></>
+                  : <><Send size={16} /><span>{p.bankSubmit}</span></>
                 }
               </button>
               <button onClick={() => setShowBankModal(false)} disabled={bankSubmitting}
                 className="flex-1 py-3.5 bg-[#F7F5F0] text-[#33332D] font-semibold rounded-xl hover:bg-[#E5E1D8] transition-colors">
-                ביטול
+                {p.bankCancel}
               </button>
             </div>
           </div>
