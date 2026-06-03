@@ -27,9 +27,9 @@ export const SignIn = () => {
       console.error('Sign in error:', err);
       const msg = err instanceof Error ? err.message.toLowerCase() : '';
       if (msg.includes('rate limit') || msg.includes('too many')) {
-        setError('יותר מדי ניסיונות התחברות. נסו שוב מאוחר יותר.');
+        setError(t.auth.errorRateLimit);
       } else {
-        setError('כתובת האימייל או הסיסמה שהוזנו אינם נכונים.');
+        setError(t.auth.errorInvalidCredentials);
       }
     } finally {
       setLoading(false);
@@ -45,7 +45,7 @@ export const SignIn = () => {
             <div className="flex justify-center mb-4">
               <img
                 src={logoImg}
-                alt="חסדי עולם"
+                alt={t.common.logoAlt}
                 className="h-20 w-auto object-contain"
                 loading="eager"
                 decoding="async"
@@ -55,7 +55,7 @@ export const SignIn = () => {
               {t.auth.welcomeBack}
             </h1>
             <p className="text-sm text-[#33332D]/50 mt-2 font-light">
-              היכנסו לניהול התרומה שלכם
+              {t.auth.signInSubtitle}
             </p>
           </div>
 

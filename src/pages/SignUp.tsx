@@ -28,15 +28,15 @@ export const SignUp = () => {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message.toLowerCase() : '';
       if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already')) {
-        setError('כתובת האימייל כבר רשומה במערכת. נסו להתחבר במקום.');
+        setError(t.auth.errorEmailExists);
       } else if (msg.includes('invalid email')) {
-        setError('כתובת האימייל אינה תקינה.');
+        setError(t.auth.errorInvalidEmail);
       } else if (msg.includes('password') && msg.includes('short')) {
-        setError('הסיסמה קצרה מדי. יש להזין לפחות 6 תווים.');
+        setError(t.auth.errorPasswordShort);
       } else if (msg.includes('rate limit') || msg.includes('too many')) {
-        setError('יותר מדי ניסיונות הרשמה. נסו שוב מאוחר יותר.');
+        setError(t.auth.errorSignUpRateLimit);
       } else {
-        setError('אירעה שגיאה בהרשמה. נסו שוב.');
+        setError(t.auth.errorSignUpGeneral);
       }
     } finally {
       setLoading(false);
@@ -52,7 +52,7 @@ export const SignUp = () => {
             <div className="flex justify-center mb-4">
               <img
                 src={logoImg}
-                alt="חסדי עולם"
+                alt={t.common.logoAlt}
                 className="h-20 w-auto object-contain"
                 loading="eager"
                 decoding="async"
@@ -62,7 +62,7 @@ export const SignUp = () => {
               {t.auth.createAccount}
             </h1>
             <p className="text-sm text-[#33332D]/50 mt-2 font-light">
-              הצטרפו לקהילת הנתינה שלנו
+              {t.auth.signUpSubtitle}
             </p>
           </div>
 
@@ -89,7 +89,7 @@ export const SignUp = () => {
                   onChange={(e) => setFullName(e.target.value)}
                   required
                   className="w-full px-4 py-3 bg-[#F9F8F4] border border-[#E5E1D8] rounded-xl text-[#0A192F] placeholder-[#33332D]/30 focus:outline-none focus:ring-2 focus:ring-[#D4B483]/30 focus:border-[#D4B483] transition-all text-sm"
-                  placeholder="ישראל ישראלי"
+                  placeholder={t.auth.fullNamePlaceholder}
                 />
               </div>
 
@@ -133,7 +133,7 @@ export const SignUp = () => {
                   required
                   minLength={6}
                   className="w-full px-4 py-3 bg-[#F9F8F4] border border-[#E5E1D8] rounded-xl text-[#0A192F] placeholder-[#33332D]/30 focus:outline-none focus:ring-2 focus:ring-[#D4B483]/30 focus:border-[#D4B483] transition-all text-sm"
-                  placeholder="לפחות 6 תווים"
+                  placeholder={t.auth.passwordPlaceholder}
                 />
               </div>
 

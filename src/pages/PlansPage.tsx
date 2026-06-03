@@ -79,8 +79,8 @@ export const PlansPage = () => {
     <Layout>
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-[#0B3C5D] mb-4">בחר את התוכנית שלך</h1>
-          <p className="text-gray-600">תרום באופן קבוע וזכה בשהייה במלון</p>
+          <h1 className="text-4xl font-bold text-[#0B3C5D] mb-4">{t.plans.title}</h1>
+          <p className="text-gray-600">{t.plans.subtitle}</p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
@@ -94,7 +94,7 @@ export const PlansPage = () => {
                   {language === 'he' ? plan.name_he : plan.name_en}
                 </h3>
                 <div className="text-4xl font-bold mb-2">{formatCurrency(plan.monthly_amount)}</div>
-                <div className="text-sm opacity-90">לחודש</div>
+                <div className="text-sm opacity-90">{t.plans.perMonth}</div>
               </div>
 
               <div className="p-6">
@@ -106,19 +106,19 @@ export const PlansPage = () => {
                   <div className="flex items-start gap-2">
                     <CheckCircle className="text-green-600 flex-shrink-0 mt-1" size={18} />
                     <span className="text-sm text-gray-700">
-                      {plan.required_successful_payments} תשלומים חודשיים
+                      {plan.required_successful_payments} {t.plans.monthlyPayments}
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle className="text-green-600 flex-shrink-0 mt-1" size={18} />
                     <span className="text-sm text-gray-700">
-                      זכאות לשהייה ברמה: {hotelLevelLabel(plan.hotel_level)}
+                      {t.plans.eligibilityLevel} {hotelLevelLabel(plan.hotel_level)}
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle className="text-green-600 flex-shrink-0 mt-1" size={18} />
                     <span className="text-sm text-gray-700">
-                      חדר זוגי כלול
+                      {t.plans.coupleRoomIncluded}
                     </span>
                   </div>
                 </div>
@@ -127,7 +127,7 @@ export const PlansPage = () => {
                   onClick={() => handleSelectPlan(plan)}
                   className="w-full bg-[#C6A75E] text-[#0B3C5D] py-3 rounded-lg font-bold hover:bg-opacity-90 transition-colors"
                 >
-                  בחר תוכנית
+                  {t.plans.selectPlan}
                 </button>
               </div>
             </div>

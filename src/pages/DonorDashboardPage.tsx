@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { useTranslation } from '../hooks/useTranslation';
 import DonorLayout from '../components/DonorLayout';
 
 interface Subscription {
@@ -40,6 +41,7 @@ interface Payment {
 export default function DonorDashboardPage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const { t, language } = useTranslation();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +100,7 @@ export default function DonorDashboardPage() {
         <div className="flex items-center justify-center py-24">
           <div className="text-center">
             <div className="w-12 h-12 border-2 border-[#E5E1D8] border-t-[#626D58] rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-[#33332D]/50 text-sm">טוען נתונים...</p>
+            <p className="text-[#33332D]/50 text-sm">{ t.dashboard.loading}</p>
           </div>
         </div>
       </DonorLayout>
@@ -112,14 +114,14 @@ export default function DonorDashboardPage() {
           <div className="w-20 h-20 rounded-[1.5rem] bg-[#0A192F]/5 flex items-center justify-center mb-6">
             <Heart className="text-[#33332D]/20" size={36} />
           </div>
-          <h2 className="text-2xl font-black text-[#0A192F] mb-3">עדיין אין לך מנוי פעיל</h2>
-          <p className="text-[#33332D]/50 mb-8 max-w-xs font-light">הצטרף עכשיו ותתחיל לתרום לעתיד טוב יותר</p>
+          <h2 className="text-2xl font-black text-[#0A192F] mb-3">{t.dashboard.noSubscriptionTitle}</h2>
+          <p className="text-[#33332D]/50 mb-8 max-w-xs font-light">{t.dashboard.noSubscriptionDesc}</p>
           <p className="text-[10px] text-[#33332D]/20 font-mono mb-4">uid:{user?.id}</p>
           <button
             onClick={() => navigate('/plans')}
             className="px-8 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md"
           >
-            בחר תוכנית תרומה
+            {t.dashboard.choosePlan}
           </button>
         </div>
       </DonorLayout>
@@ -143,7 +145,7 @@ export default function DonorDashboardPage() {
           <h1 className="text-2xl font-black text-[#0A192F]">
             שלום, {profile?.full_name || 'ידיד'}
           </h1>
-          <p className="text-[#33332D]/50 text-sm mt-1 font-light">שמחים לראות אותך שוב בקהילת החסד שלנו</p>
+          <p className="text-[#33332D]/50 text-sm mt-1 font-light">{t.dashboard.welcomeSubtitle}</p>
         </div>
 
         {/* Frozen subscription banner */}
@@ -156,17 +158,16 @@ export default function DonorDashboardPage() {
               <AlertTriangle className="text-orange-600" size={20} />
             </div>
             <div className="flex-1">
-              <p className="font-bold text-orange-800 text-base mb-1">המנוי מושהה</p>
+              <p className="font-bold text-orange-800 text-base mb-1">{t.dashboard.frozenTitle}</p>
               <p className="text-sm text-orange-700/80 font-light leading-relaxed">
-                הוראת הקבע שלך מושהית כרגע. לא יבוצעו חיובים עד לחידוש המנוי.
-                חידוש המנוי יאפשר המשך צבירת תשלומים לזכאות.
+                {t.dashboard.frozenDesc}
               </p>
               <button
                 onClick={() => navigate('/donor/manage-subscription')}
                 className="flex items-center gap-1.5 mt-3 text-sm font-semibold text-orange-700 hover:text-orange-800 transition-colors"
               >
                 <Settings size={14} />
-                נהל מנוי
+                {t.dashboard.manageSubscription}
               </button>
             </div>
           </div>
@@ -185,17 +186,17 @@ export default function DonorDashboardPage() {
             }}
           >
             <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#D4B483]/10 blur-2xl pointer-events-none" />
-            <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#D4B483]/60 mb-4">התוכנית שלי</div>
+            <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#D4B483]/60 mb-4">{t.dashboard.myPlan}</div>
             <div className="text-xl font-bold text-white mb-1">{subscription.plans.name_he}</div>
             {isFrozen && (
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-200/20 border border-orange-300/30 mt-2 mb-2">
                 <AlertTriangle size={12} className="text-orange-300" />
-                <span className="text-xs font-bold text-orange-200">מושהה</span>
+                <span className="text-xs font-bold text-orange-200">{t.dashboard.suspended}</span>
               </div>
             )}
             <div className="text-[#D4B483] font-black text-2xl mt-1">
               ₪{subscription.plans.monthly_amount.toLocaleString()}
-              <span className="text-sm font-normal text-white/40 mr-1">/ לחודש</span>
+              <span className="text-sm font-normal text-white/40 mr-1">{t.dashboard.perMonth}</span>
             </div>
           </div>
 
@@ -208,13 +209,13 @@ export default function DonorDashboardPage() {
               <div className="w-10 h-10 rounded-xl bg-[#626D58]/10 flex items-center justify-center">
                 <CheckCircle className="text-[#626D58]" size={20} />
               </div>
-              <span className="text-sm font-semibold text-[#33332D]/60">תשלומים</span>
+              <span className="text-sm font-semibold text-[#33332D]/60">{t.dashboard.paymentsLabel}</span>
             </div>
             <div className="text-4xl font-black text-[#0A192F] mb-1">
               {subscription.successful_payments_count}
             </div>
             <div className="text-xs text-[#33332D]/40">
-              מתוך {subscription.plans.required_successful_payments} נדרשים
+              {t.dashboard.outOf} {subscription.plans.required_successful_payments} {t.dashboard.required}
             </div>
           </div>
 
@@ -227,12 +228,12 @@ export default function DonorDashboardPage() {
               <div className="w-10 h-10 rounded-xl bg-[#D4B483]/10 flex items-center justify-center">
                 <TrendingUp className="text-[#B08D57]" size={20} />
               </div>
-              <span className="text-sm font-semibold text-[#33332D]/60">סה"כ תרומות</span>
+              <span className="text-sm font-semibold text-[#33332D]/60">{t.dashboard.totalDonations}</span>
             </div>
             <div className="text-4xl font-black text-[#0A192F] mb-1">
               ₪{totalPaid.toLocaleString()}
             </div>
-            <div className="text-xs text-[#33332D]/40">השפעה מצטברת</div>
+            <div className="text-xs text-[#33332D]/40">{t.dashboard.cumulativeImpact}</div>
           </div>
         </div>
 
@@ -241,12 +242,12 @@ export default function DonorDashboardPage() {
           className="bg-white rounded-[2rem] p-8 border border-[#E5E1D8]/60"
           style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
         >
-          <h3 className="text-lg font-black text-[#0A192F] mb-6">התקדמות לקראת זכאות</h3>
+          <h3 className="text-lg font-black text-[#0A192F] mb-6">{t.dashboard.progressTitle}</h3>
 
           <div className="mb-6">
             <div className="flex justify-between text-sm mb-3">
               <span className="text-[#33332D]/50 font-medium">
-                {subscription.successful_payments_count} מתוך {subscription.plans.required_successful_payments} תשלומים
+                {subscription.successful_payments_count} {t.dashboard.outOf} {subscription.plans.required_successful_payments} {t.dashboard.payments}
               </span>
               <span className="font-bold text-[#0A192F]">{Math.round(progress)}%</span>
             </div>
@@ -270,16 +271,16 @@ export default function DonorDashboardPage() {
                 <CheckCircle className="text-[#626D58]" size={20} />
               </div>
               <div>
-                <p className="font-bold text-[#0A192F] mb-1">מזל טוב! אתה זכאי לשהייה</p>
+                <p className="font-bold text-[#0A192F] mb-1">{t.dashboard.eligibleTitle}</p>
                 <p className="text-sm text-[#33332D]/50 font-light">
-                  ניתן להזמין מלון ברמה {hotelLevelLabel(subscription.plans.hotel_level)}
+                  {t.dashboard.eligibleDesc} {hotelLevelLabel(subscription.plans.hotel_level)}
                 </p>
                 <button
                   onClick={() => navigate('/donor/hotels')}
                   className="flex items-center gap-2 text-sm font-semibold text-[#626D58] hover:text-[#626D58]/80 transition-colors mt-3"
                 >
                   <Hotel size={16} />
-                  <span>צפה במלונות</span>
+                  <span>{t.dashboard.viewHotels}</span>
                 </button>
               </div>
             </div>
@@ -292,14 +293,14 @@ export default function DonorDashboardPage() {
                 <Calendar className="text-[#0A192F]/60" size={20} />
               </div>
               <div>
-                <p className="font-bold text-[#0A192F] mb-1">המנוי פעיל — ממתין לחיוב הראשון</p>
+                <p className="font-bold text-[#0A192F] mb-1">{t.dashboard.pendingFirstPaymentTitle}</p>
                 <p className="text-sm text-[#33332D]/50 font-light">
-                  הוראת הקבע נרשמה בהצלחה. החיוב הראשון יבוצע בקרוב.
+                  {t.dashboard.pendingFirstPaymentDesc}
                 </p>
                 {subscription.next_payment_date && (
                   <p className="text-sm font-semibold text-[#0A192F]/70 mt-2">
-                    תאריך חיוב צפוי:{' '}
-                    {new Date(subscription.next_payment_date).toLocaleDateString('he-IL', {
+                    {t.dashboard.expectedChargeDate}{' '}
+                    {new Date(subscription.next_payment_date).toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US', {
                       day: 'numeric', month: 'long', year: 'numeric',
                     })}
                   </p>
@@ -316,15 +317,15 @@ export default function DonorDashboardPage() {
               </div>
               <div>
                 <p className="font-bold text-[#0A192F] mb-1">
-                  נותרו {remainingPayments} תשלומים לזכאות
+                  {t.dashboard.remainingPaymentsTitle.replace('{n}', String(remainingPayments))}
                 </p>
                 <p className="text-sm text-[#33332D]/50 font-light">
-                  המשך לתרום באופן קבוע כדי לפתוח את הזכאות למלונות
+                  {t.dashboard.remainingPaymentsDesc}
                 </p>
                 {subscription.next_payment_date && (
                   <p className="text-sm font-semibold text-[#0A192F]/70 mt-2">
-                    תשלום הבא:{' '}
-                    {new Date(subscription.next_payment_date).toLocaleDateString('he-IL', {
+                    {t.dashboard.nextPayment}{' '}
+                    {new Date(subscription.next_payment_date).toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US', {
                       day: 'numeric', month: 'long', year: 'numeric',
                     })}
                   </p>
@@ -339,14 +340,14 @@ export default function DonorDashboardPage() {
           className="bg-white rounded-[2rem] p-8 border border-[#E5E1D8]/60"
           style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
         >
-          <h3 className="text-lg font-black text-[#0A192F] mb-6">היסטוריית תשלומים</h3>
+          <h3 className="text-lg font-black text-[#0A192F] mb-6">{t.dashboard.paymentHistory}</h3>
 
           {payments.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-12 h-12 rounded-2xl bg-[#F7F5F0] flex items-center justify-center mx-auto mb-4">
                 <Calendar className="text-[#33332D]/20" size={24} />
               </div>
-              <p className="text-[#33332D]/40 text-sm">עדיין אין תשלומים</p>
+              <p className="text-[#33332D]/40 text-sm">{t.dashboard.noPaymentsYet}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -368,7 +369,7 @@ export default function DonorDashboardPage() {
                     <div>
                       <p className="font-semibold text-[#0A192F] text-sm">₪{payment.amount.toLocaleString()}</p>
                       <p className="text-xs text-[#33332D]/40">
-                        {new Date(payment.paid_at || payment.created_at).toLocaleDateString('he-IL')}
+                        {new Date(payment.paid_at || payment.created_at).toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US')}
                       </p>
                     </div>
                   </div>
@@ -379,7 +380,7 @@ export default function DonorDashboardPage() {
                         : 'bg-red-50 text-red-600'
                     }`}
                   >
-                    {payment.status === 'succeeded' ? 'בוצע' : 'נכשל'}
+                    {payment.status === 'succeeded' ? t.dashboard.paymentSucceeded : t.dashboard.paymentFailed}
                   </span>
                 </div>
               ))}

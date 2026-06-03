@@ -12,6 +12,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useTranslation } from '../hooks/useTranslation';
 import AccessibilityToolbar from './AccessibilityToolbar';
 
 interface DonorLayoutProps {
@@ -22,6 +23,7 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, profile, isAdmin } = useAuth();
+  const { t } = useTranslation();
 
   const handleSignOut = async () => {
     await signOut();
@@ -31,11 +33,11 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
   const isActive = (path: string) => location.pathname === path;
 
   const tabs = [
-    { path: '/dashboard', icon: TrendingUp, label: 'דף הבית' },
-    { path: '/donor/hotels', icon: Hotel, label: 'מלונות' },
-    { path: '/donor/additional-donation', icon: DollarSign, label: 'תרומה נוספת' },
-    { path: '/support', icon: LifeBuoy, label: 'תמיכה' },
-    { path: '/donor/manage-subscription', icon: Settings, label: 'ניהול תרומה' },
+    { path: '/dashboard', icon: TrendingUp, label: t.donorLayout.home },
+    { path: '/donor/hotels', icon: Hotel, label: t.donorLayout.hotels },
+    { path: '/donor/additional-donation', icon: DollarSign, label: t.donorLayout.additionalDonation },
+    { path: '/support', icon: LifeBuoy, label: t.donorLayout.support },
+    { path: '/donor/manage-subscription', icon: Settings, label: t.donorLayout.manageDonation },
   ];
 
   return (
@@ -47,8 +49,7 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
           className="flex items-center gap-2 w-full px-4 py-2.5 bg-[#0B3C5D] text-white text-sm font-semibold hover:bg-[#0B3C5D]/90 transition-colors"
         >
           <ArrowLeft size={15} className="shrink-0" />
-          <span>חזרה לפאנל ניהול</span>
-          <LayoutDashboard size={15} className="mr-auto shrink-0 opacity-60" />
+          <span>{t.donorLayout.backToAdmin}</span>
         </Link>
       )}
 
@@ -58,7 +59,7 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
             <div className="flex items-center">
               <img
                 src={logoImg}
-                alt="חסדי עולם"
+                alt={t.donorLayout.logoAlt}
                 className="h-11 w-auto object-contain"
                 loading="eager"
                 decoding="async"
@@ -73,7 +74,7 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#33332D]/60 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50"
               >
                 <LogOut size={16} />
-                <span className="hidden sm:inline">יציאה</span>
+                <span className="hidden sm:inline">{t.donorLayout.signOut}</span>
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useTranslation } from '../hooks/useTranslation';
 import { supabase } from '../lib/supabase';
 import { sendEmail } from '../lib/sendEmail';
 import { MessageSquare, Send, X, Plus } from 'lucide-react';
@@ -29,6 +30,7 @@ interface Message {
 export const SupportPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [newThreadSubject, setNewThreadSubject] = useState('');
@@ -188,15 +190,15 @@ export const SupportPage = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-black text-[#0A192F]">מרכז תמיכה</h1>
-            <p className="text-[#33332D]/50 text-sm mt-1 font-light">אנחנו כאן לכל שאלה או בקשה</p>
+            <h1 className="text-2xl font-black text-[#0A192F]">{t.support.pageTitle}</h1>
+            <p className="text-[#33332D]/50 text-sm mt-1 font-light">{t.support.pageSubtitle}</p>
           </div>
           <button
             onClick={() => setShowNewThread(!showNewThread)}
             className="flex items-center gap-2 px-5 py-2.5 bg-[#0A192F] text-white text-sm font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md"
           >
             <Plus size={16} />
-            <span>פנייה חדשה</span>
+            <span>{t.support.newThread}</span>
           </button>
         </div>
 
@@ -207,7 +209,7 @@ export const SupportPage = () => {
             style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
           >
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-black text-[#0A192F]">פנייה חדשה</h2>
+              <h2 className="text-lg font-black text-[#0A192F]">{t.support.newThreadTitle}</h2>
               <button
                 onClick={() => setShowNewThread(false)}
                 className="p-2 text-[#33332D]/40 hover:text-[#33332D] transition-colors rounded-xl hover:bg-[#F7F5F0]"
@@ -217,23 +219,23 @@ export const SupportPage = () => {
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-[#33332D]/70 mb-2">נושא</label>
+                <label className="block text-sm font-semibold text-[#33332D]/70 mb-2">{t.support.subject}</label>
                 <input
                   type="text"
                   value={newThreadSubject}
                   onChange={(e) => setNewThreadSubject(e.target.value)}
                   className="w-full px-4 py-3 bg-[#F9F8F4] border border-[#E5E1D8] rounded-xl text-[#0A192F] placeholder-[#33332D]/30 focus:outline-none focus:ring-2 focus:ring-[#D4B483]/30 focus:border-[#D4B483] transition-all text-sm"
-                  placeholder="במה נוכל לעזור?"
+                  placeholder={t.support.subjectPlaceholder}
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-[#33332D]/70 mb-2">הודעה</label>
+                <label className="block text-sm font-semibold text-[#33332D]/70 mb-2">{t.support.message}</label>
                 <textarea
                   value={newThreadMessage}
                   onChange={(e) => setNewThreadMessage(e.target.value)}
                   rows={4}
                   className="w-full px-4 py-3 bg-[#F9F8F4] border border-[#E5E1D8] rounded-xl text-[#0A192F] placeholder-[#33332D]/30 focus:outline-none focus:ring-2 focus:ring-[#D4B483]/30 focus:border-[#D4B483] transition-all text-sm resize-none"
-                  placeholder="פרט את שאלתך..."
+                  placeholder={t.support.messagePlaceholder}
                 />
               </div>
               <div className="flex gap-3">
@@ -242,13 +244,13 @@ export const SupportPage = () => {
                   className="flex items-center gap-2 px-6 py-2.5 bg-[#0A192F] text-white text-sm font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all"
                 >
                   <Send size={15} />
-                  שלח
+                  {t.support.send}
                 </button>
                 <button
                   onClick={() => setShowNewThread(false)}
                   className="px-6 py-2.5 bg-[#F7F5F0] text-[#33332D] text-sm font-semibold rounded-xl hover:bg-[#E5E1D8] transition-colors"
                 >
-                  ביטול
+                  {t.support.cancel}
                 </button>
               </div>
             </div>
@@ -264,13 +266,13 @@ export const SupportPage = () => {
               style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.06)' }}
             >
               <div className="px-5 py-4 border-b border-[#E5E1D8]/60">
-                <h3 className="text-sm font-black text-[#0A192F]">פניות אחרונות</h3>
+                <h3 className="text-sm font-black text-[#0A192F]">{t.support.recentThreads}</h3>
               </div>
 
               {threads.length === 0 ? (
                 <div className="px-5 py-10 text-center">
                   <MessageSquare className="mx-auto text-[#33332D]/20 mb-3" size={28} />
-                  <p className="text-sm text-[#33332D]/40 font-light">אין פניות עדיין</p>
+                  <p className="text-sm text-[#33332D]/40 font-light">{t.support.noThreadsYet}</p>
                 </div>
               ) : (
                 <div className="divide-y divide-[#E5E1D8]/40">
@@ -291,7 +293,7 @@ export const SupportPage = () => {
                               : 'bg-[#F7F5F0] text-[#33332D]/40 border border-[#E5E1D8]'
                           }`}
                         >
-                          {thread.status === 'open' ? 'פתוח' : 'סגור'}
+                          {thread.status === 'open' ? t.support.statusOpen : t.support.statusClosed}
                         </span>
                       </div>
                       <p className="text-xs text-[#33332D]/40 mt-1.5">
@@ -337,7 +339,7 @@ export const SupportPage = () => {
                           {message.message}
                         </div>
                         <div className={`flex items-center gap-2 mt-1.5 text-xs text-[#33332D]/40 ${message.is_admin ? '' : 'flex-row-reverse'}`}>
-                          <span>{message.profiles?.full_name || 'משתמש'}</span>
+                          <span>{message.profiles?.full_name || t.support.defaultUser}</span>
                           {message.is_admin && <span>· תמיכה</span>}
                           <span>·</span>
                           <span>{format(new Date(message.created_at), 'dd/MM HH:mm')}</span>
@@ -355,7 +357,7 @@ export const SupportPage = () => {
                         type="text"
                         value={replyMessage}
                         onChange={(e) => setReplyMessage(e.target.value)}
-                        placeholder="הקלד תשובה..."
+                        placeholder={t.support.replyPlaceholder}
                         className="flex-1 px-4 py-3 bg-[#F9F8F4] border border-[#E5E1D8] rounded-xl text-[#0A192F] placeholder-[#33332D]/30 focus:outline-none focus:ring-2 focus:ring-[#D4B483]/30 focus:border-[#D4B483] transition-all text-sm"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
@@ -383,9 +385,9 @@ export const SupportPage = () => {
                 <div className="w-16 h-16 rounded-[1.5rem] bg-[#F7F5F0] flex items-center justify-center mb-4">
                   <MessageSquare className="text-[#33332D]/20" size={28} />
                 </div>
-                <p className="font-bold text-[#0A192F] mb-2">בחר שיחה מהרשימה</p>
+                <p className="font-bold text-[#0A192F] mb-2">{t.support.selectConversationTitle}</p>
                 <p className="text-sm text-[#33332D]/40 font-light">
-                  תוכל לצפות בהיסטוריית ההודעות שלך או לפתוח פנייה חדשה
+                  {t.support.selectConversationDesc}
                 </p>
               </div>
             )}
