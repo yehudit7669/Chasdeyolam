@@ -227,7 +227,7 @@ export default function HomePage() {
                 {isRtl ? 'מקור האנרגיה' : 'The Energy Source'}
               </h3>
 
-              <div className={`text-lg md:text-xl text-white/70 font-medium leading-relaxed italic space-y-8 ${isRtl ? 'text-right' : 'text-center'}`}>
+              <div className={`text-lg md:text-xl text-white/70 font-medium leading-relaxed italic space-y-8 text-center`}>
                 <p>
                   {isRtl
                     ? 'לאחר שחל עלינו "חוק הגמחים", אנו נדרשים להעמיד קרן בגובה של 5% מסך ההפקדות כהון עצמי (לא מההפקדות עצמן), שזה סכום עתק, כתנאי לקבלת רישיון לניהול הגמ"ח.'
