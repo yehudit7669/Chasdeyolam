@@ -300,24 +300,24 @@ export default function HomePage() {
                   Icon: Gift,
                   title: isRtl ? 'נתינה מתמדת' : 'Continuous Giving',
                   desc: isRtl
-                    ? 'בחרו תוכנית תרומה שמתאימה לכם ותהיו שותפים לגמ"ח שלנו.'
-                    : 'Select a monthly plan that reflects your philanthropic goals.',
+                    ? 'בחרו תוכנית תרומה חודשית שמתאימה לכם (ניתן מכספי מעשרות) ותהיו שותפים לפעילות החשובה של הגמ"ח שלנו.'
+                    : 'Select a monthly plan that reflects your philanthropic goals and become partners in the vital work of our GMACH.',
                   step: 'I',
                 },
                 {
                   Icon: Users,
                   title: isRtl ? 'צבירת זכויות' : 'Growing Equity',
                   desc: isRtl
-                    ? 'כל תשלום מקרב אתכם ליעד הזכאות ומגדיל את פעילות הגמ"ח.'
-                    : 'Each contribution builds your eligibility while funding vital missions.',
+                    ? 'בכל תשלום אתם נכנסים כשותפים לפעילות הענפה של הגמ"ח ובנוסף כל חודש מקרב אתכם ליעד הזכאות לחופשה חלומית.'
+                    : 'Each contribution makes you a partner in the GMACH\'s extensive activities while bringing you closer to your dream vacation eligibility.',
                   step: 'II',
                 },
                 {
                   Icon: Hotel,
                   title: isRtl ? 'חופשת יוקרה' : 'Luxury Rest',
                   desc: isRtl
-                    ? 'הגעתם ליעד? זה הזמן לבחור מלון וליהנות מחופשה מפנקת שמגיעה לכם.'
-                    : 'Redeem your accumulated rights for a curated hotel experience.',
+                    ? 'עם השלמת מלוא חיובי התוכנית, תהיו זכאים לשובר אירוח חגיגי במלון שבחרתם. מימוש השובר מתבצע בתיאום מראש במועדים המוסכמים מול המלונות (למעט חגים ומועדי "בין הזמנים").'
+                    : 'Upon completing all plan payments, you will receive a hotel voucher of your choice, redeemed in advance coordination with the hotels at agreed dates.',
                   step: 'III',
                 },
               ] as const
