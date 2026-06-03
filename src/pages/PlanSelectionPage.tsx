@@ -8,7 +8,7 @@ import { Layout } from '../components/Layout';
 
 const HOTELS_INITIALLY_VISIBLE = 4;
 
-function HotelList({ hotels, isFeatured, showLess, moreHotels }: { hotels: HotelItem[]; isFeatured: boolean; showLess: string; moreHotels: (n: number) => string }) {
+function HotelList({ hotels, isFeatured, showLess, moreHotels, language }: { hotels: HotelItem[]; isFeatured: boolean; showLess: string; moreHotels: (n: number) => string; language: string }) {
   const [expanded, setExpanded] = useState(false);
   const extraRef = useRef<HTMLDivElement>(null);
   const [extraHeight, setExtraHeight] = useState(0);
@@ -30,7 +30,7 @@ function HotelList({ hotels, isFeatured, showLess, moreHotels }: { hotels: Hotel
       {visible.map((hotel) => (
         <li key={hotel.id} className={itemCls}>
           <Check size={14} className={checkCls} />
-          <span>{hotel.name_he} — {hotel.city_he}</span>
+          <span>{language === 'he' ? hotel.name_he : (hotel.name_en || hotel.name_he)} — {language === 'he' ? hotel.city_he : (hotel.city_en || hotel.city_he)}</span>
         </li>
       ))}
 
@@ -52,7 +52,7 @@ function HotelList({ hotels, isFeatured, showLess, moreHotels }: { hotels: Hotel
                 {extra.map((hotel) => (
                   <li key={hotel.id} className={itemCls}>
                     <Check size={14} className={checkCls} />
-                    <span>{hotel.name_he} — {hotel.city_he}</span>
+                    <span>{language === 'he' ? hotel.name_he : (hotel.name_en || hotel.name_he)} — {language === 'he' ? hotel.city_he : (hotel.city_en || hotel.city_he)}</span>
                   </li>
                 ))}
               </ul>
@@ -84,7 +84,9 @@ function HotelList({ hotels, isFeatured, showLess, moreHotels }: { hotels: Hotel
 interface Plan {
   id: string;
   name_he: string;
+  name_en: string;
   description_he: string;
+  description_en: string;
   monthly_amount: number;
   required_successful_payments: number;
   hotel_level: string;
@@ -93,7 +95,9 @@ interface Plan {
 interface HotelItem {
   id: string;
   name_he: string;
+  name_en: string;
   city_he: string;
+  city_en: string;
   level: string;
 }
 
@@ -125,7 +129,7 @@ export default function PlanSelectionPage() {
     try {
       const [plansRes, hotelsRes] = await Promise.all([
         supabase.from('plans').select('*').eq('active', true).order('monthly_amount'),
-        supabase.from('hotels').select('id, name_he, city_he, level').eq('active', true),
+        supabase.from('hotels').select('id, name_he, name_en, city_he, city_en, level').eq('active', true),
       ]);
 
       if (plansRes.data) setPlans(plansRes.data);
@@ -238,7 +242,7 @@ export default function PlanSelectionPage() {
               style={{ background: 'linear-gradient(135deg, #D4B483/5 0%, transparent 100%)', backgroundColor: 'rgba(212,180,131,0.05)' }}
             >
               <div className="text-xs font-bold uppercase tracking-widest text-[#D4B483] mb-1">{ps.selectedPlanLabel}</div>
-              <div className="font-bold text-[#0A192F]">{selectedPlan.name_he}</div>
+              <div className="font-bold text-[#0A192F]">{language === 'he' ? selectedPlan.name_he : (selectedPlan.name_en || selectedPlan.name_he)}</div>
               <div className="text-sm text-[#33332D]/60 mt-0.5">
                 ₪{selectedPlan.monthly_amount.toLocaleString()} {ps.perMonth} · {selectedPlan.required_successful_payments} {ps.paymentsCount}
               </div>
@@ -372,12 +376,12 @@ export default function PlanSelectionPage() {
                     </div>
 
                     <h3 className={`text-2xl font-bold mb-2 ${isFeatured ? 'text-white' : 'text-[#0A192F]'}`}>
-                      {plan.name_he}
+                      {language === 'he' ? plan.name_he : (plan.name_en || plan.name_he)}
                     </h3>
 
                     {plan.description_he && (
                       <p className={`text-sm mb-6 font-light leading-relaxed ${isFeatured ? 'text-white/50' : 'text-[#33332D]/50'}`}>
-                        {plan.description_he}
+                        {language === 'he' ? plan.description_he : (plan.description_en || plan.description_he)}
                       </p>
                     )}
 
@@ -402,7 +406,7 @@ export default function PlanSelectionPage() {
                         <span>{ps.hotelEligibility}</span>
                       </div>
                       {eligibleHotels.length > 0 ? (
-                        <HotelList hotels={eligibleHotels} isFeatured={isFeatured} showLess={ps.showLess} moreHotels={(n) => ps.moreHotels.replace('{n}', String(n))} />
+                        <HotelList hotels={eligibleHotels} isFeatured={isFeatured} showLess={ps.showLess} moreHotels={(n) => ps.moreHotels.replace('{n}', String(n))} language={language} />
                       ) : (
                         <p className={`text-sm ${isFeatured ? 'text-white/30' : 'text-[#33332D]/30'}`}>
                           {ps.noHotels}
