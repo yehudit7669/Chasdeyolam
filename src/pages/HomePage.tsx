@@ -125,7 +125,7 @@ export default function HomePage() {
                 <div className={`w-20 h-1 bg-[#D4B483] mb-8 ${isRtl ? 'mr-auto md:ml-auto md:mr-0' : ''}`} />
                 <p className="text-lg text-[#33332D]/70 leading-relaxed font-medium italic">
                   {isRtl
-                    ? '"גמ"ח חסדי עולם" הוקם בס"ד בקיץ תשס"ב, בעקבות דבריו המלהיבים של החפץ חיים בספרו \'אהבת חסד\'. אנו עדים לסייעתא דשמיא מרובה בפעילות הגמ"ח, ואנו זוקפים זאת לאבי הגמ"ח מרן החפץ חיים זצוק"ל.'
+                    ? '"גמ"ח חסדי עולם" הוקם בס"ד בקיץ תשס"ב, בעקבות דבריו המלהיבים של החפץ חיים בספרו \'אהבת חסד\'. אנו עדים לסייעתא דשמיא מרובה בפעילות הגמ"ח, ואנו חשים שרוחו הגדולה של מרן החפץ חיים זצוק"ל מלווה אותנו.'
                     : 'Founded in 2002, inspired by the profound teachings of the Chafetz Chaim, our roots are deeply planted in the soil of pure kindness.'}
                 </p>
               </div>
@@ -153,7 +153,7 @@ export default function HomePage() {
                 <div className="w-20 h-1 bg-[#D4B483] mb-8" />
                 <p className="text-lg text-[#33332D]/70 leading-relaxed font-medium italic">
                   {isRtl
-                    ? 'הרעיון התגבש, אך השתהה מלהיות לעובדה קיימת. זכה יהודי מיוחד מתמיד ותלמיד חכם, שהוציא מכיסו שטר של 100 דולר בהכרזה, \'הנה בזה, זה עתה נפתח הגמ"ח\'! זו היתה ההפקדה הראשונה לגמ"ח.'
+                    ? 'פעילות הגמ"ח עברה מפה לאוזן, ומאז שנת תשס"ב ועד היום, משך 24 שנים, הגמ"ח גדל מאד והינו אחד מגדולי הגמ"חים בארץ. פעילות הגמ"ח הברוכה נותנת מענה למטרות שונות ומסייעת בידי אברכים בני תורה במגוון צרכים.'
                     : "From a mere concept to a living reality, sparked by a single 100-dollar bill that declared the beginning of our mission."}
                 </p>
               </div>
@@ -230,12 +230,12 @@ export default function HomePage() {
               <div className={`text-lg md:text-xl text-white/70 font-medium leading-relaxed italic space-y-8 ${isRtl ? 'text-right' : 'text-center'}`}>
                 <p>
                   {isRtl
-                    ? 'פעילות הגמ"ח דורשת משאבים כלכליים, הכסף הנמצא ברשותנו הופקד לצורך נתינת הלואות ולא בכדי להשתמש בו להוצאות. אנו זקוקים למקור כספי יציב שישמש כמקור האנרגיה לכל הפעילות הענפה של הגמ"ח.'
+                    ? 'לאחר שחל עלינו "חוק הגמחים", אנו נדרשים להעמיד קרן בגובה של 5% מסך ההפקדות כהון עצמי (לא מההפקדות עצמן), שזה סכום עתק, כתנאי לקבלת רישיון לניהול הגמ"ח.'
                     : 'Our GMACH operations require consistent financial resources. The funds in our possession were deposited to provide loans, not to be used for expenses. We need a stable financial source to serve as the energy for all the extensive activities of the GMACH.'}
                 </p>
                 <p>
                   {isRtl
-                    ? 'בנוסף להוצאות החודשיות אנו זקוקים להון עצמי מתוקף "חוק הגמחים" המחייב זאת כתנאי לקבלת רישיון לעיסוק.'
+                    ? 'כל זאת, בנוסף להוצאות חודשיות שאנו נדרשים להעמיד בכל חודש כדי לתפעל את הגמ"ח.'
                     : 'In addition to the monthly expenses, we require equity capital under the "GMACH Law" which mandates this as a condition for obtaining an operating license.'}
                 </p>
                 <div className="py-12 border-y border-white/10 my-12">
