@@ -190,7 +190,7 @@ export default function DonorHotelsPage() {
               return (
                 <div
                   key={hotel.id}
-                  className="bg-white rounded-[2rem] overflow-hidden border border-[#E5E1D8]/60 transition-all duration-300 hover:-translate-y-1"
+                  className="bg-white rounded-[2rem] overflow-hidden border border-[#E5E1D8]/60 transition-all duration-300 hover:-translate-y-1 flex flex-col"
                   style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
                 >
                   {/* Image */}
@@ -243,7 +243,7 @@ export default function DonorHotelsPage() {
                   </div>
 
                   {/* Content */}
-                  <div className="p-6">
+                  <div className="p-6 flex flex-col flex-1">
                     <div className="mb-3">
                       <div className="flex items-center gap-1.5 text-xs text-[#33332D]/40 mb-1.5">
                         <MapPin size={12} className="text-[#626D58]" />
@@ -260,14 +260,14 @@ export default function DonorHotelsPage() {
                     </div>
 
                     {hotel.description_he && (
-                      <p className="text-sm text-[#33332D]/50 mb-5 line-clamp-2 font-light leading-relaxed">
+                      <p className="text-sm text-[#33332D]/50 mb-5 line-clamp-2 font-light leading-relaxed flex-1">
                         {hotel.description_he}
                       </p>
                     )}
 
                     <button
                       disabled={!subscription.is_eligible}
-                      className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
+                      className={`w-full py-3 rounded-xl font-semibold text-sm transition-all mt-auto ${
                         subscription.is_eligible
                           ? 'bg-[#0A192F] text-white hover:bg-[#0A192F]/90 hover:shadow-md'
                           : 'bg-[#F7F5F0] text-[#33332D]/30 cursor-not-allowed border border-[#E5E1D8]'
