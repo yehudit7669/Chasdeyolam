@@ -8,11 +8,12 @@ import {
   Settings,
   LogOut,
   DollarSign,
-  LayoutDashboard,
   ArrowLeft,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
+import { useStore } from '../store/useStore';
 import AccessibilityToolbar from './AccessibilityToolbar';
 
 interface DonorLayoutProps {
@@ -23,7 +24,10 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, profile, isAdmin } = useAuth();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  const setLanguage = useStore((state) => state.setLanguage);
+
+  const toggleLanguage = () => setLanguage(language === 'he' ? 'en' : 'he');
 
   const handleSignOut = async () => {
     await signOut();
@@ -41,7 +45,7 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F7F5F0]" dir="rtl">
+    <div className="min-h-screen bg-[#F7F5F0]" dir={language === 'he' ? 'rtl' : 'ltr'}>
       {/* Admin return bar — always visible for admins */}
       {isAdmin && (
         <Link
@@ -69,6 +73,13 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
               {profile?.full_name && (
                 <span className="hidden sm:block text-sm font-medium text-[#33332D]/60">{profile.full_name}</span>
               )}
+              <button
+                onClick={toggleLanguage}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[#33332D]/60 hover:text-[#626D58] transition-colors rounded-xl hover:bg-[#F7F5F0]"
+              >
+                <Globe size={16} />
+                <span>{language === 'he' ? 'EN' : 'עב'}</span>
+              </button>
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#33332D]/60 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50"
