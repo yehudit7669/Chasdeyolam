@@ -153,7 +153,7 @@ export default function HomePage() {
                 <div className="w-20 h-1 bg-[#D4B483] mb-8" />
                 <p className="text-lg text-[#33332D]/70 leading-relaxed font-medium italic">
                   {isRtl
-                    ? 'פעילות הגמ"ח עברה מפה לאוזן, ומאז שנת תשס"ב ועד היום, משך 24 שנים, הגמ"ח גדל מאד והינו אחד מגדולי הגמ"חים בארץ. פעילות הגמ"ח הברוכה נותנת מענה למטרות שונות ומסייעת בידי אברכים בני תורה במגוון צרכים.'
+                    ? 'הרעיון התגבש, אך השתהה מלהיות לעובדה קיימת. זכה יהודי מיוחד מתמיד ותלמיד חכם, שהוציא מכיסו שטר של 100 דולר בהכרזה, \'הנה בזה, זה עתה נפתח הגמ"ח\'! זו היתה ההפקדה הראשונה לגמ"ח.'
                     : "From a mere concept to a living reality, sparked by a single 100-dollar bill that declared the beginning of our mission."}
                 </p>
               </div>
@@ -169,7 +169,7 @@ export default function HomePage() {
                 <div className={`w-20 h-1 bg-[#D4B483] mb-8 ${isRtl ? 'mr-auto md:ml-auto md:mr-0' : 'ml-auto'}`} />
                 <p className="text-lg text-[#33332D]/70 leading-relaxed font-medium italic">
                   {isRtl
-                    ? 'פעילות הגמ"ח עברה מפה לאוזן, ומאז שנת תשס"ב ועד היום, משך 24 שנים, הגמ"ח גדל מאד והינו אחד מגדולי הגמ"חים בארץ. פעילות הגמ"ח הברוכה בכמה אפיקים המיועדים למטרות שונות, מסייעת בידי אברכים בני תורה במגוון צרכים.'
+                    ? 'פעילות הגמ"ח עברה מפה לאוזן, ומאז שנת תשס"ב ועד היום, משך 24 שנים, הגמ"ח גדל מאד והינו אחד מגדולי הגמ"חים בארץ. פעילות הגמ"ח נותנת מענה למטרות שונות ומסייעת בידי אברכים בני תורה במגוון צרכים.'
                     : 'Growth spread through word of mouth, blossoming over 24 years into one of the largest and most impactful institutions in the land.'}
                 </p>
               </div>
