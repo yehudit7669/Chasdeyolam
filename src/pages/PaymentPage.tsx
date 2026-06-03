@@ -28,7 +28,7 @@ export default function PaymentPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const p = t.payment;
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -422,7 +422,7 @@ export default function PaymentPage() {
                         </div>
                         <div>
                           <div className="text-white/40 text-xs mb-0.5">{p.hotelLevel}</div>
-                          <div className="font-bold">{hotelLevelLabel(plan.hotel_level)}</div>
+                          <div className="font-bold">{hotelLevelLabel(plan.hotel_level, language)}</div>
                         </div>
                       </div>
                     </div>
@@ -602,7 +602,7 @@ export default function PaymentPage() {
                   {p.orderSummary}
                 </div>
                 <h2 className="text-xl font-bold text-white mb-1">{plan.name_he}</h2>
-                <div className="text-xs text-white/40 mb-6">{hotelLevelLabel(plan.hotel_level)}</div>
+                <div className="text-xs text-white/40 mb-6">{hotelLevelLabel(plan.hotel_level, language)}</div>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between items-center">
                     <span className="text-white/50">{p.monthlyAmount}</span>
@@ -659,7 +659,7 @@ export default function PaymentPage() {
                 <div><span className="text-[#33332D]/40">{p.bankPlanLabel} </span><span className="font-semibold text-[#0A192F]">{plan.name_he}</span></div>
                 <div><span className="text-[#33332D]/40">{p.bankMonthlyLabel} </span><span className="font-semibold text-[#626D58]">₪{plan.monthly_amount.toLocaleString()}</span></div>
                 <div><span className="text-[#33332D]/40">{p.bankPaymentsLabel} </span><span className="font-semibold text-[#0A192F]">{plan.required_successful_payments}</span></div>
-                <div><span className="text-[#33332D]/40">{p.bankHotelLevelLabel} </span><span className="font-semibold text-[#0A192F]">{hotelLevelLabel(plan.hotel_level)}</span></div>
+                <div><span className="text-[#33332D]/40">{p.bankHotelLevelLabel} </span><span className="font-semibold text-[#0A192F]">{hotelLevelLabel(plan.hotel_level, language)}</span></div>
                 <div className="col-span-2 pt-2 border-t border-[#E5E1D8]/60 mt-1">
                   <span className="text-[#33332D]/40">{p.bankTotalLabel} </span>
                   <span className="font-bold text-[#B08D57]">₪{(plan.monthly_amount * plan.required_successful_payments).toLocaleString()}</span>

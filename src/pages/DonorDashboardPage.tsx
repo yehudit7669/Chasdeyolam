@@ -273,7 +273,7 @@ export default function DonorDashboardPage() {
               <div>
                 <p className="font-bold text-[#0A192F] mb-1">{t.dashboard.eligibleTitle}</p>
                 <p className="text-sm text-[#33332D]/50 font-light">
-                  {t.dashboard.eligibleDesc} {hotelLevelLabel(subscription.plans.hotel_level)}
+                  {t.dashboard.eligibleDesc} {hotelLevelLabel(subscription.plans.hotel_level, language)}
                 </p>
                 <button
                   onClick={() => navigate('/donor/hotels')}

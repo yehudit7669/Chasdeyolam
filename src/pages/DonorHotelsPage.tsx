@@ -179,7 +179,7 @@ export default function DonorHotelsPage() {
             </div>
             <h2 className="text-xl font-black text-[#0A192F] mb-2">{t.donor.hotels.noHotelsTitle}</h2>
             <p className="text-[#33332D]/50 text-sm font-light">
-              {t.donor.hotels.noHotelsDesc} {hotelLevelLabel(subscription.plans.hotel_level)}
+              {t.donor.hotels.noHotelsDesc} {hotelLevelLabel(subscription.plans.hotel_level, language)}
             </p>
           </div>
         ) : (

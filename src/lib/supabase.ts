@@ -9,14 +9,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export const hotelLevelLabel = (level: string): string => {
-  switch (level?.toLowerCase()) {
-    case 'bronze': return 'בסיסי';
-    case 'platinum': return 'פרימיום';
-    case 'gold': return 'זהב';
-    case 'silver': return 'כסף';
-    default: return level ?? '';
-  }
+const hotelLevelLabels: Record<string, Record<string, string>> = {
+  he: { bronze: 'בסיסי', silver: 'כסף', gold: 'זהב', platinum: 'פרימיום' },
+  en: { bronze: 'Basic', silver: 'Silver', gold: 'Gold', platinum: 'Premium' },
+};
+
+export const hotelLevelLabel = (level: string, lang = 'he'): string => {
+  const map = hotelLevelLabels[lang] ?? hotelLevelLabels.he;
+  return map[level?.toLowerCase()] ?? level ?? '';
 };
 
 export type Database = {

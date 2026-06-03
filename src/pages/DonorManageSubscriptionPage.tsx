@@ -181,7 +181,7 @@ export default function DonorManageSubscriptionPage() {
                   label: t.donor.manageSubscription.paymentsCompleted,
                   value: `${subscription.successful_payments_count} / ${subscription.plans.required_successful_payments}`,
                 },
-                { label: t.donor.manageSubscription.eligibilityLevel, value: hotelLevelLabel(subscription.plans.hotel_level) },
+                { label: t.donor.manageSubscription.eligibilityLevel, value: hotelLevelLabel(subscription.plans.hotel_level, language) },
                 {
                   label: t.donor.manageSubscription.startDate,
                   value: new Date(subscription.started_at).toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US'),

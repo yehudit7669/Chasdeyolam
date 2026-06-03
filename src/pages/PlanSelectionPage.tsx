@@ -100,7 +100,7 @@ interface HotelItem {
 export default function PlanSelectionPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const ps = t.planSelection;
   const [plans, setPlans] = useState<Plan[]>([]);
   const [hotelsByLevel, setHotelsByLevel] = useState<Record<string, HotelItem[]>>({});
@@ -368,7 +368,7 @@ export default function PlanSelectionPage() {
 
                   <div className="p-8 flex flex-col flex-1">
                     <div className={`text-xs font-bold uppercase tracking-[0.25em] mb-6 ${isFeatured ? 'text-[#D4B483]/60 mt-6' : 'text-[#33332D]/30'}`}>
-                      {hotelLevelLabel(plan.hotel_level)}
+                      {hotelLevelLabel(plan.hotel_level, language)}
                     </div>
 
                     <h3 className={`text-2xl font-bold mb-2 ${isFeatured ? 'text-white' : 'text-[#0A192F]'}`}>

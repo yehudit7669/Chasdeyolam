@@ -112,7 +112,7 @@ export const PlansPage = () => {
                   <div className="flex items-start gap-2">
                     <CheckCircle className="text-green-600 flex-shrink-0 mt-1" size={18} />
                     <span className="text-sm text-gray-700">
-                      {t.plans.eligibilityLevel} {hotelLevelLabel(plan.hotel_level)}
+                      {t.plans.eligibilityLevel} {hotelLevelLabel(plan.hotel_level, language)}
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
