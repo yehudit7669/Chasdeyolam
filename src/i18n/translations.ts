@@ -12,7 +12,7 @@ export const translations = {
       password: 'סיסמה',
       fullName: 'שם מלא',
       phone: 'טלפון',
-      welcomeBack: 'ברוכים השבים',
+      welcomeBack: 'ברוכים הבאים',
       createAccount: 'יצירת חשבון חדש',
       alreadyHaveAccount: 'כבר יש לך חשבון?',
       dontHaveAccount: 'אין לך חשבון?',

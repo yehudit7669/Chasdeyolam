@@ -35,13 +35,13 @@ export default function HomePage() {
             {isRtl ? 'תרומה חודשית' : 'A Monthly Donation'}
             <br />
             <span className="text-[#B08D57] font-serif italic font-normal tracking-normal">
-              {isRtl ? 'שמעניקה לך חופשה' : 'That Gives You a Vacation'}
+              {isRtl ? 'שמעניקה לכם חופשה' : 'That Gives You a Vacation'}
             </span>
           </h1>
 
           <p className="text-xl md:text-2xl text-[#33332D]/70 max-w-2xl mx-auto leading-relaxed mb-14 font-light">
             {isRtl
-              ? 'הצטרפו להיות מנציבי הגמ"ח ע"י תרומה חודשית [אפשר ממעשרות*]\nשתעניק לך זכות לחופשה זוגית**'
+              ? 'הצטרפו להיות מנציבי הגמ"ח ע"י תרומה חודשית [אפשר ממעשרות*]\nשתעניק לכם זכות לחופשה זוגית**'
               : "Join as GMACH delegates with a monthly donation [tithes accepted*] that grants you the right to a couples' vacation.**"}
           </p>
 
@@ -57,7 +57,7 @@ export default function HomePage() {
               <span>
                 {user
                   ? (isRtl ? 'לדשבורד שלי' : 'View Dashboard')
-                  : (isRtl ? 'הצטרפות עכשיו' : 'Start Your Journey')}
+                  : (isRtl ? 'הצטרפו עכשיו' : 'Start Your Journey')}
               </span>
               <ChevronLeft
                 className={`transition-transform group-hover:-translate-x-1 ${isRtl ? '' : 'rotate-180'}`}
@@ -377,7 +377,7 @@ export default function HomePage() {
                 }}
               >
                 <span className="font-bold tracking-tight uppercase">
-                  {isRtl ? 'הצטרפות עכשיו' : 'Initialize Membership'}
+                  {isRtl ? 'הצטרפו עכשיו' : 'Initialize Membership'}
                 </span>
                 <ChevronLeft
                   className={`transition-transform group-hover:-translate-x-1 ${isRtl ? '' : 'rotate-180'}`}
