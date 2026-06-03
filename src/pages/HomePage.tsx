@@ -1,3 +1,4 @@
+import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft, Gift, Users, Hotel, Star } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -300,7 +301,7 @@ export default function HomePage() {
                   Icon: Gift,
                   title: isRtl ? 'נתינה מתמדת' : 'Continuous Giving',
                   desc: isRtl
-                    ? 'בחרו תוכנית תרומה חודשית שמתאימה לכם (ניתן מכספי מעשרות) ותהיו שותפים לפעילות החשובה של הגמ"ח שלנו.'
+                    ? (<>בחרו תוכנית תרומה חודשית שמתאימה לכם.<br />ניתן לתרום מכספי מעשרות על פי הוראת רבנים.</>)
                     : 'Select a monthly plan that reflects your philanthropic goals and become partners in the vital work of our GMACH.',
                   step: 'I',
                 },
@@ -309,7 +310,7 @@ export default function HomePage() {
                   title: isRtl ? 'צבירת זכויות' : 'Growing Equity',
                   desc: isRtl
                     ? 'בכל תשלום אתם נכנסים כשותפים לפעילות הענפה של הגמ"ח ובנוסף כל חודש מקרב אתכם ליעד הזכאות לחופשה חלומית.'
-                    : 'Each contribution makes you a partner in the GMACH\'s extensive activities while bringing you closer to your dream vacation eligibility.',
+                    : "Each contribution makes you a partner in the GMACH's extensive activities while bringing you closer to your dream vacation eligibility.",
                   step: 'II',
                 },
                 {
@@ -320,7 +321,7 @@ export default function HomePage() {
                     : 'Upon completing all plan payments, you will receive a hotel voucher of your choice, redeemed in advance coordination with the hotels at agreed dates.',
                   step: 'III',
                 },
-              ] as const
+              ] as { Icon: React.ElementType; title: string; desc: React.ReactNode; step: string }[]
             ).map(({ Icon, title, desc, step }, i) => (
               <div key={i} className="group relative h-full">
                 <div
