@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Heart, AlertTriangle, X, Info, Pause, Play, Trash2 } from 'lucide-react';
 import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { useTranslation } from '../hooks/useTranslation';
 import { callNedarimKevaService } from '../lib/nedarimKevaService';
 import DonorLayout from '../components/DonorLayout';
 
@@ -28,6 +29,7 @@ type DialogType = 'pause' | 'resume' | 'cancel' | null;
 export default function DonorManageSubscriptionPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t, language } = useTranslation();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [dialog, setDialog] = useState<DialogType>(null);
@@ -113,13 +115,13 @@ export default function DonorManageSubscriptionPage() {
           <div className="w-20 h-20 rounded-[1.5rem] bg-[#0A192F]/5 flex items-center justify-center mb-6">
             <Heart className="text-[#33332D]/20" size={36} />
           </div>
-          <h2 className="text-2xl font-black text-[#0A192F] mb-3">אין לך מנוי פעיל</h2>
-          <p className="text-[#33332D]/50 mb-8 font-light">הצטרף עכשיו כדי לנהל מנוי</p>
+          <h2 className="text-2xl font-black text-[#0A192F] mb-3">{t.donor.manageSubscription.noSubscriptionTitle}</h2>
+          <p className="text-[#33332D]/50 mb-8 font-light">{t.donor.manageSubscription.noSubscriptionDesc}</p>
           <button
             onClick={() => navigate('/plans')}
             className="px-8 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all"
           >
-            בחר תוכנית תרומה
+            {t.donor.manageSubscription.choosePlan}
           </button>
         </div>
       </DonorLayout>
@@ -132,7 +134,7 @@ export default function DonorManageSubscriptionPage() {
   const hasKevaId = !!subscription.keva_id;
   const canSelfManage = isNedarim && hasKevaId;
 
-  const statusLabel = isActive ? 'פעיל' : isFrozen ? 'מוקפא' : subscription.status;
+  const statusLabel = isActive ? t.donor.manageSubscription.statusActive : isFrozen ? t.donor.manageSubscription.statusFrozen : subscription.status;
   const statusColor = isActive
     ? 'bg-[#626D58] text-white'
     : isFrozen
@@ -143,8 +145,8 @@ export default function DonorManageSubscriptionPage() {
     <DonorLayout>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-black text-[#0A192F]">ניהול תרומה</h1>
-          <p className="text-[#33332D]/50 text-sm mt-1 font-light">פרטי המנוי הנוכחי שלך</p>
+          <h1 className="text-2xl font-black text-[#0A192F]">{t.donor.manageSubscription.pageTitle}</h1>
+          <p className="text-[#33332D]/50 text-sm mt-1 font-light">{t.donor.manageSubscription.pageSubtitle}</p>
         </div>
 
         {/* Current plan card */}
@@ -158,13 +160,13 @@ export default function DonorManageSubscriptionPage() {
           >
             <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#D4B483]/10 blur-2xl pointer-events-none" />
             <div className="relative">
-              <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#D4B483]/60 mb-2">המנוי הנוכחי שלי</div>
+              <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#D4B483]/60 mb-2">{t.donor.manageSubscription.currentPlan}</div>
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-white">{subscription.plans.name_he}</h2>
                   <div className="text-[#D4B483] font-bold mt-1">
                     ₪{subscription.plans.monthly_amount.toLocaleString()}
-                    <span className="text-white/40 text-sm font-normal mr-1">/ לחודש</span>
+                    <span className="text-white/40 text-sm font-normal mr-1">{t.donor.manageSubscription.perMonth}</span>
                   </div>
                 </div>
                 <span className={`px-3 py-1.5 text-xs font-bold rounded-xl ${statusColor}`}>{statusLabel}</span>
@@ -176,18 +178,18 @@ export default function DonorManageSubscriptionPage() {
             <div className="grid grid-cols-2 gap-4 mb-6">
               {[
                 {
-                  label: 'תשלומים שבוצעו',
+                  label: t.donor.manageSubscription.paymentsCompleted,
                   value: `${subscription.successful_payments_count} / ${subscription.plans.required_successful_payments}`,
                 },
-                { label: 'רמת זכאות', value: hotelLevelLabel(subscription.plans.hotel_level) },
+                { label: t.donor.manageSubscription.eligibilityLevel, value: hotelLevelLabel(subscription.plans.hotel_level) },
                 {
-                  label: 'תאריך התחלה',
-                  value: new Date(subscription.started_at).toLocaleDateString('he-IL'),
+                  label: t.donor.manageSubscription.startDate,
+                  value: new Date(subscription.started_at).toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US'),
                 },
                 {
-                  label: 'חיוב הבא',
+                  label: t.donor.manageSubscription.nextCharge,
                   value: subscription.next_payment_date
-                    ? new Date(subscription.next_payment_date).toLocaleDateString('he-IL', {
+                    ? new Date(subscription.next_payment_date).toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US', {
                         day: 'numeric',
                         month: 'long',
                         year: 'numeric',
@@ -210,7 +212,7 @@ export default function DonorManageSubscriptionPage() {
                   className="w-full py-3.5 bg-blue-50 text-blue-700 font-semibold rounded-xl hover:bg-blue-100 transition-colors border-2 border-blue-100 flex items-center justify-center gap-2"
                 >
                   <Pause size={16} />
-                  השהה הוראת קבע
+                  {t.donor.manageSubscription.suspendBtn}
                 </button>
               )}
               {canSelfManage && isFrozen && (
@@ -219,7 +221,7 @@ export default function DonorManageSubscriptionPage() {
                   className="w-full py-3.5 bg-green-50 text-green-700 font-semibold rounded-xl hover:bg-green-100 transition-colors border-2 border-green-100 flex items-center justify-center gap-2"
                 >
                   <Play size={16} />
-                  חדש הוראת קבע
+                  {t.donor.manageSubscription.resumeBtn}
                 </button>
               )}
               {canSelfManage && (
@@ -228,12 +230,12 @@ export default function DonorManageSubscriptionPage() {
                   className="w-full py-3.5 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors border-2 border-red-100 flex items-center justify-center gap-2"
                 >
                   <Trash2 size={16} />
-                  בטל מנוי לצמיתות
+                  {t.donor.manageSubscription.cancelBtn}
                 </button>
               )}
               {!canSelfManage && (
                 <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-800 text-center">
-                  לביצוע שינויים במנוי צור קשר עם התמיכה
+                  {t.donor.manageSubscription.contactSupport}
                 </div>
               )}
             </div>
@@ -247,10 +249,9 @@ export default function DonorManageSubscriptionPage() {
         >
           <Info className="text-[#0A192F]/40 flex-shrink-0 mt-0.5" size={18} />
           <div className="text-sm text-[#33332D]/60">
-            <p className="font-semibold text-[#33332D]/80 mb-1">שינוי תוכנית</p>
+            <p className="font-semibold text-[#33332D]/80 mb-1">{t.donor.manageSubscription.changePlanTitle}</p>
             <p className="font-light leading-relaxed">
-              שינוי תוכנית הוראת קבע מחייב יצירת הסדר חדש בנדרים פלוס. לביצוע שינוי תוכנית,
-              צור קשר עם התמיכה שלנו — אנו נטפל בזה עבורך.
+              {t.donor.manageSubscription.changePlanDesc}
             </p>
           </div>
         </div>
@@ -262,12 +263,12 @@ export default function DonorManageSubscriptionPage() {
         >
           <AlertTriangle className="text-[#B08D57] flex-shrink-0 mt-0.5" size={18} />
           <div className="text-sm text-[#33332D]/60">
-            <p className="font-semibold text-[#33332D]/80 mb-2">חשוב לדעת:</p>
+            <p className="font-semibold text-[#33332D]/80 mb-2">{t.donor.manageSubscription.importantTitle}</p>
             <ul className="space-y-1 font-light">
-              <li>ביטול מנוי יבטל את ההתקדמות הנוכחית שלך</li>
-              <li>ביטול מנוי יבטל את כל הזכאויות למלונות</li>
-              <li>תשלומים שכבר בוצעו לא יוחזרו</li>
-              <li>השהיה תאפשר לך לחדש את המנוי בעתיד</li>
+              <li>{t.donor.manageSubscription.warningBullet1}</li>
+              <li>{t.donor.manageSubscription.warningBullet2}</li>
+              <li>{t.donor.manageSubscription.warningBullet3}</li>
+              <li>{t.donor.manageSubscription.warningBullet4}</li>
             </ul>
           </div>
         </div>
@@ -282,9 +283,9 @@ export default function DonorManageSubscriptionPage() {
           >
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-black text-[#0A192F]">
-                {dialog === 'pause' && 'השהיית הוראת קבע'}
-                {dialog === 'resume' && 'חידוש הוראת קבע'}
-                {dialog === 'cancel' && 'ביטול מנוי לצמיתות'}
+                {dialog === 'pause' && t.donor.manageSubscription.dialogSuspendTitle}
+                {dialog === 'resume' && t.donor.manageSubscription.dialogResumeTitle}
+                {dialog === 'cancel' && t.donor.manageSubscription.dialogCancelTitle}
               </h3>
               <button
                 onClick={() => { setDialog(null); setErrorMsg(null); }}
@@ -308,21 +309,18 @@ export default function DonorManageSubscriptionPage() {
                   dialog === 'cancel' ? 'text-red-800' : dialog === 'pause' ? 'text-blue-800' : 'text-green-800'
                 }`}
               >
-                {dialog === 'pause' && 'האם להשהות את הוראת הקבע?'}
-                {dialog === 'resume' && 'האם לחדש את הוראת הקבע?'}
-                {dialog === 'cancel' && 'האם אתה בטוח?'}
+                {dialog === 'pause' && t.donor.manageSubscription.dialogPauseQuestion}
+                {dialog === 'resume' && t.donor.manageSubscription.dialogResumeQuestion}
+                {dialog === 'cancel' && t.donor.manageSubscription.dialogCancelQuestion}
               </p>
               <p
                 className={`text-sm font-light leading-relaxed ${
                   dialog === 'cancel' ? 'text-red-700' : dialog === 'pause' ? 'text-blue-700' : 'text-green-700'
                 }`}
               >
-                {dialog === 'pause' &&
-                  'הוראת הקבע תושהה בנדרים פלוס. לא יבוצעו חיובים נוספים עד לחידוש המנוי. ניתן לחדש בכל עת.'}
-                {dialog === 'resume' &&
-                  'הוראת הקבע תחודש בנדרים פלוס. החיובים החודשיים יתחדשו.'}
-                {dialog === 'cancel' &&
-                  'ביטול הוראת הקבע הוא סופי ולא ניתן לביטול. כל ההתקדמות והזכאויות יאבדו. תשלומים שבוצעו לא יוחזרו.'}
+                {dialog === 'pause' && t.donor.manageSubscription.dialogPauseDesc}
+                {dialog === 'resume' && t.donor.manageSubscription.dialogResumeDesc}
+                {dialog === 'cancel' && t.donor.manageSubscription.dialogCancelDesc}
               </p>
             </div>
 
@@ -351,9 +349,9 @@ export default function DonorManageSubscriptionPage() {
                     {dialog === 'pause' && <Pause size={16} />}
                     {dialog === 'resume' && <Play size={16} />}
                     {dialog === 'cancel' && <Trash2 size={16} />}
-                    {dialog === 'pause' && 'כן, השהה'}
-                    {dialog === 'resume' && 'כן, חדש'}
-                    {dialog === 'cancel' && 'כן, בטל לצמיתות'}
+                    {dialog === 'pause' && t.donor.manageSubscription.confirmSuspend}
+                    {dialog === 'resume' && t.donor.manageSubscription.confirmResume}
+                    {dialog === 'cancel' && t.donor.manageSubscription.confirmCancel}
                   </>
                 )}
               </button>
@@ -362,7 +360,7 @@ export default function DonorManageSubscriptionPage() {
                 disabled={processing}
                 className="flex-1 py-3.5 bg-[#F7F5F0] text-[#33332D] font-semibold rounded-xl hover:bg-[#E5E1D8] transition-colors"
               >
-                חזור
+                {t.donor.manageSubscription.back}
               </button>
             </div>
           </div>

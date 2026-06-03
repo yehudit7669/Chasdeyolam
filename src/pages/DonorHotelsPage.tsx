@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { useTranslation } from '../hooks/useTranslation';
 import DonorLayout from '../components/DonorLayout';
 
 interface Hotel {
@@ -34,6 +35,7 @@ interface Subscription {
 export default function DonorHotelsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t, language } = useTranslation();
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,7 +115,7 @@ export default function DonorHotelsPage() {
         <div className="flex items-center justify-center py-24">
           <div className="text-center">
             <div className="w-12 h-12 border-2 border-[#E5E1D8] border-t-[#626D58] rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-[#33332D]/50 text-sm">טוען מלונות...</p>
+            <p className="text-[#33332D]/50 text-sm">{t.donor.hotels.loading}</p>
           </div>
         </div>
       </DonorLayout>
@@ -127,13 +129,13 @@ export default function DonorHotelsPage() {
           <div className="w-20 h-20 rounded-[1.5rem] bg-[#0A192F]/5 flex items-center justify-center mb-6">
             <HotelIcon className="text-[#33332D]/20" size={36} />
           </div>
-          <h2 className="text-2xl font-black text-[#0A192F] mb-3">אין לך מנוי פעיל</h2>
-          <p className="text-[#33332D]/50 mb-8 font-light">הצטרף עכשיו כדי לראות מלונות זמינים</p>
+          <h2 className="text-2xl font-black text-[#0A192F] mb-3">{t.donor.hotels.noSubscriptionTitle}</h2>
+          <p className="text-[#33332D]/50 mb-8 font-light">{t.donor.hotels.noSubscriptionDesc}</p>
           <button
             onClick={() => navigate('/plans')}
             className="px-8 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all"
           >
-            בחר תוכנית תרומה
+            {t.donor.hotels.choosePlan}
           </button>
         </div>
       </DonorLayout>
@@ -145,9 +147,9 @@ export default function DonorHotelsPage() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-black text-[#0A192F]">בחירת בית מלון</h1>
+          <h1 className="text-2xl font-black text-[#0A192F]">{t.donor.hotels.pageTitle}</h1>
           <p className="text-[#33332D]/50 text-sm mt-1 font-light">
-            גלה את מבחר המלונות היוקרתיים שעומדים לרשותך
+            {t.donor.hotels.pageSubtitle}
           </p>
         </div>
 
@@ -161,10 +163,9 @@ export default function DonorHotelsPage() {
               <Lock className="text-[#B08D57]" size={18} />
             </div>
             <div>
-              <h3 className="font-bold text-[#0A192F] mb-1">המלונות עדיין לא זמינים להזמנה</h3>
+              <h3 className="font-bold text-[#0A192F] mb-1">{t.donor.hotels.lockedTitle}</h3>
               <p className="text-sm text-[#33332D]/60 font-light leading-relaxed">
-                תוכל להזמין מלון רק לאחר השלמת כל התשלומים הנדרשים בתוכנית שלך.
-                תוכל בינתיים להתרשם מרשימת המלונות.
+                {t.donor.hotels.lockedDesc}
               </p>
             </div>
           </div>
@@ -176,9 +177,9 @@ export default function DonorHotelsPage() {
             <div className="w-20 h-20 rounded-[1.5rem] bg-[#F7F5F0] flex items-center justify-center mb-6">
               <HotelIcon className="text-[#33332D]/20" size={36} />
             </div>
-            <h2 className="text-xl font-black text-[#0A192F] mb-2">אין מלונות זמינים</h2>
+            <h2 className="text-xl font-black text-[#0A192F] mb-2">{t.donor.hotels.noHotelsTitle}</h2>
             <p className="text-[#33332D]/50 text-sm font-light">
-              לא נמצאו מלונות ברמת הזכאות שלך: {hotelLevelLabel(subscription.plans.hotel_level)}
+              {t.donor.hotels.noHotelsDesc} {hotelLevelLabel(subscription.plans.hotel_level)}
             </p>
           </div>
         ) : (
@@ -255,7 +256,7 @@ export default function DonorHotelsPage() {
                     <div className="flex items-center gap-3 mb-4">
                       <div className="flex items-center gap-1 text-xs text-[#33332D]/50">
                         <Users size={12} />
-                        <span>{hotel.base_rooms} {hotel.base_rooms === 1 ? 'חדר' : 'חדרים'} בסיס</span>
+                        <span>{hotel.base_rooms} {hotel.base_rooms === 1 ? t.donor.hotels.rooms : t.donor.hotels.roomsPlural}</span>
                       </div>
                     </div>
 
@@ -273,10 +274,10 @@ export default function DonorHotelsPage() {
                           : 'bg-[#F7F5F0] text-[#33332D]/30 cursor-not-allowed border border-[#E5E1D8]'
                       }`}
                     >
-                      {subscription.is_eligible ? 'הזמן עכשיו' : (
+                      {subscription.is_eligible ? t.donor.hotels.bookNow : (
                         <span className="flex items-center justify-center gap-2">
                           <Lock size={14} />
-                          נעול — השלם תשלומים
+                          {t.donor.hotels.locked}
                         </span>
                       )}
                     </button>

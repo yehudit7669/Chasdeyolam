@@ -3,6 +3,7 @@ import { CheckCircle, XCircle, Heart, Loader2, Shield, Lock } from 'lucide-react
 import { useNavigate } from 'react-router-dom';
 import DonorLayout from '../components/DonorLayout';
 import { useAuth } from '../hooks/useAuth';
+import { useTranslation } from '../hooks/useTranslation';
 
 type PageState = 'select' | 'iframe' | 'paying' | 'success' | 'failure' | 'cancel';
 
@@ -18,6 +19,7 @@ const PRESET_AMOUNTS = [50, 100, 180, 250, 500, 1000];
 export default function DonorAdditionalDonationPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [amount, setAmount] = useState('');
   const [customAmount, setCustomAmount] = useState('');
@@ -87,7 +89,7 @@ export default function DonorAdditionalDonationPage() {
         const resp = data.Value ?? {};
         console.log('[AdditionalDonation] TransactionResponse:', JSON.stringify(resp));
         if (resp.Status === 'Error') {
-          setErrorMsg(resp.Message ?? 'שגיאה בעיבוד התשלום');
+          setErrorMsg(resp.Message ?? t.donor.additionalDonation.errorProcessing);
           setPageState('failure');
         } else {
           setPageState('success');
@@ -139,7 +141,7 @@ export default function DonorAdditionalDonationPage() {
         Mail: '',
         Amount: String(selectedAmount),
         Tashlumim: '1',
-        Groupe: 'תרומה נוספת דרך אתר נציבים',
+        Groupe: t.donor.additionalDonation.nedarimGroup,
         Comment: '',
         Param1: user.id,
         Param2: 'additional_donation',
@@ -165,11 +167,11 @@ export default function DonorAdditionalDonationPage() {
             <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5">
               <CheckCircle size={32} className="text-green-600" />
             </div>
-            <h2 className="text-2xl font-black text-[#0A192F] mb-3">תרומה התקבלה!</h2>
-            <p className="text-[#33332D]/60 text-sm mb-8 leading-relaxed">תודה על תרומתך!</p>
+            <h2 className="text-2xl font-black text-[#0A192F] mb-3">{t.donor.additionalDonation.successTitle}</h2>
+            <p className="text-[#33332D]/60 text-sm mb-8 leading-relaxed">{t.donor.additionalDonation.successMessage}</p>
             <button onClick={() => navigate('/dashboard')}
               className="w-full py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all">
-              חזרה ללוח הבקרה
+              {t.donor.additionalDonation.backToDashboard}
             </button>
           </div>
         </div>
@@ -188,14 +190,14 @@ export default function DonorAdditionalDonationPage() {
               <XCircle size={32} className={isCancel ? 'text-amber-500' : 'text-red-500'} />
             </div>
             <h2 className="text-2xl font-black text-[#0A192F] mb-3">
-              {isCancel ? 'התשלום בוטל' : 'שגיאה בתשלום'}
+              {isCancel ? t.donor.additionalDonation.cancelledTitle : t.donor.additionalDonation.errorTitle}
             </h2>
             <p className="text-[#33332D]/60 text-sm mb-8">
-              {isCancel ? 'ביטלת את תהליך התשלום.' : (errorMsg || 'אירעה שגיאה. נסה שוב.')}
+              {isCancel ? t.donor.additionalDonation.cancelledMessage : (errorMsg || t.donor.additionalDonation.errorMessage)}
             </p>
             <button onClick={() => { setPageState('select'); setErrorMsg(''); setIframeVisible(false); }}
               className="w-full py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all">
-              נסה שוב
+              {t.donor.additionalDonation.tryAgain}
             </button>
           </div>
         </div>
@@ -207,9 +209,9 @@ export default function DonorAdditionalDonationPage() {
     <DonorLayout>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-black text-[#0A192F]">תרומה נוספת</h1>
+          <h1 className="text-2xl font-black text-[#0A192F]">{t.donor.additionalDonation.pageTitle}</h1>
           <p className="text-[#33332D]/50 text-sm mt-1 font-light">
-            תרום סכום נוסף מעבר למנוי החודשי שלך
+            {t.donor.additionalDonation.pageSubtitle}
           </p>
         </div>
 
@@ -218,7 +220,7 @@ export default function DonorAdditionalDonationPage() {
           <>
             <div className="bg-white rounded-[2rem] p-8 border border-[#E5E1D8]/60"
               style={{ boxShadow: '0 4px 24px rgba(98,109,88,0.08)' }}>
-              <h2 className="text-lg font-black text-[#0A192F] mb-6">בחר סכום לתרומה</h2>
+              <h2 className="text-lg font-black text-[#0A192F] mb-6">{t.donor.additionalDonation.chooseAmount}</h2>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
                 {PRESET_AMOUNTS.map((value) => (
@@ -231,33 +233,33 @@ export default function DonorAdditionalDonationPage() {
                     <div className={`text-2xl font-black mb-0.5 ${amount === value.toString() ? 'text-[#626D58]' : 'text-[#0A192F]'}`}>
                       ₪{value.toLocaleString()}
                     </div>
-                    <div className="text-xs text-[#33332D]/40">תרומה חד פעמית</div>
+                    <div className="text-xs text-[#33332D]/40">{t.donor.additionalDonation.oneTimeDonation}</div>
                   </button>
                 ))}
               </div>
 
               <div className="mb-8">
-                <label className="block text-sm font-semibold text-[#33332D]/70 mb-3">או הזן סכום אחר:</label>
+                <label className="block text-sm font-semibold text-[#33332D]/70 mb-3">{t.donor.additionalDonation.customAmount}</label>
                 <div className="relative">
                   <span className="absolute start-4 top-1/2 -translate-y-1/2 text-[#33332D]/40 font-semibold text-lg pointer-events-none">₪</span>
                   <input type="text" value={customAmount} onChange={(e) => handleCustomChange(e.target.value)}
                     placeholder="0" dir="ltr"
                     className="w-full ps-10 pe-4 py-3.5 bg-[#F9F8F4] border border-[#E5E1D8] rounded-xl text-[#0A192F] text-lg font-bold placeholder-[#33332D]/20 focus:outline-none focus:ring-2 focus:ring-[#D4B483]/30 focus:border-[#D4B483] transition-all" />
                 </div>
-                <p className="text-xs text-[#33332D]/40 mt-2">סכום מינימלי: ₪10</p>
+                <p className="text-xs text-[#33332D]/40 mt-2">{t.donor.additionalDonation.minAmount}</p>
               </div>
 
               {selectedAmount > 0 && (
                 <div className="flex items-center justify-between p-5 rounded-2xl border border-[#D4B483]/30 mb-6"
                   style={{ backgroundColor: 'rgba(212,180,131,0.05)' }}>
-                  <span className="text-sm font-semibold text-[#33332D]/60">סכום לתרומה</span>
+                  <span className="text-sm font-semibold text-[#33332D]/60">{t.donor.additionalDonation.donationAmount}</span>
                   <span className="text-2xl font-black text-[#0A192F]">₪{selectedAmount.toLocaleString()}</span>
                 </div>
               )}
 
               <div className="flex items-center gap-2 mb-4 text-xs text-[#626D58] font-semibold">
                 <Lock size={12} />
-                <span>תשלום מאובטח · נדרים פלוס · SSL</span>
+                <span>{t.donor.additionalDonation.secureBadge}</span>
               </div>
 
               <button onClick={startIframe} disabled={selectedAmount < 10}
@@ -267,18 +269,18 @@ export default function DonorAdditionalDonationPage() {
                     : 'bg-[#F7F5F0] text-[#33332D]/30 cursor-not-allowed border border-[#E5E1D8]'
                 }`}>
                 <Heart size={18} className={selectedAmount >= 10 ? 'text-[#D4B483]' : ''} />
-                <span>{selectedAmount >= 10 ? `המשך לתשלום ₪${selectedAmount.toLocaleString()}` : 'בחר סכום לתרומה'}</span>
+                <span>{selectedAmount >= 10 ? t.donor.additionalDonation.proceedToPayment.replace('{amount}', selectedAmount.toLocaleString()) : t.donor.additionalDonation.chooseAmountBtn}</span>
               </button>
             </div>
 
             <div className="bg-white rounded-[2rem] p-7 border border-[#E5E1D8]/60"
               style={{ boxShadow: '0 4px 24px rgba(98,109,88,0.06)' }}>
-              <h3 className="text-base font-bold text-[#0A192F] mb-4">למה לתרום תרומה נוספת?</h3>
+              <h3 className="text-base font-bold text-[#0A192F] mb-4">{t.donor.additionalDonation.whyDonateTitle}</h3>
               <ul className="space-y-3">
                 {[
-                  'תרומתך מסייעת לנו להמשיך לעזור למשפחות נזקקות',
-                  'כל שקל עוזר לנו לספק שירותי אירוח איכותיים יותר',
-                  'תרומה נוספת מאפשרת לנו להרחיב את מאגר המלונות',
+                  t.donor.additionalDonation.whyDonateBullet1,
+                  t.donor.additionalDonation.whyDonateBullet2,
+                  t.donor.additionalDonation.whyDonateBullet3,
                 ].map((text) => (
                   <li key={text} className="flex items-start gap-3 text-sm text-[#33332D]/60 font-light">
                     <div className="w-5 h-5 rounded-full bg-[#D4B483]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -300,12 +302,12 @@ export default function DonorAdditionalDonationPage() {
             <div className="px-6 py-4 border-b border-[#E5E1D8]/60 flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold text-[#0A192F]">
                 <Shield size={16} className="text-[#626D58]" />
-                <span>תשלום מאובטח — ₪{selectedAmount.toLocaleString()}</span>
+                <span>{t.donor.additionalDonation.securePayment.replace('{amount}', selectedAmount.toLocaleString())}</span>
               </div>
               {pageState === 'iframe' && (
                 <button onClick={() => { setPageState('cancel'); setIframeVisible(false); }}
                   className="text-xs text-[#33332D]/40 hover:text-[#33332D]/70 transition-colors">
-                  ביטול
+                  {t.donor.additionalDonation.cancelBtn}
                 </button>
               )}
             </div>
@@ -314,7 +316,7 @@ export default function DonorAdditionalDonationPage() {
               <div className="flex items-center justify-center py-16">
                 <div className="text-center">
                   <Loader2 size={36} className="animate-spin text-[#626D58] mx-auto mb-3" />
-                  <p className="text-[#33332D]/50 text-sm">טוען טופס תשלום...</p>
+                  <p className="text-[#33332D]/50 text-sm">{t.donor.additionalDonation.loading}</p>
                 </div>
               </div>
             )}
@@ -329,7 +331,7 @@ export default function DonorAdditionalDonationPage() {
                 border: 'none',
                 display: iframeVisible ? 'block' : 'none',
               }}
-              title="טופס תשלום נדרים פלוס"
+              title={t.donor.additionalDonation.iframeTitle}
               allow="payment"
             />
 
@@ -338,10 +340,10 @@ export default function DonorAdditionalDonationPage() {
                 <button onClick={handlePayClick}
                   className="w-full py-4 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2">
                   <Shield size={18} />
-                  <span>בצע תרומה</span>
+                  <span>{t.donor.additionalDonation.submitDonation}</span>
                 </button>
                 <p className="text-center text-xs text-[#33332D]/40 mt-3">
-                  לחיצה על "בצע תרומה" תשלח את פרטי הכרטיס לנדרים פלוס בצורה מוצפנת
+                  {t.donor.additionalDonation.submitNote}
                 </p>
               </div>
             )}
@@ -349,7 +351,7 @@ export default function DonorAdditionalDonationPage() {
             {pageState === 'paying' && (
               <div className="px-6 py-5 border-t border-[#E5E1D8]/60 flex items-center justify-center gap-3">
                 <Loader2 size={20} className="animate-spin text-[#626D58]" />
-                <span className="text-sm text-[#33332D]/60">מעבד תשלום...</span>
+                <span className="text-sm text-[#33332D]/60">{t.donor.additionalDonation.processing}</span>
               </div>
             )}
           </div>
