@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
-import { Search, UserCog } from 'lucide-react';
+import { Search, UserCog, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/admin/Modal';
 import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
 import { Toast } from '../../components/admin/Toast';
@@ -34,6 +34,9 @@ export const AdminUsersPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; userId: string; newRole: string }>({
     isOpen: false, userId: '', newRole: '',
+  });
+  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; user: UserProfile | null; loading: boolean }>({
+    isOpen: false, user: null, loading: false,
   });
   const { toast, showToast, hideToast } = useToast();
   const { canEdit } = useAuth();
@@ -77,6 +80,37 @@ export const AdminUsersPage = () => {
     showToast('תפקיד עודכן בהצלחה', 'success');
     setConfirmDialog({ ...confirmDialog, isOpen: false });
     loadUsers();
+  };
+
+  const handleDeleteUser = async () => {
+    if (!canEdit || !deleteDialog.user) return;
+    setDeleteDialog(d => ({ ...d, loading: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ userId: deleteDialog.user.id }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        showToast(json.error ?? 'שגיאה במחיקת המשתמש', 'error');
+        setDeleteDialog(d => ({ ...d, loading: false }));
+        return;
+      }
+      showToast('המשתמש נמחק בהצלחה.', 'success');
+      setDeleteDialog({ isOpen: false, user: null, loading: false });
+      loadUsers();
+    } catch {
+      showToast('שגיאה בלתי צפויה במחיקת המשתמש', 'error');
+      setDeleteDialog(d => ({ ...d, loading: false }));
+    }
   };
 
   const getRoleName = (role: string) => ({ admin: 'מנהל', viewer: 'צופה', donor: 'תורם' }[role] || role);
@@ -173,13 +207,22 @@ export const AdminUsersPage = () => {
                     </td>
                     {canEdit && (
                       <td className="px-6 py-4">
-                        <button
-                          onClick={() => { setSelectedUser(u); setIsModalOpen(true); }}
-                          className="text-[#0B3C5D] hover:text-[#0B3C5D]/70 transition-colors"
-                          title="שינוי תפקיד"
-                        >
-                          <UserCog size={18} />
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => { setSelectedUser(u); setIsModalOpen(true); }}
+                            className="text-[#0B3C5D] hover:text-[#0B3C5D]/70 transition-colors"
+                            title="שינוי תפקיד"
+                          >
+                            <UserCog size={18} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteDialog({ isOpen: true, user: u, loading: false })}
+                            className="text-red-500 hover:text-red-700 transition-colors"
+                            title="מחיקת משתמש"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -223,6 +266,56 @@ export const AdminUsersPage = () => {
         message={`האם אתה בטוח שברצונך לשנות את תפקיד המשתמש ל-${getRoleName(confirmDialog.newRole)}?`}
         type="warning"
       />
+
+      {/* Delete user confirmation */}
+      {deleteDialog.isOpen && deleteDialog.user && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => { if (!deleteDialog.loading) setDeleteDialog({ isOpen: false, user: null, loading: false }); }} />
+          <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center bg-red-100">
+                  <Trash2 className="text-red-600" size={24} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-[#0B3C5D] mb-2">מחיקת משתמש</h3>
+                  <p className="text-gray-600 mb-1">
+                    האם אתה בטוח שברצונך למחוק את המשתמש?
+                  </p>
+                  <p className="text-sm font-medium text-gray-800 mb-1">
+                    {deleteDialog.user.full_name || 'ללא שם'} — {deleteDialog.user.email}
+                  </p>
+                  {deleteDialog.user.subscriptions?.some(s => ['active', 'frozen'].includes(s.status)) && (
+                    <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mt-2">
+                      למשתמש זה יש מנוי פעיל. המנוי יבוטל אוטומטית לפני המחיקה.
+                    </p>
+                  )}
+                  <p className="text-sm text-red-600 mt-2">פעולה זו תמחק את המשתמש לצמיתות מהמערכת.</p>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6 justify-end">
+                <button
+                  onClick={() => setDeleteDialog({ isOpen: false, user: null, loading: false })}
+                  disabled={deleteDialog.loading}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                >
+                  ביטול
+                </button>
+                <button
+                  onClick={handleDeleteUser}
+                  disabled={deleteDialog.loading}
+                  className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {deleteDialog.loading && (
+                    <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  )}
+                  מחק משתמש
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast.isOpen && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </AdminLayout>
