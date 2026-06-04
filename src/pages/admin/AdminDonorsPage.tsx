@@ -381,8 +381,8 @@ export const AdminDonorsPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <table className="w-full">
+      <div className="bg-white rounded-lg shadow-md overflow-x-auto">
+        <table className="w-full min-w-[800px]">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תורם</th>
@@ -390,7 +390,7 @@ export const AdminDonorsPage = () => {
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">סטטוס</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">מקור</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תשלומים</th>
-              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700 hidden md:table-cell">התחלה</th>
+              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">התחלה</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תנאי שימוש</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">הוראת קבע</th>
             </tr>
@@ -411,7 +411,7 @@ export const AdminDonorsPage = () => {
                   <td className="px-6 py-4">{statusBadge(d.subscription_status)}</td>
                   <td className="px-6 py-4">{sourceBadge(d.subscription_source)}</td>
                   <td className="px-6 py-4 text-sm font-semibold text-gray-900">{d.successful_payments_count}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">
+                  <td className="px-6 py-4 text-sm text-gray-600">
                     {new Date(d.started_at).toLocaleDateString('he-IL')}
                   </td>
                   <td className="px-6 py-4">

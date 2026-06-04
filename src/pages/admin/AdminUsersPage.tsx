@@ -162,12 +162,12 @@ export const AdminUsersPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <table className="w-full">
+      <div className="bg-white rounded-lg shadow-md overflow-x-auto">
+        <table className="w-full min-w-[640px]">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">שם / אימייל</th>
-              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700 hidden md:table-cell">טלפון</th>
+              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">טלפון</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תפקיד</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">מנוי</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">הצטרף</th>
@@ -188,7 +188,7 @@ export const AdminUsersPage = () => {
                       <div className="font-medium text-sm text-gray-900">{u.full_name || <span className="text-gray-400 italic">ללא שם</span>}</div>
                       <div className="text-xs text-gray-500">{u.email}</div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">{u.phone || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{u.phone || '—'}</td>
                     <td className="px-6 py-4">{roleBadge(u.role)}</td>
                     <td className="px-6 py-4 text-sm">
                       {activeSub ? (

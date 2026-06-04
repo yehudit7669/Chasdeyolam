@@ -241,15 +241,15 @@ export const AdminBankDonorsPage = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+        <table className="w-full min-w-[640px]">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תורם</th>
-              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700 hidden md:table-cell">תוכנית</th>
+              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תוכנית</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">סטטוס</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תשלומים</th>
-              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700 hidden lg:table-cell">יום חיוב</th>
+              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">יום חיוב</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">פעולות</th>
             </tr>
           </thead>
@@ -267,7 +267,7 @@ export const AdminBankDonorsPage = () => {
                     <div className="font-medium text-gray-900 text-sm">{sub.profiles?.full_name || '—'}</div>
                     <div className="text-xs text-gray-500">{sub.profiles?.email}</div>
                   </td>
-                  <td className="px-6 py-4 hidden md:table-cell">
+                  <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">{sub.plans?.name_he}</div>
                     <div className="text-xs text-gray-500">₪{sub.plans?.monthly_amount?.toLocaleString()}/חודש</div>
                   </td>
@@ -297,7 +297,7 @@ export const AdminBankDonorsPage = () => {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 hidden lg:table-cell text-sm text-gray-600">
+                  <td className="px-6 py-4 text-sm text-gray-600">
                     {sub.billing_day ? `ה-${sub.billing_day} לחודש` : '—'}
                   </td>
                   <td className="px-6 py-4">

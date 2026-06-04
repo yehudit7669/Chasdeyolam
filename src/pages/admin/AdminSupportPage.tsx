@@ -376,8 +376,8 @@ export const AdminSupportPage = () => {
       </div>
 
       {/* Filters row */}
-      <div className="mb-6 flex flex-wrap gap-2">
-        <div className="flex gap-2">
+      <div className="mb-6 flex flex-col sm:flex-row flex-wrap gap-2">
+        <div className="flex gap-2 flex-wrap">
           {['all', 'open', 'closed'].map((f) => (
             <button
               key={f}
@@ -388,8 +388,8 @@ export const AdminSupportPage = () => {
             </button>
           ))}
         </div>
-        <div className="w-px bg-gray-200 mx-1" />
-        <div className="flex gap-2">
+        <div className="hidden sm:block w-px bg-gray-200 mx-1" />
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setTypeFilter('all')}
             className={`px-4 py-2 rounded-lg text-sm ${typeFilter === 'all' ? 'bg-[#0B3C5D] text-white' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
@@ -412,7 +412,7 @@ export const AdminSupportPage = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Threads List */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="p-4 border-b border-gray-200 bg-gray-50">
@@ -454,11 +454,11 @@ export const AdminSupportPage = () => {
         </div>
 
         {/* Chat View */}
-        <div className="col-span-2 bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
+        <div className="col-span-1 md:col-span-2 bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
           {selectedThread ? (
             <>
               <div className="p-4 border-b border-gray-200 bg-gray-50">
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <h2 className="font-semibold text-gray-900">{selectedThread.subject}</h2>
@@ -470,7 +470,7 @@ export const AdminSupportPage = () => {
                       {selectedThread.profiles?.email}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
                     {/* Approve button for bank requests */}
                     {canEdit && isBankRequest && !isAlreadyApproved && selectedThread.status === 'open' && (
                       <button
@@ -504,7 +504,7 @@ export const AdminSupportPage = () => {
 
                 {/* Plan snapshot summary for bank requests */}
                 {isBankRequest && selectedThread.plan_snapshot && (
-                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 grid grid-cols-3 gap-2">
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div><span className="font-semibold">תוכנית: </span>{selectedThread.plan_snapshot.name_he}</div>
                     <div><span className="font-semibold">סכום: </span>₪{selectedThread.plan_snapshot.monthly_amount?.toLocaleString()}/חודש</div>
                     <div><span className="font-semibold">תשלומים: </span>{selectedThread.plan_snapshot.required_successful_payments}</div>
@@ -541,7 +541,7 @@ export const AdminSupportPage = () => {
               {/* Reply Form */}
               {canEdit && selectedThread.status === 'open' && (
                 <div className="p-4 border-t border-gray-200">
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <textarea
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
@@ -551,7 +551,7 @@ export const AdminSupportPage = () => {
                     />
                     <button
                       onClick={handleSendMessage}
-                      className="px-4 bg-[#0B3C5D] text-white rounded-lg hover:bg-opacity-90 transition-colors flex items-center gap-2"
+                      className="sm:px-4 py-2 sm:py-0 bg-[#0B3C5D] text-white rounded-lg hover:bg-opacity-90 transition-colors flex items-center justify-center gap-2"
                     >
                       <Send size={18} />
                       שלח
@@ -607,7 +607,7 @@ export const AdminSupportPage = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">סכום חודשי (₪) *</label>
                   <input
@@ -630,7 +630,7 @@ export const AdminSupportPage = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">תאריך התחלה</label>
                   <input
