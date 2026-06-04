@@ -1,10 +1,9 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, Gift, Users, Hotel, Star } from 'lucide-react';
+import { ChevronLeft, Gift, Users, Hotel, Star, FileText } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useStore } from '../store/useStore';
 import { Layout } from '../components/Layout';
-import { RecommendationsSection } from '../components/RecommendationsSection';
 import donationRequestImg from '../assets/בקשת_תרומה_גמח.jpg';
 
 export default function HomePage() {
@@ -96,8 +95,25 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ───────────────── RECOMMENDATIONS ───────────────── */}
-      <RecommendationsSection />
+      {/* ───────────────── RECOMMENDATIONS LINK ───────────────── */}
+      <section className="py-20 bg-[#F7F5F0]" dir={isRtl ? 'rtl' : 'ltr'}>
+        <div className="max-w-5xl mx-auto px-6 text-center">
+          <p className="text-[10px] font-bold text-[#B08D57] tracking-[0.3em] uppercase mb-6">
+            {isRtl ? 'המלצות' : 'Endorsements'}
+          </p>
+          <Link
+            to="/recommendations"
+            className="group inline-flex items-center gap-3 text-[#0A192F] hover:text-[#B08D57] transition-colors duration-200"
+          >
+            <FileText size={20} className="text-[#B08D57] shrink-0 transition-transform duration-200 group-hover:scale-110" />
+            <span className="text-xl md:text-2xl font-bold border-b-2 border-[#D4B483]/50 group-hover:border-[#B08D57] pb-1 transition-colors duration-200 leading-snug">
+              {isRtl
+                ? 'מכתבי המלצה ותמיכה מרבנים וגדולי ישראל'
+                : 'Letters of Endorsement from Leading Rabbinical Authorities'}
+            </span>
+          </Link>
+        </div>
+      </section>
 
       {/* ───────────────── ROOTS TO FRUITS ───────────────── */}
       <section className="py-40 bg-white mb-20">
