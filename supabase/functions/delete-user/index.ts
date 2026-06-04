@@ -142,10 +142,12 @@ async function handle(req: Request): Promise<Response> {
     }
   }
 
-  // Now run the full cascade delete via the DB function (runs as the authenticated caller)
-  // We use the service client with rpc so it has full permissions
+  // Now run the full cascade delete via the DB function.
+  // Pass the admin's user ID explicitly so the DB function can verify the role
+  // even when running under the service role (where auth.uid() returns NULL).
   const { error: deleteErr } = await svc.rpc("delete_user_cascade", {
     target_user_id: targetId,
+    performing_admin_id: user.id,
   });
 
   if (deleteErr) {
