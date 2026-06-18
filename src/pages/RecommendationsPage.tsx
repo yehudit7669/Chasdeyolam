@@ -62,12 +62,12 @@ function Lightbox({
   onClose: () => void;
 }) {
   const [index, setIndex] = useState(startIndex);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.75);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const total = items.length;
 
-  const next = useCallback(() => { setIndex(i => (i + 1) % total); setZoom(1); }, [total]);
-  const prev = useCallback(() => { setIndex(i => (i - 1 + total) % total); setZoom(1); }, [total]);
+  const next = useCallback(() => { setIndex(i => (i + 1) % total); setZoom(0.75); }, [total]);
+  const prev = useCallback(() => { setIndex(i => (i - 1 + total) % total); setZoom(0.75); }, [total]);
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -156,7 +156,7 @@ function Lightbox({
             {items.map((_, i) => (
               <button
                 key={i}
-                onClick={() => { setIndex(i); setZoom(1); }}
+                onClick={() => { setIndex(i); setZoom(0.75); }}
                 className={`rounded-full transition-all duration-200 ${i === index ? 'w-5 h-1.5 bg-[#C6A75E]' : 'w-1.5 h-1.5 bg-white/30 hover:bg-white/50'}`}
               />
             ))}
