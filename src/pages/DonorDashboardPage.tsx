@@ -335,6 +335,102 @@ export default function DonorDashboardPage() {
           )}
         </div>
 
+        {/* How It Works — 5 Steps */}
+        <div
+          className="bg-white rounded-[2rem] p-8 border border-[#E5E1D8]/60"
+          style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
+        >
+          <h3 className="text-lg font-black text-[#0A192F] mb-2">איך זה עובד?</h3>
+          <p className="text-xs text-[#33332D]/40 mb-7 font-light">חמישה שלבים לחופשה הגדולה</p>
+
+          <div className="relative">
+            <div className="absolute right-[1.6rem] top-6 bottom-6 w-px bg-gradient-to-b from-transparent via-[#D4B483]/30 to-transparent" />
+
+            <div className="space-y-4">
+              {(() => {
+                const count = subscription.successful_payments_count;
+                const required = subscription.plans.required_successful_payments;
+                const hotelUnlocked = count >= 12;
+                const completed = count >= required;
+                const eligible = subscription.is_eligible;
+
+                const steps = [
+                  {
+                    label: 'תחילת תשלום',
+                    desc: 'הצטרפת לתוכנית והתחלת לתרום',
+                    done: true,
+                    active: count === 0,
+                  },
+                  {
+                    label: 'בחירת מלון ותאריך',
+                    desc: hotelUnlocked
+                      ? 'ניתן לבחור מלון ותאריך באזור האישי'
+                      : `נפתח לאחר 12 תשלומים — עוד ${12 - count} תשלומים`,
+                    done: hotelUnlocked,
+                    active: count > 0 && !hotelUnlocked,
+                  },
+                  {
+                    label: 'השלמת התשלומים',
+                    desc: completed
+                      ? 'השלמת את כל התשלומים!'
+                      : `עוד ${required - count} תשלומים להשלמת התוכנית`,
+                    done: completed,
+                    active: hotelUnlocked && !completed,
+                  },
+                  {
+                    label: 'קבלת שובר',
+                    desc: eligible
+                      ? 'השובר שלך מחכה לך — בדוק את המייל!'
+                      : 'לאחר ההשלמה נשלח שובר שבת במלון שבחרת',
+                    done: eligible,
+                    active: completed && !eligible,
+                  },
+                  {
+                    label: 'נסיעה — וממשיכים!',
+                    desc: 'יוצאים לנפוש ולהירגע, וממשיכים את החסד',
+                    done: false,
+                    active: eligible,
+                  },
+                ];
+
+                return steps.map(({ label, desc, done, active }, i) => (
+                  <div key={i} className="flex items-start gap-4">
+                    <div className={`shrink-0 w-[3.2rem] h-[3.2rem] rounded-full flex items-center justify-center relative z-10 border transition-all ${
+                      done
+                        ? 'bg-[#626D58] border-[#626D58]'
+                        : active
+                        ? 'bg-[#0A192F] border-[#0A192F]'
+                        : 'bg-white border-[#E5E1D8]'
+                    }`}>
+                      {done ? (
+                        <CheckCircle size={16} className="text-white" />
+                      ) : (
+                        <span className={`text-[10px] font-black tracking-widest ${active ? 'text-[#D4B483]' : 'text-[#33332D]/30'}`}>
+                          {String(i + 1).padStart(2, '0')}
+                        </span>
+                      )}
+                    </div>
+                    <div className={`flex-1 rounded-2xl px-5 py-3.5 border transition-all ${
+                      active
+                        ? 'bg-[#0A192F]/3 border-[#0A192F]/15'
+                        : done
+                        ? 'bg-[#626D58]/4 border-[#626D58]/15'
+                        : 'bg-[#FAFAF8] border-[#E5E1D8]/50'
+                    }`}>
+                      <p className={`text-sm font-bold mb-0.5 ${done || active ? 'text-[#0A192F]' : 'text-[#33332D]/40'}`}>
+                        {label}
+                      </p>
+                      <p className={`text-xs font-light leading-relaxed ${done || active ? 'text-[#33332D]/60' : 'text-[#33332D]/30'}`}>
+                        {desc}
+                      </p>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+
         {/* Payment History */}
         <div
           className="bg-white rounded-[2rem] p-8 border border-[#E5E1D8]/60"

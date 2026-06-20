@@ -281,6 +281,76 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ───────────────── 5 STEPS TO VACATION ───────────────── */}
+      <section id="how-it-works" className="py-40 bg-white">
+        <div className="max-w-3xl mx-auto px-6" dir="rtl">
+          <div className="text-center mb-20">
+            <p className="text-[10px] font-bold text-[#B08D57] tracking-[0.3em] uppercase mb-6">
+              {isRtl ? 'איך זה עובד?' : 'How It Works'}
+            </p>
+            <h2 className="text-4xl md:text-5xl font-black text-[#0A192F] tracking-tight leading-tight">
+              {isRtl ? 'חמישה שלבים לחופשה הגדולה' : 'Five Steps to Your Dream Vacation'}
+            </h2>
+          </div>
+
+          <div className="relative">
+            <div className="absolute right-[2.25rem] top-10 bottom-10 w-px bg-gradient-to-b from-transparent via-[#D4B483]/40 to-transparent" />
+
+            <div className="space-y-6">
+              {(
+                [
+                  {
+                    n: '01',
+                    title: isRtl ? 'תחילת תשלום' : 'Start Paying',
+                    desc: isRtl
+                      ? 'בוחרים תוכנית ומתחילים בתרומה חודשית. ניתן לשלם מכספי מעשרות.'
+                      : 'Choose a plan and begin your monthly donation — tithe-eligible.',
+                  },
+                  {
+                    n: '02',
+                    title: isRtl ? 'בחירת מלון ותאריך' : 'Choose Hotel & Date',
+                    desc: isRtl
+                      ? 'לאחר 12 חודשי תשלום נפתחת באזור האישי אפשרות לבחור מלון ותאריך הנופש שלכם.'
+                      : 'After 12 payments, your personal area unlocks hotel and date selection.',
+                  },
+                  {
+                    n: '03',
+                    title: isRtl ? 'השלמת התשלומים' : 'Complete Your Payments',
+                    desc: isRtl
+                      ? 'ממשיכים לשלם עד השלמת כל חיובי התוכנית. כל תשלום מוסיף לזכויות ולחסד.'
+                      : 'Continue paying until all plan charges are completed.',
+                  },
+                  {
+                    n: '04',
+                    title: isRtl ? 'קבלת שובר' : 'Receive Your Voucher',
+                    desc: isRtl
+                      ? 'עם השלמת התוכנית תקבלו שיחה, הודעה או מייל עם שובר שבת במלון שבחרתם.'
+                      : 'Upon completion, you\'ll receive a call, message, or email with your hotel voucher.',
+                  },
+                  {
+                    n: '05',
+                    title: isRtl ? 'נסיעה — וממשיכים!' : 'Travel — and Keep Going!',
+                    desc: isRtl
+                      ? 'יוצאים לנפוש ולהירגע. וממשיכים ולא עוצרים — ממשיכים את התרומה ואת החסד הגדול.'
+                      : 'Enjoy your vacation — then keep the chain of giving going.',
+                  },
+                ] as { n: string; title: string; desc: string }[]
+              ).map(({ n, title, desc }, i) => (
+                <div key={i} className="flex items-start gap-6">
+                  <div className="shrink-0 w-[4.5rem] h-[4.5rem] rounded-full bg-[#F9F8F4] border border-[#E5E1D8] flex items-center justify-center relative z-10">
+                    <span className="text-xs font-black text-[#B08D57] tracking-widest">{n}</span>
+                  </div>
+                  <div className="flex-1 bg-[#FAFAF8] border border-[#E5E1D8]/60 rounded-2xl px-7 py-5 hover:border-[#D4B483]/50 hover:shadow-sm transition-all duration-300">
+                    <h3 className="text-lg font-bold text-[#0A192F] mb-1">{title}</h3>
+                    <p className="text-[#33332D]/65 text-sm leading-relaxed font-light">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ───────────────── DONATION REQUEST IMAGE ───────────────── */}
       <section className="py-16 md:py-24 bg-[#F7F5F0]">
         <div className="max-w-5xl mx-auto px-4">
@@ -299,11 +369,11 @@ export default function HomePage() {
       </section>
 
       {/* ───────────────── HOW IT WORKS ───────────────── */}
-      <section id="how-it-works" className="py-40 bg-[#F7F5F0] border-y border-[#E5E1D8]/30">
+      <section className="py-40 bg-[#F7F5F0] border-y border-[#E5E1D8]/30">
         <div className="max-w-6xl mx-auto px-4" dir={isRtl ? 'rtl' : 'ltr'}>
           <div className="text-center mb-24">
             <p className="text-xs font-bold text-[#B08D57] tracking-[0.2em] uppercase mb-4">
-              {isRtl ? 'איך זה עובד?' : 'The Process'}
+              {isRtl ? 'אנחנו ב-3 שלבים' : 'The Process'}
             </p>
             <h2 className="text-4xl md:text-5xl font-black text-[#2D3E40]">
               {isRtl ? 'שלושה שלבים לנתינה וריענון' : 'Three Steps to Refreshment'}
