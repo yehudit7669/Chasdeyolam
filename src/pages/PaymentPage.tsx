@@ -49,6 +49,10 @@ export default function PaymentPage() {
   const planId = location.state?.planId;
   // 'on_completion' (רגיל) | 'immediate' (מימוש מיידי) — נקבע בדף בחירת המסלול
   const redemptionType: 'on_completion' | 'immediate' = location.state?.redemptionType ?? 'on_completion';
+  const isImmediateRedemption = redemptionType === 'immediate';
+  // תווית סוג התשלום לפי המסלול (מיידי = עסקה בתשלומים, רגיל = הוראת קבע)
+  const paymentTypeLabel = isImmediateRedemption ? 'תשלומים — מימוש מיידי' : p.standingOrder;
+  const paymentTypeLabelShort = isImmediateRedemption ? 'עסקה בתשלומים' : p.standingOrderType;
   const immediateHandled = useRef(false);
 
   // כשתשלום מיידי מצליח — יוצרים בקשת מימוש מיידי + התראה למנהל
@@ -187,7 +191,8 @@ export default function PaymentPage() {
     const nameParts = fullName.split(/\s+/);
     const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : fullName;
     const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-    const phone = profile?.phone ?? '';
+    // נדרים דורש ספרות בלבד — מסירים מקפים/רווחים/+ וכו'
+    const phone = (profile?.phone ?? '').replace(/\D/g, '');
     const mail = user.email ?? '';
 
     // מסלול מיידי = עסקה רגילה (Ragil) שתופסת את הסכום המלא ומחלקת לתשלומים.
@@ -509,7 +514,7 @@ export default function PaymentPage() {
                         </div>
                         <div>
                           <div className="text-white/40 text-xs mb-0.5">{p.paymentType}</div>
-                          <div className="font-bold">{p.standingOrder}</div>
+                          <div className="font-bold">{paymentTypeLabel}</div>
                         </div>
                         <div>
                           <div className="text-white/40 text-xs mb-0.5">{p.monthlyPayment}</div>
@@ -631,7 +636,7 @@ export default function PaymentPage() {
                     <div className="px-6 pt-5 pb-0">
                       <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-4 flex flex-wrap gap-x-6 gap-y-2 text-xs mb-1">
                         <span className="font-bold text-[#0A192F]">{plan.name_he}</span>
-                        <span className="text-[#33332D]/50">{p.standingOrder}</span>
+                        <span className="text-[#33332D]/50">{paymentTypeLabel}</span>
                         <span className="text-[#626D58] font-semibold">₪{plan.monthly_amount.toLocaleString()} × {plan.required_successful_payments} {p.months}</span>
                         <span className="text-[#B08D57] font-bold">{p.bankTotalLabel} ₪{totalAmount.toLocaleString()}</span>
                       </div>
@@ -712,19 +717,21 @@ export default function PaymentPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-white/50">{p.paymentType}</span>
-                    <span className="font-semibold">{p.standingOrderType}</span>
+                    <span className="font-semibold">{paymentTypeLabelShort}</span>
                   </div>
                   <div className="pt-3 border-t border-white/10 flex justify-between items-center">
                     <span className="text-white/50">{p.totalAccumulation}</span>
                     <span className="text-[#D4B483] font-bold text-lg">₪{totalAmount.toLocaleString()}</span>
                   </div>
                 </div>
-                <div className="mt-6 p-3 rounded-xl bg-[#626D58]/20 border border-[#626D58]/30">
-                  <div className="flex items-center gap-2 text-xs text-[#D4B483]">
-                    <CheckCircle size={14} />
-                    <span>{p.immediateEligibility}</span>
+                {isImmediateRedemption && (
+                  <div className="mt-6 p-3 rounded-xl bg-[#626D58]/20 border border-[#626D58]/30">
+                    <div className="flex items-center gap-2 text-xs text-[#D4B483]">
+                      <CheckCircle size={14} />
+                      <span>{p.immediateEligibility}</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}
