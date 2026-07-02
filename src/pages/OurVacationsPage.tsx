@@ -123,7 +123,7 @@ export default function OurVacationsPage() {
                   {/* Image */}
                   {(() => {
                     const dbImages = imagesByPlace[place.id];
-                    const coverUrl = dbImages?.[0]?.url ?? place.image_url;
+                    const coverUrl = dbImages?.find((i) => i.media_type !== 'video')?.url ?? place.image_url;
                     return (
                   <div
                     className="relative h-52 bg-gradient-to-br from-[#E5E1D8] to-[#F7F5F0] flex items-center justify-center cursor-pointer group"

@@ -4,10 +4,10 @@ import { supabase } from '../../lib/supabase';
 import { PREVIEW_PLACES, PREVIEW_PLAN_META, planMetaByLevel } from '../../data/previewVacations';
 import {
   Upload, Trash2, ChevronUp, ChevronDown, ImageIcon, Loader2, Check,
-  ExternalLink, Eye, EyeOff, MapPin, Moon, Star, Plus, X, Send,
+  ExternalLink, Eye, EyeOff, MapPin, Moon, Star, Plus, X, Send, Video, Link2,
 } from 'lucide-react';
 
-interface VacationImage { id: string; place_id: string; url: string; sort_order: number; }
+interface VacationImage { id: string; place_id: string; url: string; sort_order: number; media_type?: 'image' | 'video'; }
 interface DbPlace { id: string; name_he: string; city_he: string; region: string; level: string; description_he: string; website_url: string; is_new: boolean; published: boolean; source: 'db'; }
 
 const BUCKET = 'vacations';
@@ -27,7 +27,10 @@ export const AdminVacationGalleryPage = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showVideoUrlModal, setShowVideoUrlModal] = useState(false);
+  const [videoUrlInput, setVideoUrlInput] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const videoFileRef = useRef<HTMLInputElement>(null);
 
   // שדות עריכה
   const [nameHe, setNameHe] = useState('');
@@ -111,7 +114,7 @@ export const AdminVacationGalleryPage = () => {
     showToast('✓ נשמר בהצלחה');
   };
 
-  const handleUpload = async (files: FileList | null) => {
+  const handleUpload = async (files: FileList | null, mediaType: 'image' | 'video' = 'image') => {
     if (!files || files.length === 0) return;
     setUploading(true);
     const base = images.length;
@@ -122,20 +125,33 @@ export const AdminVacationGalleryPage = () => {
       const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false });
       if (error) { showToast('שגיאה: ' + error.message); continue; }
       const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(path);
-      await supabase.from('vacation_place_images').insert({ place_id: selectedId, url: publicUrl, sort_order: base + i });
+      await supabase.from('vacation_place_images').insert({ place_id: selectedId, url: publicUrl, sort_order: base + i, media_type: mediaType });
     }
     await loadImages();
     setUploading(false);
-    showToast(`✓ ${files.length} תמונות הועלו`);
+    showToast(`✓ ${files.length} ${mediaType === 'video' ? 'סרטונים הועלו' : 'תמונות הועלו'}`);
+  };
+
+  const addVideoByUrl = async () => {
+    const url = videoUrlInput.trim();
+    if (!url) return;
+    await supabase.from('vacation_place_images').insert({ place_id: selectedId, url, sort_order: images.length, media_type: 'video' });
+    setVideoUrlInput('');
+    setShowVideoUrlModal(false);
+    await loadImages();
+    showToast('✓ קישור הסרטון נוסף');
   };
 
   const handleDelete = async (img: VacationImage) => {
-    const url = new URL(img.url);
-    const path = url.pathname.split(`/object/public/${BUCKET}/`)[1];
-    if (path) await supabase.storage.from(BUCKET).remove([path]);
+    // רק קבצים שהועלו לאחסון שלנו (לא קישורי YouTube/Vimeo חיצוניים) — למחוק גם מהאחסון
+    if (img.url.includes(`/object/public/${BUCKET}/`)) {
+      const url = new URL(img.url);
+      const path = url.pathname.split(`/object/public/${BUCKET}/`)[1];
+      if (path) await supabase.storage.from(BUCKET).remove([path]);
+    }
     await supabase.from('vacation_place_images').delete().eq('id', img.id);
     await loadImages();
-    showToast('תמונה נמחקה');
+    showToast(img.media_type === 'video' ? 'סרטון נמחק' : 'תמונה נמחקה');
   };
 
   const move = async (idx: number, dir: -1 | 1) => {
@@ -342,42 +358,75 @@ export const AdminVacationGalleryPage = () => {
                 </button>
               </div>
 
-              {/* תמונות */}
+              {/* תמונות וסרטונים */}
               <div className="bg-white rounded-2xl border border-[#E5E1D8]/60 p-5" style={{ boxShadow: '0 2px 12px rgba(98,109,88,0.07)' }}>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-xs font-bold text-[#33332D]/50 uppercase tracking-widest">תמונות ({images.length})</p>
-                  <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#626D58] text-white text-sm font-semibold hover:bg-[#626D58]/90 transition-all">
-                    {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-                    {uploading ? 'מעלה...' : 'העלה תמונות'}
-                  </button>
-                  <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleUpload(e.target.files)} />
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                  <p className="text-xs font-bold text-[#33332D]/50 uppercase tracking-widest">מדיה ({images.length})</p>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#626D58] text-white text-sm font-semibold hover:bg-[#626D58]/90 transition-all">
+                      {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                      {uploading ? 'מעלה...' : 'העלה תמונות'}
+                    </button>
+                    <button onClick={() => videoFileRef.current?.click()} disabled={uploading}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0A192F] text-white text-sm font-semibold hover:bg-[#0A192F]/90 transition-all">
+                      <Video size={15} />
+                      העלה סרטון
+                    </button>
+                    <button onClick={() => setShowVideoUrlModal(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[#E5E1D8] text-[#33332D]/70 text-sm font-semibold hover:bg-[#F7F5F0] transition-all">
+                      <Link2 size={15} />
+                      קישור סרטון
+                    </button>
+                  </div>
+                  <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleUpload(e.target.files, 'image')} />
+                  <input ref={videoFileRef} type="file" accept="video/*" multiple className="hidden" onChange={e => handleUpload(e.target.files, 'video')} />
                 </div>
 
                 <div className="border-2 border-dashed border-[#E5E1D8] rounded-2xl p-5 text-center mb-4 hover:border-[#626D58]/50 transition-colors cursor-pointer"
                   onClick={() => fileRef.current?.click()}
                   onDragOver={e => e.preventDefault()}
-                  onDrop={e => { e.preventDefault(); handleUpload(e.dataTransfer.files); }}>
+                  onDrop={e => { e.preventDefault(); handleUpload(e.dataTransfer.files, 'image'); }}>
                   <ImageIcon className="text-[#33332D]/20 mx-auto mb-2" size={28} />
                   <p className="text-sm text-[#33332D]/40">גרור תמונות לכאן או לחץ להעלאה</p>
-                  <p className="text-xs text-[#33332D]/25 mt-1">JPG, PNG, WEBP — מספר בבת אחת</p>
+                  <p className="text-xs text-[#33332D]/25 mt-1">JPG, PNG, WEBP — מספר בבת אחת. לסרטון השתמשו בכפתורים למעלה</p>
                 </div>
 
                 {images.length === 0 ? (
-                  <p className="text-center text-sm text-[#33332D]/30 py-2">אין תמונות עדיין</p>
+                  <p className="text-center text-sm text-[#33332D]/30 py-2">אין מדיה עדיין</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-3">
-                    {images.map((img, idx) => (
-                      <div key={img.id} className="relative group rounded-xl overflow-hidden border border-[#E5E1D8]/60">
-                        <img src={img.url} alt="" className="w-full h-28 object-cover" loading="lazy" />
-                        {idx === 0 && <span className="absolute top-1.5 end-1.5 text-[9px] font-bold bg-[#0A192F] text-white px-1.5 py-0.5 rounded-md">ראשית</span>}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/45 transition-all flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100">
-                          <button onClick={() => move(idx, -1)} disabled={idx === 0} className="p-1.5 rounded-lg bg-white/90 text-[#0A192F] disabled:opacity-30"><ChevronUp size={13} /></button>
-                          <button onClick={() => move(idx, 1)} disabled={idx === images.length - 1} className="p-1.5 rounded-lg bg-white/90 text-[#0A192F] disabled:opacity-30"><ChevronDown size={13} /></button>
-                          <button onClick={() => handleDelete(img)} className="p-1.5 rounded-lg bg-red-500 text-white"><Trash2 size={13} /></button>
+                    {images.map((img, idx) => {
+                      const isVideo = img.media_type === 'video';
+                      return (
+                        <div key={img.id} className="relative group rounded-xl overflow-hidden border border-[#E5E1D8]/60 bg-black/5">
+                          {isVideo ? (
+                            img.url.includes(`/object/public/${BUCKET}/`) ? (
+                              <video src={img.url} className="w-full h-28 object-cover" muted preload="metadata" />
+                            ) : (
+                              <div className="w-full h-28 flex items-center justify-center bg-[#0A192F]/5">
+                                <Video className="text-[#33332D]/25" size={26} />
+                              </div>
+                            )
+                          ) : (
+                            <img src={img.url} alt="" className="w-full h-28 object-cover" loading="lazy" />
+                          )}
+                          {isVideo && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <div className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center">
+                                <Video size={14} className="text-white" />
+                              </div>
+                            </div>
+                          )}
+                          {idx === 0 && <span className="absolute top-1.5 end-1.5 text-[9px] font-bold bg-[#0A192F] text-white px-1.5 py-0.5 rounded-md">ראשית</span>}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/45 transition-all flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100">
+                            <button onClick={() => move(idx, -1)} disabled={idx === 0} className="p-1.5 rounded-lg bg-white/90 text-[#0A192F] disabled:opacity-30"><ChevronUp size={13} /></button>
+                            <button onClick={() => move(idx, 1)} disabled={idx === images.length - 1} className="p-1.5 rounded-lg bg-white/90 text-[#0A192F] disabled:opacity-30"><ChevronDown size={13} /></button>
+                            <button onClick={() => handleDelete(img)} className="p-1.5 rounded-lg bg-red-500 text-white"><Trash2 size={13} /></button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -440,6 +489,26 @@ export const AdminVacationGalleryPage = () => {
           )}
         </div>
       </div>
+
+      {/* מודל הוספת סרטון בקישור */}
+      {showVideoUrlModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowVideoUrlModal(false)}>
+          <div className="bg-white rounded-3xl p-7 w-full max-w-md shadow-2xl" dir="rtl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-black text-[#0A192F]">הוסף סרטון בקישור</h2>
+              <button onClick={() => setShowVideoUrlModal(false)} className="p-2 rounded-xl hover:bg-[#F7F5F0] text-[#33332D]/50 transition-colors"><X size={18} /></button>
+            </div>
+            <p className="text-sm text-[#33332D]/55 mb-4">הדביקו קישור לסרטון YouTube / Vimeo, או קישור ישיר לקובץ וידאו.</p>
+            <input value={videoUrlInput} onChange={e => setVideoUrlInput(e.target.value)} placeholder="https://youtube.com/watch?v=..." dir="ltr"
+              className="w-full border border-[#E5E1D8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A192F] mb-4" />
+            <div className="flex gap-3">
+              <button onClick={() => setShowVideoUrlModal(false)} className="flex-1 py-3 rounded-xl border border-[#E5E1D8] text-[#33332D]/60 font-semibold text-sm hover:bg-[#F7F5F0]">ביטול</button>
+              <button onClick={addVideoByUrl} disabled={!videoUrlInput.trim()}
+                className="flex-1 py-3 rounded-xl bg-[#0A192F] text-white font-semibold text-sm hover:bg-[#0A192F]/90 transition-all disabled:opacity-40">הוסף</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* מודל הוספת מקום */}
       {showAddModal && (

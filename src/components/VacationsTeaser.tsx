@@ -33,7 +33,7 @@ export const VacationsTeaser = ({
           {shown.map((place) => {
             const meta = planMetaByLevel(place.level);
             const dbImages = imagesByPlace[place.id];
-            const coverUrl = dbImages?.[0]?.url ?? place.image_url;
+            const coverUrl = dbImages?.find((i) => i.media_type !== 'video')?.url ?? place.image_url;
             return (
               <div
                 key={place.id}

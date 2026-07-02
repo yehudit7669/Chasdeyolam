@@ -6,6 +6,16 @@ export interface VacationImage {
   place_id: string;
   url: string;
   sort_order: number;
+  media_type?: 'image' | 'video';
+}
+
+// זיהוי YouTube/Vimeo כדי להטמיע נגן במקום נגן וידאו רגיל
+export function getVideoEmbedUrl(url: string): string | null {
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]+)/);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  const vimeo = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
+  return null;
 }
 
 export function useVacationImages(placeId: string) {

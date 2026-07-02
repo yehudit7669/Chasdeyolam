@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, MapPin, Moon, Star, ExternalLink, X, ChevronLeft, ChevronRight, Hotel as HotelIcon, Sparkles } from 'lucide-react';
+import { ArrowRight, MapPin, Moon, Star, ExternalLink, X, ChevronLeft, ChevronRight, Hotel as HotelIcon, Sparkles, Video, PlayCircle } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { PREVIEW_PLACES, planMetaByLevel } from '../data/previewVacations';
-import { useVacationImages } from '../hooks/useVacationImages';
+import { useVacationImages, getVideoEmbedUrl } from '../hooks/useVacationImages';
 import { supabase } from '../lib/supabase';
+
+interface MediaItem { url: string; type: 'image' | 'video'; }
 
 export default function VacationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -38,13 +40,13 @@ export default function VacationDetailPage() {
   }
 
   const meta = planMetaByLevel(place.level);
-  // DB תמונות גוברות על הסטטיק
-  const gallery = dbImages.length
-    ? dbImages.map((i) => i.url)
+  // DB מדיה (תמונות+סרטונים) גוברת על הסטטיק
+  const gallery: MediaItem[] = dbImages.length
+    ? dbImages.map((i) => ({ url: i.url, type: i.media_type === 'video' ? 'video' as const : 'image' as const }))
     : place.images?.length
-    ? place.images
+    ? place.images.map((url) => ({ url, type: 'image' as const }))
     : place.image_url
-    ? [place.image_url]
+    ? [{ url: place.image_url, type: 'image' as const }]
     : [];
   const hasGallery = gallery.length > 0;
   const websiteUrl = dbWebsiteUrl ?? place.website_url;
@@ -99,28 +101,57 @@ export default function VacationDetailPage() {
             <div className="md:col-span-2">
               {hasGallery ? (
                 <div className="space-y-3">
-                  {/* תמונה ראשית */}
+                  {/* פריט ראשי */}
                   <div
-                    className="relative rounded-3xl overflow-hidden h-80 cursor-pointer group"
+                    className="relative rounded-3xl overflow-hidden h-80 cursor-pointer group bg-black/5"
                     onClick={() => openLightbox(0)}
                   >
-                    <img src={gallery[0]} alt={place.name_he} className="w-full h-full object-cover" />
+                    {gallery[0].type === 'video' ? (
+                      getVideoEmbedUrl(gallery[0].url) ? (
+                        <div className="w-full h-full flex items-center justify-center bg-[#0A192F]/5">
+                          <PlayCircle className="text-[#33332D]/25" size={64} />
+                        </div>
+                      ) : (
+                        <video src={gallery[0].url} className="w-full h-full object-cover" muted preload="metadata" />
+                      )
+                    ) : (
+                      <img src={gallery[0].url} alt={place.name_he} className="w-full h-full object-cover" />
+                    )}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-all flex items-center justify-center">
-                      <span className="opacity-0 group-hover:opacity-100 text-white text-sm font-semibold bg-black/40 px-4 py-2 rounded-full transition-all">
-                        הגדל
-                      </span>
+                      {gallery[0].type === 'video' ? (
+                        <PlayCircle className="text-white/90 drop-shadow-lg" size={56} />
+                      ) : (
+                        <span className="opacity-0 group-hover:opacity-100 text-white text-sm font-semibold bg-black/40 px-4 py-2 rounded-full transition-all">
+                          הגדל
+                        </span>
+                      )}
                     </div>
                   </div>
-                  {/* שאר תמונות */}
+                  {/* שאר הפריטים */}
                   {gallery.length > 1 && (
                     <div className="grid grid-cols-3 gap-3">
-                      {gallery.slice(1).map((url, i) => (
+                      {gallery.slice(1).map((item, i) => (
                         <div
                           key={i}
-                          className="relative rounded-2xl overflow-hidden h-28 cursor-pointer group"
+                          className="relative rounded-2xl overflow-hidden h-28 cursor-pointer group bg-black/5"
                           onClick={() => openLightbox(i + 1)}
                         >
-                          <img src={url} alt={`${place.name_he} ${i + 2}`} className="w-full h-full object-cover" loading="lazy" />
+                          {item.type === 'video' ? (
+                            getVideoEmbedUrl(item.url) ? (
+                              <div className="w-full h-full flex items-center justify-center bg-[#0A192F]/5">
+                                <Video className="text-[#33332D]/25" size={22} />
+                              </div>
+                            ) : (
+                              <video src={item.url} className="w-full h-full object-cover" muted preload="metadata" />
+                            )
+                          ) : (
+                            <img src={item.url} alt={`${place.name_he} ${i + 2}`} className="w-full h-full object-cover" loading="lazy" />
+                          )}
+                          {item.type === 'video' && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <PlayCircle className="text-white/90 drop-shadow-lg" size={26} />
+                            </div>
+                          )}
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
                         </div>
                       ))}
@@ -250,12 +281,32 @@ export default function VacationDetailPage() {
             </>
           )}
 
-          <img
-            src={gallery[lightboxIdx]}
-            alt={place.name_he}
-            className="max-h-[85vh] max-w-full rounded-2xl shadow-2xl object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
+          {gallery[lightboxIdx].type === 'video' ? (
+            getVideoEmbedUrl(gallery[lightboxIdx].url) ? (
+              <iframe
+                src={getVideoEmbedUrl(gallery[lightboxIdx].url) as string}
+                className="w-full max-w-3xl aspect-video rounded-2xl shadow-2xl"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <video
+                src={gallery[lightboxIdx].url}
+                controls
+                autoPlay
+                className="max-h-[85vh] max-w-full rounded-2xl shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+            )
+          ) : (
+            <img
+              src={gallery[lightboxIdx].url}
+              alt={place.name_he}
+              className="max-h-[85vh] max-w-full rounded-2xl shadow-2xl object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
 
           {gallery.length > 1 && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/50 text-xs">
