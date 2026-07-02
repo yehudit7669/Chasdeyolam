@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
 import { Toast } from '../../components/admin/Toast';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../contexts/AuthContext';
+import { STAY_TYPE_OPTIONS, stayTypeLabel } from '../../lib/stayType';
 
 interface Plan {
   id: string;
@@ -17,8 +18,13 @@ interface Plan {
   monthly_amount: number;
   required_successful_payments: number;
   hotel_level: string;
+  stay_type: string | null;
   active: boolean;
   created_at: string;
+  nedarim_url_immediate: string | null;
+  nedarim_url_regular: string | null;
+  allow_immediate: boolean | null;
+  allow_regular: boolean | null;
   hotels?: Hotel[];
 }
 
@@ -56,6 +62,11 @@ export const AdminPlansPage = () => {
     monthly_amount: '',
     required_successful_payments: '',
     hotel_level: 'bronze',
+    stay_type: 'any',
+    nedarim_url_immediate: '',
+    nedarim_url_regular: '',
+    allow_immediate: true,
+    allow_regular: true,
   });
 
   useEffect(() => {
@@ -103,6 +114,11 @@ export const AdminPlansPage = () => {
         monthly_amount: plan.monthly_amount.toString(),
         required_successful_payments: plan.required_successful_payments.toString(),
         hotel_level: plan.hotel_level,
+        stay_type: plan.stay_type || 'any',
+        nedarim_url_immediate: plan.nedarim_url_immediate || '',
+        nedarim_url_regular: plan.nedarim_url_regular || '',
+        allow_immediate: plan.allow_immediate ?? true,
+        allow_regular: plan.allow_regular ?? true,
       });
     } else {
       setEditingPlan(null);
@@ -114,6 +130,11 @@ export const AdminPlansPage = () => {
         monthly_amount: '',
         required_successful_payments: '',
         hotel_level: 'bronze',
+        stay_type: 'any',
+        nedarim_url_immediate: '',
+        nedarim_url_regular: '',
+        allow_immediate: true,
+        allow_regular: true,
       });
     }
     setIsModalOpen(true);
@@ -135,6 +156,11 @@ export const AdminPlansPage = () => {
       monthly_amount: parseInt(formData.monthly_amount),
       required_successful_payments: parseInt(formData.required_successful_payments),
       hotel_level: formData.hotel_level,
+      stay_type: formData.stay_type,
+      nedarim_url_immediate: formData.nedarim_url_immediate || null,
+      nedarim_url_regular: formData.nedarim_url_regular || null,
+      allow_immediate: formData.allow_immediate,
+      allow_regular: formData.allow_regular,
     };
 
     if (planData.monthly_amount <= 0 || planData.required_successful_payments < 1) {
@@ -152,12 +178,13 @@ export const AdminPlansPage = () => {
         if (error) throw error;
         showToast('תוכנית עודכנה בהצלחה', 'success');
       } else {
+        // תוכנית חדשה נוצרת כטיוטה (active=false) — לא תוצג לציבור עד שהמנהל יפעיל
         const { error } = await supabase
           .from('plans')
-          .insert(planData);
+          .insert({ ...planData, active: false });
 
         if (error) throw error;
-        showToast('תוכנית נוספה בהצלחה', 'success');
+        showToast('התוכנית נוספה כטיוטה — לחץ "הפעל" כדי לפרסם לציבור', 'success');
       }
 
       setIsModalOpen(false);
@@ -265,16 +292,16 @@ export const AdminPlansPage = () => {
         )}
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="flex flex-wrap gap-5">
         {plans.length === 0 ? (
-          <div className="col-span-full bg-white rounded-lg shadow-md p-12 text-center">
+          <div className="w-full bg-white rounded-lg shadow-md p-12 text-center">
             <p className="text-gray-500">אין תוכניות להצגה</p>
           </div>
         ) : (
           plans.map((plan) => (
             <div
               key={plan.id}
-              className="bg-white rounded-xl shadow-md overflow-hidden border-2 border-gray-100 hover:shadow-lg transition-shadow"
+              className="bg-white rounded-xl shadow-md overflow-hidden border-2 border-gray-100 hover:shadow-lg transition-shadow flex-1 min-w-[260px] max-w-sm"
             >
               <div className="bg-gradient-to-br from-blue-600 to-blue-700 text-white p-6">
                 <div className="flex items-center justify-between mb-3">
@@ -283,10 +310,10 @@ export const AdminPlansPage = () => {
                     className={`px-3 py-1 rounded-full text-xs font-semibold ${
                       plan.active
                         ? 'bg-green-400 text-green-900'
-                        : 'bg-red-400 text-red-900'
+                        : 'bg-amber-300 text-amber-900'
                     }`}
                   >
-                    {plan.active ? 'פעיל' : 'מושבת'}
+                    {plan.active ? 'פעיל' : 'טיוטה'}
                   </span>
                 </div>
                 <p className="text-blue-100 text-sm mb-4">{plan.name_en}</p>
@@ -311,6 +338,13 @@ export const AdminPlansPage = () => {
                     <span className="text-sm text-gray-600">רמת מלון:</span>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getLevelBadgeColor(plan.hotel_level)}`}>
                       {hotelLevelLabel(plan.hotel_level)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-b border-gray-200">
+                    <span className="text-sm text-gray-600">סוג שהייה:</span>
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#626D58]/15 text-[#626D58]">
+                      {stayTypeLabel(plan.stay_type)}
                     </span>
                   </div>
                 </div>
@@ -494,7 +528,68 @@ export const AdminPlansPage = () => {
                 <option value="silver">כסף</option>
                 <option value="gold">זהב</option>
                 <option value="platinum">פרימיום</option>
+                <option value="plan215">נופש 215 (אמצע שבוע)</option>
+                <option value="plan250">נופש 250 (אמצע שבוע)</option>
               </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              סוג שהייה * <span className="text-xs text-gray-400 font-normal">(קובע אילו ימי כניסה התורם יוכל לבחור)</span>
+            </label>
+            <select
+              value={formData.stay_type}
+              onChange={(e) => setFormData({ ...formData, stay_type: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C5D] focus:border-transparent"
+              required
+            >
+              {STAY_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 p-4 bg-gray-50/50">
+            <p className="text-sm font-semibold text-[#0B3C5D] mb-3">אפשרויות מימוש בתוכנית</p>
+            <div className="flex flex-wrap gap-4 mb-4">
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" checked={formData.allow_immediate}
+                  onChange={(e) => setFormData({ ...formData, allow_immediate: e.target.checked })}
+                  className="w-4 h-4 rounded accent-[#0B3C5D]" />
+                מימוש מיידי פעיל
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" checked={formData.allow_regular}
+                  onChange={(e) => setFormData({ ...formData, allow_regular: e.target.checked })}
+                  className="w-4 h-4 rounded accent-[#0B3C5D]" />
+                מסלול רגיל (הוראת קבע) פעיל
+              </label>
+            </div>
+            <p className="text-sm font-semibold text-[#0B3C5D] mb-3">קישורי דף התרמה (נדרים פלוס)</p>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">מימוש מיידי</label>
+                <input
+                  type="url" dir="ltr"
+                  value={formData.nedarim_url_immediate}
+                  onChange={(e) => setFormData({ ...formData, nedarim_url_immediate: e.target.value })}
+                  placeholder="https://www.matara.pro/nedarimplus/online/..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C5D] focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">דף התשלום למסלול המיידי.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">מסלול רגיל (הוראת קבע)</label>
+                <input
+                  type="url" dir="ltr"
+                  value={formData.nedarim_url_regular}
+                  onChange={(e) => setFormData({ ...formData, nedarim_url_regular: e.target.value })}
+                  placeholder="https://www.matara.pro/nedarimplus/online/..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C5D] focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">דף התשלום למסלול הרגיל.</p>
+              </div>
             </div>
           </div>
 

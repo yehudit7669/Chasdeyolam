@@ -1,10 +1,12 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, Gift, Users, Hotel, Star, FileText } from 'lucide-react';
+import { ChevronLeft, Gift, Users, Hotel, Star, FileText, Zap, CalendarCheck, MapPin, Moon, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useStore } from '../store/useStore';
 import { Layout } from '../components/Layout';
 import donationRequestImg from '../assets/בקשת_תרומה_גמח.jpg';
+import heroHotelImg from '../assets/hero-hotel.jpg';
+import { PREVIEW_PLACES, planMetaByLevel } from '../data/previewVacations';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -16,9 +18,19 @@ export default function HomePage() {
     <Layout>
       {/* ───────────────── HERO ───────────────── */}
       <section className="relative overflow-hidden pt-32 pb-40">
-        <div className="absolute inset-0 bg-[#F7F5F0] -z-20" />
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-bl from-[#B08D57]/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl -z-10" />
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-[#626D58]/5 to-transparent rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl -z-10" />
+        {/* תמונת רקע */}
+        <div className="absolute inset-0 -z-20">
+          <img
+            src={heroHotelImg}
+            alt=""
+            className="w-full h-full object-cover"
+            loading="eager"
+          />
+          {/* שכבת כיסוי שמאירה את הטקסט */}
+          <div className="absolute inset-0 bg-[#F7F5F0]/88" />
+        </div>
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-bl from-[#B08D57]/8 to-transparent rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl -z-10" />
+        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-[#626D58]/8 to-transparent rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl -z-10" />
 
         <div className="max-w-6xl mx-auto px-4 text-center" dir={isRtl ? 'rtl' : 'ltr'}>
           <div
@@ -64,7 +76,7 @@ export default function HomePage() {
               />
             </button>
 
-            <button
+<button
               onClick={() => {
                 document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
               }}
@@ -283,70 +295,90 @@ export default function HomePage() {
 
       {/* ───────────────── 5 STEPS TO VACATION ───────────────── */}
       <section id="how-it-works" className="py-40 bg-white">
-        <div className="max-w-3xl mx-auto px-6" dir="rtl">
+        <div className="max-w-6xl mx-auto px-6" dir="rtl">
           <div className="text-center mb-20">
             <p className="text-[10px] font-bold text-[#B08D57] tracking-[0.3em] uppercase mb-6">
               {isRtl ? 'איך זה עובד?' : 'How It Works'}
             </p>
             <h2 className="text-4xl md:text-5xl font-black text-[#0A192F] tracking-tight leading-tight">
-              {isRtl ? 'חמישה שלבים לחופשה הגדולה' : 'Five Steps to Your Dream Vacation'}
+              {isRtl ? 'שתי דרכים לחופשה שלכם' : 'Two Paths to Your Vacation'}
             </h2>
           </div>
 
-          <div className="relative">
-            <div className="absolute right-[2.25rem] top-10 bottom-10 w-px bg-gradient-to-b from-transparent via-[#D4B483]/40 to-transparent" />
+          <div className="grid md:grid-cols-2 gap-10 items-stretch">
 
-            <div className="space-y-6">
-              {(
-                [
-                  {
-                    n: '01',
-                    title: isRtl ? 'תחילת תשלום' : 'Start Paying',
-                    desc: isRtl
-                      ? 'בוחרים תוכנית ומתחילים בתרומה חודשית. ניתן לשלם מכספי מעשרות.'
-                      : 'Choose a plan and begin your monthly donation — tithe-eligible.',
-                  },
-                  {
-                    n: '02',
-                    title: isRtl ? 'בחירת מלון ותאריך' : 'Choose Hotel & Date',
-                    desc: isRtl
-                      ? 'לאחר 12 חודשי תשלום נפתחת באזור האישי אפשרות לבחור מלון ותאריך הנופש שלכם.'
-                      : 'After 12 payments, your personal area unlocks hotel and date selection.',
-                  },
-                  {
-                    n: '03',
-                    title: isRtl ? 'השלמת התשלומים' : 'Complete Your Payments',
-                    desc: isRtl
-                      ? 'ממשיכים לשלם עד השלמת כל חיובי התוכנית. כל תשלום מוסיף לזכויות ולחסד.'
-                      : 'Continue paying until all plan charges are completed.',
-                  },
-                  {
-                    n: '04',
-                    title: isRtl ? 'קבלת שובר' : 'Receive Your Voucher',
-                    desc: isRtl
-                      ? 'עם השלמת התוכנית תקבלו שיחה, הודעה או מייל עם שובר שבת במלון שבחרתם.'
-                      : 'Upon completion, you\'ll receive a call, message, or email with your hotel voucher.',
-                  },
-                  {
-                    n: '05',
-                    title: isRtl ? 'נסיעה — וממשיכים!' : 'Travel — and Keep Going!',
-                    desc: isRtl
-                      ? 'יוצאים לנפוש ולהירגע. וממשיכים ולא עוצרים — ממשיכים את התרומה ואת החסד הגדול.'
-                      : 'Enjoy your vacation — then keep the chain of giving going.',
-                  },
-                ] as { n: string; title: string; desc: string }[]
-              ).map(({ n, title, desc }, i) => (
-                <div key={i} className="flex items-start gap-6">
-                  <div className="shrink-0 w-[4.5rem] h-[4.5rem] rounded-full bg-[#F9F8F4] border border-[#E5E1D8] flex items-center justify-center relative z-10">
-                    <span className="text-xs font-black text-[#B08D57] tracking-widest">{n}</span>
-                  </div>
-                  <div className="flex-1 bg-[#FAFAF8] border border-[#E5E1D8]/60 rounded-2xl px-7 py-5 hover:border-[#D4B483]/50 hover:shadow-sm transition-all duration-300">
-                    <h3 className="text-lg font-bold text-[#0A192F] mb-1">{title}</h3>
-                    <p className="text-[#33332D]/65 text-sm leading-relaxed font-light">{desc}</p>
-                  </div>
+            {/* מסלול 1 — לאחר סיום התוכנית */}
+            <div className="bg-[#FAFAF8] border border-[#E5E1D8]/80 rounded-[2rem] p-8 flex flex-col">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 rounded-xl bg-[#F0EDE6] flex items-center justify-center">
+                  <CalendarCheck size={20} className="text-[#B08D57]" />
                 </div>
-              ))}
+                <div>
+                  <div className="text-[10px] font-bold text-[#B08D57] tracking-widest uppercase mb-0.5">מסלול 1</div>
+                  <h3 className="text-lg font-bold text-[#0A192F]">לאחר סיום התוכנית</h3>
+                </div>
+              </div>
+
+              <div className="flex flex-col flex-1">
+                {([
+                  { n: '01', title: 'תחילת תשלום', desc: 'בוחרים תוכנית ומתחילים בתרומה חודשית. ניתן לשלם מכספי מעשרות.' },
+                  { n: '02', title: 'השלמת התשלומים', desc: 'ממשיכים לשלם עד השלמת כל חיובי התוכנית. כל תשלום מוסיף לזכויות ולחסד.' },
+                  { n: '03', title: 'בחירת מקום ותאריך', desc: 'לאחר השלמת התשלומים בוחרים מקום ותאריך לנופש מתוך רשימת המקומות.' },
+                  { n: '04', title: 'קבלת שובר', desc: 'לאחר אישורנו תקבלו שובר לחופשה ישירות למייל.' },
+                  { n: '05', title: 'נסיעה — וממשיכים!', desc: 'יוצאים לנפוש ולהירגע. וממשיכים — ממשיכים את התרומה ואת החסד הגדול.' },
+                ]).map(({ n, title, desc }, i, arr) => (
+                  <div key={i}>
+                    <div className="flex items-start gap-5 py-4">
+                      <div className="shrink-0 w-12 h-12 rounded-full bg-white border border-[#E5E1D8] flex items-center justify-center">
+                        <span className="text-xs font-black text-[#B08D57] tracking-widest">{n}</span>
+                      </div>
+                      <div className="flex-1 pt-1">
+                        <h4 className="text-sm font-bold text-[#0A192F] mb-1">{title}</h4>
+                        <p className="text-[#33332D]/60 text-xs leading-relaxed font-light">{desc}</p>
+                      </div>
+                    </div>
+                    {i < arr.length - 1 && <div className="border-t border-[#E5E1D8]/60" />}
+                  </div>
+                ))}
+              </div>
             </div>
+
+            {/* מסלול 2 — מימוש מיידי */}
+            <div className="bg-[#0A192F] rounded-[2rem] p-8 flex flex-col">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 rounded-xl bg-[#D4B483]/20 flex items-center justify-center">
+                  <Zap size={20} className="text-[#D4B483]" />
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-[#D4B483]/70 tracking-widest uppercase mb-0.5">מסלול 2</div>
+                  <h3 className="text-lg font-bold text-white">מימוש מיידי</h3>
+                </div>
+              </div>
+
+              <div className="flex flex-col flex-1">
+                {([
+                  { n: '01', title: 'בחירת תוכנית', desc: 'בוחרים תוכנית ומצטרפים.' },
+                  { n: '02', title: 'תפיסת מסגרת אשראי', desc: 'לא גובים את כל הסכום מראש — תופסים מסגרת אשראי בגובה עלות התוכנית המלאה.' },
+                  { n: '03', title: 'תשלום חודשי שוטף', desc: 'הסכום יורד בתשלומים חודשיים לפי התוכנית שבחרתם, כפי שסוכם.' },
+                  { n: '04', title: 'בחירת מקום ותאריך — מיד!', desc: 'מיד לאחר תפיסת המסגרת בוחרים נופש ותאריך — לא צריך לחכות לסוף התוכנית.' },
+                  { n: '05', title: 'קבלת שובר', desc: 'לאחר אישורנו תקבלו שובר לחופשה ישירות למייל.' },
+                ]).map(({ n, title, desc }, i, arr) => (
+                  <div key={i}>
+                    <div className="flex items-start gap-5 py-4">
+                      <div className="shrink-0 w-12 h-12 rounded-full bg-white/10 border border-white/15 flex items-center justify-center">
+                        <span className="text-xs font-black text-[#D4B483] tracking-widest">{n}</span>
+                      </div>
+                      <div className="flex-1 pt-1">
+                        <h4 className="text-sm font-bold text-white mb-1">{title}</h4>
+                        <p className="text-white/50 text-xs leading-relaxed font-light">{desc}</p>
+                      </div>
+                    </div>
+                    {i < arr.length - 1 && <div className="border-t border-white/10" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
@@ -429,48 +461,74 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ───────────────── CTA BANNER ───────────────── */}
-      <section className="py-32 bg-white">
-        <div className="max-w-6xl mx-auto px-4" dir={isRtl ? 'rtl' : 'ltr'}>
-          <div
-            className="rounded-[4rem] p-16 md:p-32 text-center text-white relative overflow-hidden"
-            style={{
-              background: '#2D3E40',
-              boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)',
-            }}
-          >
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#B08D57]/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#626D58]/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl pointer-events-none" />
+      {/* ───────────────── VACATIONS TEASER ───────────────── */}
+      <section className="py-24 bg-white" dir="rtl">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <p className="text-[10px] font-bold text-[#B08D57] tracking-[0.3em] uppercase mb-4">הנופשים שלנו</p>
+            <h2 className="text-4xl md:text-5xl font-black text-[#0A192F] tracking-tight mb-3">
+              המקומות שמחכים לכם
+            </h2>
+            <p className="text-[#33332D]/50 font-light text-lg max-w-xl mx-auto">
+              מלונות, וילות וצימרים מפנקים — חופשה זוגית שמגיעה לכם
+            </p>
+          </div>
 
-            <div className="relative z-10">
-              <h2 className="text-4xl md:text-6xl font-black mb-10 leading-[1.1] tracking-tight">
-                {isRtl
-                  ? 'מוכנים להפוך את הנתינה לחופשה?'
-                  : 'Manifest Your Compassion Into Memories'}
-              </h2>
-              <p className="text-xl md:text-2xl text-white/70 max-w-2xl mx-auto mb-16 font-light">
-                {isRtl
-                  ? 'הצטרפו עוד היום והתחילו לצבור זכויות נופש במלונות הטובים ביותר.'
-                  : 'Begin your contribution today and watch your impact grow into exquisite retreats.'}
-              </p>
-              <button
-                onClick={() => navigate('/plans')}
-                className="group inline-flex items-center gap-3 px-16 py-6 text-xl font-bold rounded-[2rem] transition-all hover:scale-105"
-                style={{
-                  background: 'linear-gradient(135deg, #D4B483 0%, #B08D57 100%)',
-                  color: '#0A192F',
-                  boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
-                }}
-              >
-                <span className="font-bold tracking-tight uppercase">
-                  {isRtl ? 'הצטרפו עכשיו' : 'Initialize Membership'}
-                </span>
-                <ChevronLeft
-                  className={`transition-transform group-hover:-translate-x-1 ${isRtl ? '' : 'rotate-180'}`}
-                  size={28}
-                />
-              </button>
-            </div>
+          <div className="grid md:grid-cols-3 gap-6 mb-10">
+            {PREVIEW_PLACES.slice(0, 3).map((place) => {
+              const meta = planMetaByLevel(place.level);
+              return (
+                <div
+                  key={place.id}
+                  className="bg-white rounded-[2rem] overflow-hidden border border-[#E5E1D8]/60 transition-all duration-300 hover:-translate-y-1 flex flex-col cursor-pointer"
+                  style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
+                  onClick={() => navigate(`/our-vacations/${place.id}`)}
+                >
+                  <div className="relative h-48 bg-gradient-to-br from-[#E5E1D8] to-[#F7F5F0] flex items-center justify-center">
+                    {place.image_url ? (
+                      <img src={place.image_url} alt={place.name_he} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <Hotel className="text-[#33332D]/15" size={40} />
+                    )}
+                    <div className="absolute top-3 end-3 flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 text-xs font-bold text-[#B08D57]">
+                      <Star size={11} fill="currentColor" /><span>5.0</span>
+                    </div>
+                    {place.is_new && (
+                      <div className="absolute top-3 start-3 px-2.5 py-1 rounded-xl bg-[#626D58] text-white text-[10px] font-bold">חדש</div>
+                    )}
+                  </div>
+                  <div className="p-5 flex flex-col flex-1">
+                    <div className="flex items-center gap-1.5 text-xs text-[#33332D]/40 mb-1">
+                      <MapPin size={11} className="text-[#626D58]" />
+                      <span>{place.city_he}</span>
+                      <span className="text-[#33332D]/20">·</span>
+                      <span>{place.region}</span>
+                    </div>
+                    <h3 className="text-base font-bold text-[#0A192F] mb-2">{place.name_he}</h3>
+                    {place.description_he && (
+                      <p className="text-xs text-[#33332D]/55 leading-relaxed mb-3 font-light line-clamp-2">{place.description_he}</p>
+                    )}
+                    {meta && (
+                      <div className="mt-auto flex items-center gap-2 text-xs text-[#33332D]/60">
+                        <Moon size={12} className="text-[#626D58]" />
+                        <span>{meta.nights} לילות · חופשה זוגית</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="text-center">
+            <button
+              onClick={() => navigate('/our-vacations')}
+              className="group inline-flex items-center gap-3 px-10 py-4 rounded-2xl font-bold text-[#0A192F] transition-all hover:-translate-y-0.5 hover:shadow-lg"
+              style={{ background: 'linear-gradient(135deg, #D4B483 0%, #B08D57 100%)' }}
+            >
+              <span>לכל המקומות</span>
+              <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
+            </button>
           </div>
         </div>
       </section>

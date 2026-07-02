@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Check, Hotel, Heart, ShieldCheck, Star, ChevronDown } from 'lucide-react';
+import { ArrowRight, Check, Hotel, Heart, ShieldCheck, Star, ChevronDown, Zap, CalendarCheck } from 'lucide-react';
 import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
@@ -22,8 +22,8 @@ function HotelList({ hotels, isFeatured, showLess, moreHotels, language }: { hot
     setExtraHeight(expanded ? extraRef.current.scrollHeight : 0);
   }, [expanded]);
 
-  const itemCls = `flex items-start gap-2 text-sm ${isFeatured ? 'text-white/60' : 'text-[#33332D]/60'}`;
-  const checkCls = `mt-0.5 flex-shrink-0 ${isFeatured ? 'text-[#D4B483]' : 'text-[#626D58]'}`;
+  const itemCls = `flex items-start gap-2 text-sm font-semibold text-[#33332D]/80`;
+  const checkCls = `mt-0.5 flex-shrink-0 text-[#626D58]`;
 
   return (
     <ul className="space-y-2">
@@ -62,11 +62,7 @@ function HotelList({ hotels, isFeatured, showLess, moreHotels, language }: { hot
           <li className="list-none">
             <button
               onClick={() => setExpanded((v) => !v)}
-              className={`flex items-center gap-1 text-xs font-semibold transition-colors ${
-                isFeatured
-                  ? 'text-[#D4B483]/70 hover:text-[#D4B483]'
-                  : 'text-[#626D58]/70 hover:text-[#626D58]'
-              }`}
+              className="flex items-center gap-1 text-xs font-semibold transition-colors text-[#626D58]/80 hover:text-[#626D58]"
             >
               <ChevronDown
                 size={13}
@@ -90,6 +86,9 @@ interface Plan {
   monthly_amount: number;
   required_successful_payments: number;
   hotel_level: string;
+  // תצוגה מקדימה בלבד — רשימת מלונות מקובעת לכרטיסייה (לא מ-DB)
+  customHotels?: HotelItem[];
+  preview?: boolean;
 }
 
 interface HotelItem {
@@ -132,7 +131,11 @@ export default function PlanSelectionPage() {
         supabase.from('hotels').select('id, name_he, name_en, city_he, city_en, level').eq('active', true),
       ]);
 
-      if (plansRes.data) setPlans(plansRes.data);
+      // רק תוכניות אמיתיות ופעילות מה-DB (תוכניות בטיוטה לא יוצגו לציבור)
+      const merged = (plansRes.data || []).sort(
+        (a, b) => a.monthly_amount - b.monthly_amount || a.required_successful_payments - b.required_successful_payments
+      );
+      setPlans(merged);
 
       if (hotelsRes.data) {
         const grouped = hotelsRes.data.reduce((acc, hotel) => {
@@ -150,8 +153,13 @@ export default function PlanSelectionPage() {
   };
 
   const handleSelectPlan = (plan: Plan) => {
+    // תוכניות תצוגה (preview) אינן קיימות ב-DB ולא ניתנות לתשלום עדיין
+    if (plan.preview) {
+      alert('תוכנית זו תיפתח לרישום בקרוב. לפרטים נוספים ניתן לפנות אלינו.');
+      return;
+    }
     if (user) {
-      navigate('/payment', { state: { planId: plan.id } });
+      navigate('/redemption-choice', { state: { planId: plan.id } });
     } else {
       setSelectedPlan(plan);
       setShowRegistration(true);
@@ -192,7 +200,7 @@ export default function PlanSelectionPage() {
           .update({ full_name: formData.fullName, phone: formData.phone || null })
           .eq('id', authData.user.id);
 
-        navigate('/payment', { state: { planId: selectedPlan?.id } });
+        navigate('/redemption-choice', { state: { planId: selectedPlan?.id } });
       }
     } catch (err: any) {
       const msg = (err?.message || '').toLowerCase();
@@ -327,11 +335,6 @@ export default function PlanSelectionPage() {
               <span>{ps.backToHome}</span>
             </button>
 
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#626D58]/10 text-[#626D58] text-xs font-semibold uppercase tracking-widest mb-4">
-              <Star size={12} fill="currentColor" />
-              <span>{ps.badge}</span>
-            </div>
-
             <h1 className="text-4xl md:text-5xl font-black text-[#0A192F] tracking-tight mb-4">
               {ps.title}
             </h1>
@@ -341,16 +344,16 @@ export default function PlanSelectionPage() {
           </div>
 
           {/* Plans Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="flex flex-wrap gap-4 justify-center">
             {plans.map((plan, i) => {
-              const eligibleHotels = hotelsByLevel[plan.hotel_level] || [];
+              const eligibleHotels = plan.customHotels ?? (hotelsByLevel[plan.hotel_level] || []);
               const totalAmount = plan.monthly_amount * plan.required_successful_payments;
-              const isFeatured = i === featuredIndex;
+              const isFeatured = false; // כל הכרטיסיות ברקע לבן אחיד
 
               return (
                 <div
                   key={plan.id}
-                  className={`relative rounded-[2rem] overflow-hidden transition-all duration-300 hover:-translate-y-1 flex flex-col ${
+                  className={`relative rounded-[2rem] overflow-hidden transition-all duration-300 hover:-translate-y-1 flex flex-col flex-1 min-w-[240px] max-w-xs ${
                     isFeatured
                       ? 'bg-[#0A192F] text-white'
                       : 'bg-white border border-[#E5E1D8]/60'
@@ -361,26 +364,13 @@ export default function PlanSelectionPage() {
                       : '0 4px 24px 0 rgba(98,109,88,0.08)',
                   }}
                 >
-                  {isFeatured && (
-                    <div className="absolute top-5 start-5">
-                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#D4B483] text-[#0A192F] text-[10px] font-bold uppercase tracking-widest">
-                        <Star size={10} fill="currentColor" />
-                        {ps.mostPopular}
-                      </span>
-                    </div>
-                  )}
-
                   <div className="p-8 flex flex-col flex-1">
-                    <div className={`text-xs font-bold uppercase tracking-[0.25em] mb-6 ${isFeatured ? 'text-[#D4B483]/60 mt-6' : 'text-[#33332D]/30'}`}>
-                      {hotelLevelLabel(plan.hotel_level, language)}
-                    </div>
-
                     <h3 className={`text-2xl font-bold mb-2 ${isFeatured ? 'text-white' : 'text-[#0A192F]'}`}>
                       {language === 'he' ? plan.name_he : (plan.name_en || plan.name_he)}
                     </h3>
 
                     {plan.description_he && (
-                      <p className={`text-sm mb-6 font-light leading-relaxed ${isFeatured ? 'text-white/50' : 'text-[#33332D]/50'}`}>
+                      <p className={`text-sm mb-6 font-semibold leading-relaxed ${isFeatured ? 'text-white/90' : 'text-[#0A192F]/80'}`}>
                         {language === 'he' ? plan.description_he : (plan.description_en || plan.description_he)}
                       </p>
                     )}
@@ -395,13 +385,23 @@ export default function PlanSelectionPage() {
                         </span>
                       </div>
                       <div className={`text-xs mt-1.5 ${isFeatured ? 'text-white/40' : 'text-[#33332D]/40'}`}>
-                        {plan.required_successful_payments} {ps.paymentsTotal} ₪{totalAmount.toLocaleString()}
+                        {`למשך ${plan.required_successful_payments} חודש`}
+                      </div>
+                    </div>
+
+                    {/* שתי דרכי התשלום — מסגרת זהב עדינה */}
+                    <div className="rounded-2xl border border-[#D4B483]/50 bg-gradient-to-b from-[#D4B483]/8 to-transparent px-4 py-3 mb-6 space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-bold text-[#0A192F]">
+                        <Zap size={15} className="text-[#B08D57] shrink-0" /> מימוש מיידי
+                      </div>
+                      <div className="flex items-center gap-2 text-sm font-bold text-[#0A192F]">
+                        <CalendarCheck size={15} className="text-[#626D58] shrink-0" /> הוראת קבע
                       </div>
                     </div>
 
                     {/* Hotels */}
                     <div className="mb-8 flex-1">
-                      <div className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-widest mb-3 ${isFeatured ? 'text-[#D4B483]/70' : 'text-[#33332D]/40'}`}>
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest mb-3 text-[#33332D]/40">
                         <Hotel size={12} />
                         <span>{ps.hotelEligibility}</span>
                       </div>
@@ -416,12 +416,7 @@ export default function PlanSelectionPage() {
 
                     <button
                       onClick={() => handleSelectPlan(plan)}
-                      className={`w-full py-3.5 rounded-xl font-semibold transition-all text-sm hover:shadow-md ${
-                        isFeatured
-                          ? 'text-[#0A192F] hover:-translate-y-0.5'
-                          : 'bg-[#0A192F] text-white hover:bg-[#0A192F]/90'
-                      }`}
-                      style={isFeatured ? { background: 'linear-gradient(135deg, #D4B483 0%, #B08D57 100%)' } : {}}
+                      className="w-full py-3.5 rounded-xl font-bold transition-all text-sm bg-[#0A192F] text-white hover:bg-[#0A192F]/90 hover:shadow-md"
                     >
                       {user ? ps.selectPlan : ps.selectPlanRegister}
                     </button>

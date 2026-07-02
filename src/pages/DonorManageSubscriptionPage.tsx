@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, AlertTriangle, X, Info, Pause, Play, Trash2 } from 'lucide-react';
-import { supabase, hotelLevelLabel } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
 import { callNedarimKevaService } from '../lib/nedarimKevaService';
@@ -181,7 +181,6 @@ export default function DonorManageSubscriptionPage() {
                   label: t.donor.manageSubscription.paymentsCompleted,
                   value: `${subscription.successful_payments_count} / ${subscription.plans.required_successful_payments}`,
                 },
-                { label: t.donor.manageSubscription.eligibilityLevel, value: hotelLevelLabel(subscription.plans.hotel_level, language) },
                 {
                   label: t.donor.manageSubscription.startDate,
                   value: new Date(subscription.started_at).toLocaleDateString(language === 'he' ? 'he-IL' : 'en-US'),

@@ -12,6 +12,9 @@ import { AdminServiceDeskPage } from './AdminServiceDeskPage';
 import { AdminSettingsPage } from './AdminSettingsPage';
 import { AdminBankDonorsPage } from './AdminBankDonorsPage';
 import { AdminUsersPage } from './AdminUsersPage';
+import { AdminVacationGalleryPage } from './AdminVacationGalleryPage';
+import { AdminImmediateRequestsPage } from './AdminImmediateRequestsPage';
+import { AdminHotelAvailabilityPage } from './AdminHotelAvailabilityPage';
 
 export const AdminDashboard = () => {
   return (
@@ -29,6 +32,9 @@ export const AdminDashboard = () => {
       <Route path="/support" element={<AdminSupportPage />} />
       <Route path="/service-desk" element={<AdminServiceDeskPage />} />
       <Route path="/settings" element={<AdminSettingsPage />} />
+      <Route path="/vacation-gallery" element={<AdminVacationGalleryPage />} />
+      <Route path="/immediate-requests" element={<AdminImmediateRequestsPage />} />
+      <Route path="/hotel-availability" element={<AdminHotelAvailabilityPage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   );

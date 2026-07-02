@@ -61,6 +61,8 @@ interface TemplateData {
   messagePreview?: string;
   subscriptionId?: string;
   appUrl?: string;
+  body?: string;
+  link?: string;
 }
 
 interface EmailPayload {
@@ -69,7 +71,23 @@ interface EmailPayload {
   html: string;
 }
 
+// ניקוי קלט לפני שתילה ב-HTML של המייל — מנטרל תגיות/שבירת מרכאות (הגנת HTML injection)
+function sanitize(s: string | undefined): string | undefined {
+  if (s === undefined || s === null) return s ?? undefined;
+  return String(s).replace(/[<>"]/g, "");
+}
+
 function buildEmail(template: string, data: TemplateData, appUrl: string): EmailPayload | null {
+  data = {
+    ...data,
+    donorName: sanitize(data.donorName),
+    adminName: sanitize(data.adminName),
+    subject: sanitize(data.subject),
+    messagePreview: sanitize(data.messagePreview),
+    body: sanitize(data.body),
+    // קישור פנימי בלבד — חייב להתחיל ב-/ (מנטרל הזרקת כתובת זרה ל-href)
+    link: data.link && data.link.startsWith("/") ? sanitize(data.link) : undefined,
+  };
   const url = data.appUrl ?? appUrl;
 
   switch (template) {
@@ -197,6 +215,37 @@ function buildEmail(template: string, data: TemplateData, appUrl: string): Email
             <p>שלום ${data.donorName ?? ""},</p>
             <p>חל שינוי בסטטוס תרומתך. לפרטים נוספים היכנס לאזור האישי.</p>
             <a href="${url}/dashboard"
+               style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
+              לאזור האישי
+            </a>
+          </div>`,
+      };
+
+    case "immediate_admin":
+      return {
+        to: ADMIN_EMAIL,
+        subject: data.subject ?? "מימוש מיידי — עדכון",
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0B3C5D;">${data.subject ?? "מימוש מיידי — עדכון"}</h2>
+            <p>${data.body ?? ""}</p>
+            <a href="${url}${data.link ?? "/admin/immediate-requests"}"
+               style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
+              לניהול הבקשות
+            </a>
+          </div>`,
+      };
+
+    case "immediate_user":
+      return {
+        to: "", // הנמען מגיע מהקורא (מייל המשתמש)
+        subject: data.subject ?? "עדכון בהזמנה שלך",
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0B3C5D;">${data.subject ?? "עדכון בהזמנה שלך"}</h2>
+            <p>שלום ${data.donorName ?? ""},</p>
+            <p>${data.body ?? ""}</p>
+            <a href="${url}${data.link ?? "/donor/my-orders"}"
                style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
               לאזור האישי
             </a>

@@ -4,6 +4,8 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
 import PlanSelectionPage from './pages/PlanSelectionPage';
 import PaymentPage from './pages/PaymentPage';
+import RedemptionChoicePage from './pages/RedemptionChoicePage';
+import MyOrdersPage from './pages/MyOrdersPage';
 import DonorDashboardPage from './pages/DonorDashboardPage';
 import DonorHotelsPage from './pages/DonorHotelsPage';
 import DonorAdditionalDonationPage from './pages/DonorAdditionalDonationPage';
@@ -14,6 +16,9 @@ import { SupportPage } from './pages/SupportPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import TermsOfUsePage from './pages/TermsOfUsePage';
 import RecommendationsPage from './pages/RecommendationsPage';
+import ImmediateRedemptionPage from './pages/ImmediateRedemptionPage';
+import OurVacationsPage from './pages/OurVacationsPage';
+import VacationDetailPage from './pages/VacationDetailPage';
 
 function AppRoutes() {
   const { user, loading, isAdmin, canView } = useAuth();
@@ -59,6 +64,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/redemption-choice"
+        element={
+          <ProtectedRoute>
+            {isAdmin || canView ? <Navigate to="/admin" replace /> : <RedemptionChoicePage />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/payment"
         element={
           <ProtectedRoute>
@@ -71,6 +84,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DonorDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/donor/my-orders"
+        element={
+          <ProtectedRoute>
+            <MyOrdersPage />
           </ProtectedRoute>
         }
       />
@@ -108,6 +129,9 @@ function AppRoutes() {
       />
       <Route path="/terms-of-use" element={<TermsOfUsePage />} />
       <Route path="/recommendations" element={<RecommendationsPage />} />
+      <Route path="/immediate-redemption" element={<ImmediateRedemptionPage />} />
+      <Route path="/our-vacations" element={<OurVacationsPage />} />
+      <Route path="/our-vacations/:id" element={<VacationDetailPage />} />
       <Route
         path="/admin/*"
         element={

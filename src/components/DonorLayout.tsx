@@ -10,11 +10,14 @@ import {
   DollarSign,
   ArrowLeft,
   Globe,
+  Sparkles,
+  ClipboardList,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
 import { useStore } from '../store/useStore';
 import AccessibilityToolbar from './AccessibilityToolbar';
+import NotificationBell from './NotificationBell';
 
 interface DonorLayoutProps {
   children: ReactNode;
@@ -38,10 +41,12 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
 
   const tabs = [
     { path: '/dashboard', icon: TrendingUp, label: t.donorLayout.home },
+    { path: '/donor/my-orders', icon: ClipboardList, label: 'ההזמנות שלי' },
     { path: '/donor/hotels', icon: Hotel, label: t.donorLayout.hotels },
     { path: '/donor/additional-donation', icon: DollarSign, label: t.donorLayout.additionalDonation },
     { path: '/support', icon: LifeBuoy, label: t.donorLayout.support },
     { path: '/donor/manage-subscription', icon: Settings, label: t.donorLayout.manageDonation },
+    { path: '/our-vacations', icon: Sparkles, label: language === 'he' ? 'הנופשים שלנו' : 'Our Vacations' },
   ];
 
   return (
@@ -73,6 +78,7 @@ export default function DonorLayout({ children }: DonorLayoutProps) {
               {profile?.full_name && (
                 <span className="hidden sm:block text-sm font-medium text-[#33332D]/60">{profile.full_name}</span>
               )}
+              <NotificationBell mode="user" />
               <button
                 onClick={toggleLanguage}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[#33332D]/60 hover:text-[#626D58] transition-colors rounded-xl hover:bg-[#F7F5F0]"

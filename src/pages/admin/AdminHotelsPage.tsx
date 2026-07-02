@@ -541,6 +541,8 @@ export const AdminHotelsPage = () => {
               <option value="silver">כסף</option>
               <option value="gold">זהב</option>
               <option value="platinum">פרימיום</option>
+              <option value="plan215">נופש 215 (אמצע שבוע)</option>
+              <option value="plan250">נופש 250 (אמצע שבוע)</option>
             </select>
           </div>
 

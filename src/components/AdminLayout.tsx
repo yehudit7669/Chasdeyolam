@@ -5,9 +5,10 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, FileText, Users, CreditCard, Hotel, Calendar,
   BookOpen, MessageSquare, Settings, LogOut, Menu, X,
-  CircleUser as UserCircle, Building2, HeartHandshake, Wrench,
+  CircleUser as UserCircle, Building2, HeartHandshake, Wrench, Images, Zap,
 } from 'lucide-react';
 import { useState } from 'react';
+import NotificationBell from './NotificationBell';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -51,6 +52,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       items: [
         { path: '/admin/subscriptions', icon: FileText, label: 'מנויים' },
         { path: '/admin/payments', icon: CreditCard, label: 'תשלומים' },
+        { path: '/admin/immediate-requests', icon: Zap, label: 'מימוש מיידי', highlight: true },
         { path: '/admin/plans', icon: FileText, label: 'תוכניות' },
       ],
     },
@@ -58,8 +60,9 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       title: 'מלונות',
       items: [
         { path: '/admin/hotels', icon: Hotel, label: 'מלונות' },
-        { path: '/admin/inventory', icon: Calendar, label: 'מלאי' },
+        { path: '/admin/hotel-availability', icon: Calendar, label: 'זמינות מלונות' },
         { path: '/admin/bookings', icon: BookOpen, label: 'הזמנות' },
+        { path: '/admin/vacation-gallery', icon: Images, label: 'גלריית נופשים' },
       ],
     },
     {
@@ -163,12 +166,15 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       )}
 
       <div className="flex-1 min-w-0 flex flex-col min-h-screen">
-        <header className="bg-white shadow-sm lg:hidden sticky top-0 z-30">
+        <header className="bg-white shadow-sm sticky top-0 z-30">
           <div className="px-4 py-3 flex items-center justify-between">
-            <img src={logoImg} alt="חסדי עולם" className="h-9 w-auto object-contain" loading="eager" decoding="async" />
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-[#0B3C5D]">
-              {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
+            <img src={logoImg} alt="חסדי עולם" className="h-9 w-auto object-contain lg:hidden" loading="eager" decoding="async" />
+            <div className="flex items-center gap-2 ms-auto">
+              <NotificationBell mode="admin" />
+              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-[#0B3C5D] lg:hidden">
+                {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
           </div>
         </header>
 

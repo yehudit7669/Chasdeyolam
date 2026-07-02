@@ -25,6 +25,7 @@ export const AdminSettingsPage = () => {
     enable_english: false,
     email_sender_name: '',
     email_sender_address: '',
+    redemption_explainer: '',
   });
   const { toast, showToast, hideToast } = useToast();
   const { canEdit } = useAuth();
@@ -77,6 +78,7 @@ export const AdminSettingsPage = () => {
           enable_english: data.enable_english,
           email_sender_name: data.email_sender_name,
           email_sender_address: data.email_sender_address,
+          redemption_explainer: data.redemption_explainer ?? '',
         });
       }
     } catch (error) {
@@ -110,6 +112,7 @@ export const AdminSettingsPage = () => {
         enable_english: formData.enable_english,
         email_sender_name: formData.email_sender_name,
         email_sender_address: formData.email_sender_address,
+        redemption_explainer: formData.redemption_explainer || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -250,6 +253,20 @@ export const AdminSettingsPage = () => {
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* כיתוב הסבר למימוש מיידי */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-lg font-bold text-[#0B3C5D] mb-1">כיתוב הסבר ללקוח — מימוש מיידי</h2>
+              <p className="text-sm text-gray-500 mb-4">טקסט שמוסבר ללקוח איך הוא מקבל את החופשה (שובר / תיאום מול בעל המקום). מוצג בהמתנה לאישור ובאישור הסופי.</p>
+              <textarea
+                value={formData.redemption_explainer}
+                onChange={(e) => setFormData({ ...formData, redemption_explainer: e.target.value })}
+                rows={5}
+                disabled={!canEdit}
+                placeholder="לדוגמה: לאחר אישור ההזמנה תקבלו שובר במייל / ניצור קשר עם בעל הצימר שיידע שאתם מגיעים..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C5D] focus:border-transparent resize-none"
+              />
             </div>
 
             {/* Action Buttons */}

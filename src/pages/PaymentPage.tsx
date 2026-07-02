@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle, XCircle, Loader2, Shield, Lock, CreditCard, Building2, X, Send, MessageSquare, AlertCircle } from 'lucide-react';
-import { supabase, hotelLevelLabel } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
+import { createNotification } from '../hooks/useNotifications';
 
 interface Plan {
   id: string;
@@ -12,17 +13,17 @@ interface Plan {
   monthly_amount: number;
   required_successful_payments: number;
   hotel_level: string;
+  nedarim_url_immediate: string | null;
+  nedarim_url_regular: string | null;
 }
 
-type PageState = 'loading_plan' | 'ready' | 'iframe' | 'paying' | 'success' | 'failure' | 'cancel' | 'bank_success';
+type PageState = 'loading_plan' | 'ready' | 'iframe' | 'paying' | 'success' | 'failure' | 'cancel' | 'bank_success' | 'external_wait';
 
 const NEDARIM_IFRAME_SRC = 'https://matara.pro/nedarimplus/iframe/';
 const MOSAD = '7010422';
 const API_VALID = 'Rd8QEQCDEY';
 const SUPABASE_FN_BASE = 'https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1';
 const CALLBACK_URL = `${SUPABASE_FN_BASE}/nedarim-keva-callback`;
-const NEDARIM_PAYMENT_TYPE = 'HK';
-const NEDARIM_TASHLUMIM = '15';
 
 export default function PaymentPage() {
   const navigate = useNavigate();
@@ -46,6 +47,46 @@ export default function PaymentPage() {
   const [bankSubmitting, setBankSubmitting] = useState(false);
 
   const planId = location.state?.planId;
+  // 'on_completion' (רגיל) | 'immediate' (מימוש מיידי) — נקבע בדף בחירת המסלול
+  const redemptionType: 'on_completion' | 'immediate' = location.state?.redemptionType ?? 'on_completion';
+  const immediateHandled = useRef(false);
+
+  // כשתשלום מיידי מצליח — יוצרים בקשת מימוש מיידי + התראה למנהל
+  useEffect(() => {
+    if (pageState !== 'success' || redemptionType !== 'immediate') return;
+    if (immediateHandled.current || !user || !plan) return;
+    immediateHandled.current = true;
+    (async () => {
+      try {
+        const fullName = profile?.full_name ?? '';
+        const { error: reqErr } = await supabase.from('immediate_requests').insert({
+          user_id: user.id,
+          plan_id: plan.id,
+          status: 'pending_review',
+          plan_name_he: plan.name_he,
+          user_full_name: fullName,
+        });
+        if (reqErr) {
+          console.error('[Immediate] request insert failed:', reqErr.message);
+          alert('שגיאה ביצירת בקשת המימוש: ' + reqErr.message);
+        }
+        const { error: notifErr } = await createNotification({
+          for_admin: true,
+          type: 'immediate_payment',
+          title: 'מימוש מיידי — תשלום התקבל',
+          body: `${fullName || 'משתמש'} שילם בתוכנית "${plan.name_he}". יש לבדוק מול נדרים פלוס ולפתוח להזמנה.`,
+          link: '/admin/immediate-requests',
+          email: { toAdmin: true },
+        });
+        if (notifErr) {
+          console.error('[Immediate] admin notification failed:', notifErr.message);
+          alert('שגיאה ביצירת התראת המנהל: ' + notifErr.message);
+        }
+      } catch (err) {
+        console.error('[Immediate] failed to create request/notification:', err);
+      }
+    })();
+  }, [pageState, redemptionType, user, plan, profile]);
 
   useEffect(() => {
     if (!user) { navigate('/signin'); return; }
@@ -96,7 +137,13 @@ export default function PaymentPage() {
   }, [postNedarim]);
 
   const handleMessage = useCallback((event: MessageEvent) => {
-    if (event.origin && event.origin !== '' && !event.origin.includes('matara.pro')) return;
+    // מאשרים רק הודעות מדומיין matara.pro עצמו (בדיקת hostname מדויקת, לא substring)
+    if (event.origin && event.origin !== '') {
+      try {
+        const host = new URL(event.origin).hostname;
+        if (host !== 'matara.pro' && !host.endsWith('.matara.pro')) return;
+      } catch { return; }
+    }
     const data = event.data;
     if (!data || typeof data !== 'object') return;
 
@@ -143,14 +190,16 @@ export default function PaymentPage() {
     const phone = profile?.phone ?? '';
     const mail = user.email ?? '';
 
-    console.log('[PaymentPage] Nedarim payload fields:', { FirstName: firstName, LastName: lastName, Phone: phone, Mail: mail });
-
+    // מסלול מיידי = עסקה רגילה (Ragil) שתופסת את הסכום המלא ומחלקת לתשלומים.
+    // מסלול רגיל = הוראת קבע (HK) שמחייבת חודש-חודש.
+    const isImmediate = redemptionType === 'immediate';
+    const months = plan.required_successful_payments;
     const payload = {
       Name: 'FinishTransaction2',
       Value: {
         Mosad: MOSAD,
         ApiValid: API_VALID,
-        PaymentType: NEDARIM_PAYMENT_TYPE,
+        PaymentType: isImmediate ? 'Ragil' : 'HK',
         Currency: '1',
         Zeout: '',
         FirstName: firstName,
@@ -159,8 +208,8 @@ export default function PaymentPage() {
         City: '',
         Phone: phone,
         Mail: mail,
-        Amount: String(plan.monthly_amount),
-        Tashlumim: NEDARIM_TASHLUMIM,
+        Amount: String(isImmediate ? plan.monthly_amount * months : plan.monthly_amount),
+        Tashlumim: String(months),
         Groupe: p.nedarimGroup,
         Comment: '',
         Param1: user.id,
@@ -174,6 +223,19 @@ export default function PaymentPage() {
     setPageState('paying');
     postNedarim(payload);
   }, [plan, user, profile, postNedarim]);
+
+  // קישור דף התרמה לפי המסלול (מיידי / רגיל)
+  const nedarimUrl = plan ? (redemptionType === 'immediate' ? plan.nedarim_url_immediate : plan.nedarim_url_regular) : null;
+
+  // תשלום דרך דף התרמה ייעודי של התוכנית (נדרים פלוס) — נפתח בחלון חדש
+  const handleExternalPay = () => {
+    if (!agreed || !nedarimUrl || !user) return;
+    supabase.from('profiles')
+      .update({ terms_accepted: true, terms_accepted_at: new Date().toISOString() })
+      .eq('id', user.id).then(() => {});
+    window.open(nedarimUrl, '_blank', 'noopener,noreferrer');
+    setPageState('external_wait');
+  };
 
   const startIframe = () => {
     if (!agreed || !plan || !user) return;
@@ -205,7 +267,6 @@ export default function PaymentPage() {
         `• שם תוכנית: ${plan.name_he}`,
         `• סכום חודשי: ₪${plan.monthly_amount.toLocaleString()}`,
         `• מספר תשלומים: ${plan.required_successful_payments}`,
-        `• רמת מלון: ${hotelLevelLabel(plan.hotel_level)}`,
         `• סה"כ: ₪${(plan.monthly_amount * plan.required_successful_payments).toLocaleString()}`,
         '',
         'פרטי מבקש:',
@@ -295,17 +356,49 @@ export default function PaymentPage() {
     );
   }
 
-  if (pageState === 'success') {
+  if (pageState === 'external_wait') {
     return (
       <div className="min-h-screen bg-[#F7F5F0] flex items-center justify-center px-4" dir="rtl">
         <div className="bg-white rounded-[2rem] p-10 max-w-md w-full text-center border border-[#E5E1D8]/60"
           style={{ boxShadow: '0 8px 40px rgba(98,109,88,0.12)' }}>
-          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5">
-            <CheckCircle size={32} className="text-green-600" />
+          <div className="w-16 h-16 rounded-full bg-[#D4B483]/15 flex items-center justify-center mx-auto mb-5">
+            <CreditCard size={30} className="text-[#B08D57]" />
           </div>
-          <h2 className="text-2xl font-black text-[#0A192F] mb-3">{p.successTitle}</h2>
+          <h2 className="text-2xl font-black text-[#0A192F] mb-3">דף התשלום נפתח בחלון חדש</h2>
           <p className="text-[#33332D]/60 text-sm mb-8 leading-relaxed">
-            {p.successDesc}
+            השלימו את התשלום בדף נדרים פלוס שנפתח. לאחר שסיימתם — לחצו על הכפתור למטה כדי להמשיך.
+          </p>
+          <button onClick={() => setPageState('success')}
+            className="w-full py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all mb-3">
+            סיימתי את התשלום — המשך
+          </button>
+          <button onClick={() => nedarimUrl && window.open(nedarimUrl, '_blank', 'noopener,noreferrer')}
+            className="text-sm text-[#626D58] font-semibold hover:underline">
+            פתח שוב את דף התשלום
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (pageState === 'success') {
+    const isImmediate = redemptionType === 'immediate';
+    return (
+      <div className="min-h-screen bg-[#F7F5F0] flex items-center justify-center px-4" dir="rtl">
+        <div className="bg-white rounded-[2rem] p-10 max-w-md w-full text-center border border-[#E5E1D8]/60"
+          style={{ boxShadow: '0 8px 40px rgba(98,109,88,0.12)' }}>
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 ${isImmediate ? 'bg-[#D4B483]/15' : 'bg-green-100'}`}>
+            {isImmediate
+              ? <Loader2 size={32} className="text-[#B08D57] animate-spin" />
+              : <CheckCircle size={32} className="text-green-600" />}
+          </div>
+          <h2 className="text-2xl font-black text-[#0A192F] mb-3">
+            {isImmediate ? 'התשלום התקבל! 🎉' : p.successTitle}
+          </h2>
+          <p className="text-[#33332D]/60 text-sm mb-8 leading-relaxed">
+            {isImmediate
+              ? 'אנחנו בודקים שהכל תקין ותכף נפתח לך את אפשרויות הבחירה. נעדכן אותך ברגע שאפשר להזמין — אפשר לעקוב בדף הבית.'
+              : p.successDesc}
           </p>
           <button onClick={() => navigate('/dashboard')}
             className="w-full py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all">
@@ -380,6 +473,16 @@ export default function PaymentPage() {
           </button>
         )}
 
+        {/* כפתור סימולציה — בדיקה בלבד, מופיע רק בפיתוח (לא קיים בבילד לפרודקשן) */}
+        {import.meta.env.DEV && pageState === 'ready' && (
+          <button
+            onClick={() => setPageState('success')}
+            className="w-full mb-6 py-3 rounded-xl border-2 border-dashed border-amber-400 bg-amber-50 text-amber-700 text-sm font-bold hover:bg-amber-100 transition-all"
+          >
+            🧪 סימולציית תשלום מוצלח ({redemptionType === 'immediate' ? 'מימוש מיידי' : 'מסלול רגיל'}) — בדיקה בלבד
+          </button>
+        )}
+
         <div className="flex items-center gap-2 mb-6 text-xs text-[#626D58] font-semibold">
           <Lock size={13} />
           <span>{p.sslBadge}</span>
@@ -419,10 +522,6 @@ export default function PaymentPage() {
                         <div>
                           <div className="text-white/40 text-xs mb-0.5">{p.totalCommitment}</div>
                           <div className="font-bold">₪{totalAmount.toLocaleString()}</div>
-                        </div>
-                        <div>
-                          <div className="text-white/40 text-xs mb-0.5">{p.hotelLevel}</div>
-                          <div className="font-bold">{hotelLevelLabel(plan.hotel_level, language)}</div>
                         </div>
                       </div>
                     </div>
@@ -479,9 +578,9 @@ export default function PaymentPage() {
                   <div className="space-y-3 mt-4">
                     <p className="text-xs font-semibold text-[#33332D]/50 mb-2">{p.choosePaymentMethod}</p>
                     <div className="grid sm:grid-cols-2 gap-3">
-                      {/* Credit card — Nedarim iframe */}
+                      {/* Credit card — דף התרמה ייעודי אם קיים, אחרת iframe גנרי */}
                       <button
-                        onClick={startIframe}
+                        onClick={() => nedarimUrl ? handleExternalPay() : startIframe()}
                         disabled={!agreed}
                         className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 text-right transition-all ${
                           agreed
@@ -601,8 +700,7 @@ export default function PaymentPage() {
                 <div className="text-xs font-bold uppercase tracking-[0.3em] text-[#D4B483]/60 mb-4">
                   {p.orderSummary}
                 </div>
-                <h2 className="text-xl font-bold text-white mb-1">{plan.name_he}</h2>
-                <div className="text-xs text-white/40 mb-6">{hotelLevelLabel(plan.hotel_level, language)}</div>
+                <h2 className="text-xl font-bold text-white mb-4">{plan.name_he}</h2>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between items-center">
                     <span className="text-white/50">{p.monthlyAmount}</span>
@@ -659,7 +757,6 @@ export default function PaymentPage() {
                 <div><span className="text-[#33332D]/40">{p.bankPlanLabel} </span><span className="font-semibold text-[#0A192F]">{plan.name_he}</span></div>
                 <div><span className="text-[#33332D]/40">{p.bankMonthlyLabel} </span><span className="font-semibold text-[#626D58]">₪{plan.monthly_amount.toLocaleString()}</span></div>
                 <div><span className="text-[#33332D]/40">{p.bankPaymentsLabel} </span><span className="font-semibold text-[#0A192F]">{plan.required_successful_payments}</span></div>
-                <div><span className="text-[#33332D]/40">{p.bankHotelLevelLabel} </span><span className="font-semibold text-[#0A192F]">{hotelLevelLabel(plan.hotel_level, language)}</span></div>
                 <div className="col-span-2 pt-2 border-t border-[#E5E1D8]/60 mt-1">
                   <span className="text-[#33332D]/40">{p.bankTotalLabel} </span>
                   <span className="font-bold text-[#B08D57]">₪{(plan.monthly_amount * plan.required_successful_payments).toLocaleString()}</span>

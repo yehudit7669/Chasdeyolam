@@ -48,7 +48,6 @@ export default function DonorAdditionalDonationPage() {
       console.warn('[AdditionalDonation] postNedarim: iframe not ready');
       return;
     }
-    console.log('[AdditionalDonation] postNedarim →', JSON.stringify(data));
     iframeWin.postMessage(data, '*');
   }, []);
 
@@ -69,9 +68,13 @@ export default function DonorAdditionalDonationPage() {
   }, [postNedarim]);
 
   const handleMessage = useCallback((event: MessageEvent) => {
-    console.log('[AdditionalDonation] raw message', 'origin:', event.origin, 'data:', JSON.stringify(event.data));
-
-    if (event.origin && event.origin !== '' && !event.origin.includes('matara.pro')) return;
+    // מאשרים רק הודעות מדומיין matara.pro עצמו (בדיקת hostname מדויקת, לא substring)
+    if (event.origin && event.origin !== '') {
+      try {
+        const host = new URL(event.origin).hostname;
+        if (host !== 'matara.pro' && !host.endsWith('.matara.pro')) return;
+      } catch { return; }
+    }
 
     const data = event.data;
     if (!data || typeof data !== 'object') return;
@@ -151,7 +154,6 @@ export default function DonorAdditionalDonationPage() {
       },
     };
 
-    console.log('[AdditionalDonation] FinishTransaction2 →', JSON.stringify(payload));
     setPageState('paying');
     postNedarim(payload);
   }, [user, selectedAmount, postNedarim]);

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
+import { supabase } from '../lib/supabase';
 import { Layout } from '../components/Layout';
 import logoImg from '../assets/לוגו-חסדי.png';
 import { Heart, LogIn, AlertCircle } from 'lucide-react';
@@ -22,7 +23,14 @@ export const SignIn = () => {
 
     try {
       await signIn(email, password);
-      navigate('/dashboard');
+      // מנהל מגיע ישר ללוח הניהול; משתמש רגיל לדף הבית
+      let dest = '/dashboard';
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+        if (prof?.role === 'admin') dest = '/admin';
+      }
+      navigate(dest);
     } catch (err: unknown) {
       console.error('Sign in error:', err);
       const msg = err instanceof Error ? err.message.toLowerCase() : '';

@@ -9,7 +9,7 @@ import {
   ChevronRight,
   Star,
 } from 'lucide-react';
-import { supabase, hotelLevelLabel } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
 import DonorLayout from '../components/DonorLayout';
@@ -179,7 +179,7 @@ export default function DonorHotelsPage() {
             </div>
             <h2 className="text-xl font-black text-[#0A192F] mb-2">{t.donor.hotels.noHotelsTitle}</h2>
             <p className="text-[#33332D]/50 text-sm font-light">
-              {t.donor.hotels.noHotelsDesc} {hotelLevelLabel(subscription.plans.hotel_level, language)}
+              {t.donor.hotels.noHotelsDesc}
             </p>
           </div>
         ) : (

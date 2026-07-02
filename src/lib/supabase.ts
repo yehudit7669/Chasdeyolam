@@ -10,8 +10,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const hotelLevelLabels: Record<string, Record<string, string>> = {
-  he: { bronze: 'בסיסי', silver: 'כסף', gold: 'זהב', platinum: 'פרימיום' },
-  en: { bronze: 'Basic', silver: 'Silver', gold: 'Gold', platinum: 'Premium' },
+  he: { bronze: 'בסיסי', silver: 'כסף', gold: 'זהב', platinum: 'פרימיום', plan215: 'נופש 215', plan250: 'נופש 250' },
+  en: { bronze: 'Basic', silver: 'Silver', gold: 'Gold', platinum: 'Premium', plan215: 'Midweek 215', plan250: 'Midweek 250' },
 };
 
 export const hotelLevelLabel = (level: string, lang = 'he'): string => {

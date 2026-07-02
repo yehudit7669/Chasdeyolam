@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { Layout } from '../components/Layout';
+import { VacationsTeaser } from '../components/VacationsTeaser';
 import { supabase } from '../lib/supabase';
 import { formatCurrency } from '../lib/stripe';
 import { AlertCircle, CheckCircle, Clock, Hotel, CreditCard } from 'lucide-react';
@@ -141,6 +142,7 @@ export const Dashboard = () => {
             בחר תוכנית
           </Link>
         </div>
+        <VacationsTeaser limit={3} />
       </Layout>
     );
   }
@@ -299,6 +301,8 @@ export const Dashboard = () => {
             </div>
           )}
         </div>
+
+        <VacationsTeaser limit={3} title="הנופשים שמחכים לכם" subtitle="צפו במלונות, וילות וצימרים שתוכלו לבחור מהם" />
       </div>
     </Layout>
   );

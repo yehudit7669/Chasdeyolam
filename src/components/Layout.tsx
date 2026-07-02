@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { useStore } from '../store/useStore';
-import { LogOut, Menu, X, Globe, Heart } from 'lucide-react';
+import { LogOut, Menu, X, Globe, Heart, Phone, MessageCircle } from 'lucide-react';
 import AccessibilityToolbar from './AccessibilityToolbar';
 
 interface LayoutProps {
@@ -63,21 +63,7 @@ export const Layout = ({ children }: LayoutProps) => {
             <div className="hidden md:flex items-center gap-1">
               {user ? (
                 <>
-                  <Link
-                    to={isAdmin ? '/admin' : '/dashboard'}
-                    className="px-4 py-2 text-sm font-medium text-[#33332D]/70 hover:text-[#0A192F] transition-colors rounded-xl hover:bg-[#F7F5F0]"
-                  >
-                    {isAdmin ? t.admin.dashboard : t.dashboard.mySubscription}
-                  </Link>
-                  {!isAdmin && (
-                    <Link
-                      to="/support"
-                      className="px-4 py-2 text-sm font-medium text-[#33332D]/70 hover:text-[#0A192F] transition-colors rounded-xl hover:bg-[#F7F5F0]"
-                    >
-                      {t.dashboard.support}
-                    </Link>
-                  )}
-                  <div className="flex items-center gap-3 ms-2 ps-4 border-s border-[#E5E1D8]">
+                  <div className="flex items-center gap-3 me-2 pe-4 border-e border-[#E5E1D8]">
                     <span className="text-sm font-medium text-[#33332D]/60">{profile?.full_name}</span>
                     <button
                       onClick={handleSignOut}
@@ -87,26 +73,46 @@ export const Layout = ({ children }: LayoutProps) => {
                       <LogOut size={18} />
                     </button>
                   </div>
+                  {!isAdmin && (
+                    <Link
+                      to="/support"
+                      className="px-4 py-2 text-sm font-medium text-[#33332D]/70 hover:text-[#0A192F] transition-colors rounded-xl hover:bg-[#F7F5F0]"
+                    >
+                      {t.dashboard.support}
+                    </Link>
+                  )}
+                  <Link
+                    to={isAdmin ? '/admin' : '/dashboard'}
+                    className="px-4 py-2 text-sm font-medium text-[#33332D]/70 hover:text-[#0A192F] transition-colors rounded-xl hover:bg-[#F7F5F0]"
+                  >
+                    {isAdmin ? t.admin.dashboard : t.dashboard.mySubscription}
+                  </Link>
                 </>
               ) : (
                 <>
+                  <Link
+                    to="/our-vacations"
+                    className="px-5 py-2.5 text-sm font-semibold text-[#0A192F] border-2 border-[#0A192F] rounded-xl hover:bg-[#0A192F] hover:text-white transition-all me-1"
+                  >
+                    {language === 'he' ? 'הנופשים שלנו' : 'Our Vacations'}
+                  </Link>
+                  <Link
+                    to="/plans"
+                    className="px-5 py-2.5 text-sm font-semibold text-white bg-[#0A192F] rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md"
+                  >
+                    {language === 'he' ? 'הצטרף עכשיו' : 'Join Now'}
+                  </Link>
                   <Link
                     to="/signin"
                     className="px-4 py-2 text-sm font-medium text-[#33332D]/70 hover:text-[#0A192F] transition-colors rounded-xl hover:bg-[#F7F5F0]"
                   >
                     {t.auth.signIn}
                   </Link>
-                  <Link
-                    to="/plans"
-                    className="px-5 py-2.5 text-sm font-semibold text-white bg-[#0A192F] rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md ms-1"
-                  >
-                    {language === 'he' ? 'הצטרף עכשיו' : 'Join Now'}
-                  </Link>
                 </>
               )}
               <button
                 onClick={toggleLanguage}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[#33332D]/60 hover:text-[#626D58] transition-colors rounded-xl hover:bg-[#F7F5F0] ms-1"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[#33332D]/60 hover:text-[#626D58] transition-colors rounded-xl hover:bg-[#F7F5F0]"
               >
                 <Globe size={16} />
                 <span>{language === 'he' ? 'EN' : 'עב'}</span>
@@ -165,6 +171,13 @@ export const Layout = ({ children }: LayoutProps) => {
               ) : (
                 <>
                   <Link
+                    to="/our-vacations"
+                    className="block px-4 py-3 text-sm font-medium text-[#33332D] hover:bg-[#F7F5F0] rounded-xl transition-colors"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {language === 'he' ? 'הנופשים שלנו' : 'Our Vacations'}
+                  </Link>
+                  <Link
                     to="/signin"
                     className="block px-4 py-3 text-sm font-medium text-[#33332D] hover:bg-[#F7F5F0] rounded-xl transition-colors"
                     onClick={() => setMenuOpen(false)}
@@ -191,6 +204,18 @@ export const Layout = ({ children }: LayoutProps) => {
 
       <AccessibilityToolbar />
 
+      {/* WhatsApp צף */}
+      <a
+        href="https://wa.me/972559340677"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 start-6 z-50 flex items-center gap-2 bg-[#25D366] hover:bg-[#20c05a] text-white rounded-2xl shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 px-4 py-3"
+        title="שלח הודעה בוואטסאפ"
+      >
+        <MessageCircle size={20} fill="currentColor" />
+        <span className="text-sm font-bold hidden sm:inline">וואטסאפ</span>
+      </a>
+
       <footer className="bg-[#0A192F] text-white mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -203,8 +228,18 @@ export const Layout = ({ children }: LayoutProps) => {
                 <div className="text-xs text-white/40 mt-0.5">{t.app.slogan}</div>
               </div>
             </div>
-            <div className="text-sm text-white/40">
-              © {new Date().getFullYear()} {t.app.title}
+            <div className="flex flex-col items-end gap-2">
+              <a href="https://wa.me/972559340677" target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-[#25D366] hover:text-[#20c05a] transition-colors font-semibold">
+                <MessageCircle size={15} />
+                <span>וואטסאפ: 055-9340677</span>
+              </a>
+              <a href="tel:0533130728"
+                className="flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors">
+                <Phone size={14} />
+                <span>053-3130728</span>
+              </a>
+              <div className="text-xs text-white/30">© {new Date().getFullYear()} {t.app.title}</div>
             </div>
           </div>
         </div>
