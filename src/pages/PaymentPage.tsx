@@ -580,7 +580,7 @@ export default function PaymentPage() {
                     <div className="grid sm:grid-cols-2 gap-3">
                       {/* Credit card — דף התרמה ייעודי אם קיים, אחרת iframe גנרי */}
                       <button
-                        onClick={() => nedarimUrl ? handleExternalPay() : startIframe()}
+                        onClick={() => (redemptionType === 'immediate' || !nedarimUrl) ? startIframe() : handleExternalPay()}
                         disabled={!agreed}
                         className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 text-right transition-all ${
                           agreed

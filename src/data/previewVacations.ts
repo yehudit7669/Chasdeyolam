@@ -8,6 +8,7 @@ export interface PreviewPlanMeta {
   monthly_amount: number;
   months: number;
   nights: number;
+  hotel_level: string; // מיפוי לעמודת plans.hotel_level האמיתית ב-DB (השמות לא זהים ל-level המקומי)
 }
 
 export interface PreviewPlace {
@@ -26,11 +27,11 @@ export interface PreviewPlace {
 
 export const PREVIEW_PLAN_META: PreviewPlanMeta[] = [
   // תוכניות חדשות
-  { level: 'preview-215', name_he: 'נופש זוגי', monthly_amount: 215, months: 12, nights: 2 },
-  { level: 'preview-250', name_he: 'נופש זוגי', monthly_amount: 250, months: 12, nights: 2 },
+  { level: 'preview-215', name_he: 'נופש זוגי', monthly_amount: 215, months: 12, nights: 2, hotel_level: 'plan215' },
+  { level: 'preview-250', name_he: 'נופש זוגי', monthly_amount: 250, months: 12, nights: 2, hotel_level: 'plan250' },
   // תוכניות קיימות מ-DB (bronze=שבת זוגית, platinum=סופ"ש זוגי/משפחתי)
-  { level: 'bronze', name_he: 'שבת זוגית', monthly_amount: 250, months: 15, nights: 2 },
-  { level: 'platinum', name_he: 'סופ"ש זוגי/משפחתי', monthly_amount: 350, months: 15, nights: 2 },
+  { level: 'bronze', name_he: 'שבת זוגית', monthly_amount: 250, months: 15, nights: 2, hotel_level: 'gold' },
+  { level: 'platinum', name_he: 'סופ"ש זוגי/משפחתי', monthly_amount: 350, months: 15, nights: 2, hotel_level: 'platinum' },
 ];
 
 export const PREVIEW_PLACES: PreviewPlace[] = [

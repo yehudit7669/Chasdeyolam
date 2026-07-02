@@ -242,7 +242,7 @@ export default function VacationDetailPage() {
                   <div className="text-[#D4B483] font-bold text-sm mb-1">₪{meta.monthly_amount} לחודש</div>
                   <div className="text-white/40 text-xs mb-5">למשך {meta.months} חודש</div>
                   <button
-                    onClick={() => navigate('/plans')}
+                    onClick={() => navigate(`/plans?level=${meta.hotel_level}`)}
                     className="w-full py-3 rounded-xl font-bold text-sm text-[#0A192F] hover:opacity-90 transition-all"
                     style={{ background: 'linear-gradient(135deg, #D4B483 0%, #B08D57 100%)' }}
                   >

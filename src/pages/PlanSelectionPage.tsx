@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Check, Hotel, Heart, ShieldCheck, Star, ChevronDown, Zap, CalendarCheck } from 'lucide-react';
 import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -102,6 +102,7 @@ interface HotelItem {
 
 export default function PlanSelectionPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { t, language } = useTranslation();
   const ps = t.planSelection;
@@ -165,6 +166,15 @@ export default function PlanSelectionPage() {
       setShowRegistration(true);
     }
   };
+
+  // הגעה עם ?level=... (למשל מכרטיסיית מקום בדף "הנופשים שלנו") — לדלג ישר לתוכנית המשויכת, בלי להציג את כל הרשימה
+  useEffect(() => {
+    const levelParam = searchParams.get('level');
+    if (!levelParam || plans.length === 0) return;
+    const match = plans.find((p) => p.hotel_level === levelParam);
+    if (match) handleSelectPlan(match);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plans, searchParams]);
 
   const handleRegistration = async (e: React.FormEvent) => {
     e.preventDefault();

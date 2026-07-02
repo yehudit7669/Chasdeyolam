@@ -52,6 +52,7 @@ export default function OurVacationsPage() {
   const closeLightbox = () => setLightbox(null);
 
   const lightboxPlace = lightbox ? filtered[lightbox.placeIdx] : null;
+  const lightboxMeta = lightboxPlace ? planMetaByLevel(lightboxPlace.level) : null;
   const lightboxGallery = lightboxPlace ? getGallery(lightboxPlace) : [];
   const lightboxIdx = lightboxPlace ? (imgIndex[lightboxPlace.id] ?? 0) % Math.max(lightboxGallery.length, 1) : 0;
   const prevPhoto = () => { if (lightboxPlace) stepImage(lightboxPlace.id, -1, lightboxGallery.length); };
@@ -280,7 +281,7 @@ export default function OurVacationsPage() {
                         פרטים נוספים
                       </button>
                       <button
-                        onClick={() => navigate('/plans')}
+                        onClick={() => navigate(meta ? `/plans?level=${meta.hotel_level}` : '/plans')}
                         className="flex-1 py-3 rounded-xl font-semibold text-sm bg-[#0A192F] text-white hover:bg-[#0A192F]/90 hover:shadow-md transition-all"
                       >
                         הצטרפו
@@ -367,7 +368,7 @@ export default function OurVacationsPage() {
                 <FormattedDescription text={lightboxPlace.description_he} />
               </div>
               <button
-                onClick={() => { closeLightbox(); navigate('/plans'); }}
+                onClick={() => { closeLightbox(); navigate(lightboxMeta ? `/plans?level=${lightboxMeta.hotel_level}` : '/plans'); }}
                 className="w-full py-3 rounded-xl font-semibold text-sm bg-[#0A192F] text-white hover:bg-[#0A192F]/90 transition-all"
               >
                 הצטרפו לתוכנית
