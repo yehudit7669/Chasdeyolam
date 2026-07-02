@@ -389,14 +389,17 @@ export default function PlanSelectionPage() {
                       </div>
                     </div>
 
-                    {/* שתי דרכי התשלום — מסגרת זהב עדינה */}
-                    <div className="rounded-2xl border border-[#D4B483]/50 bg-gradient-to-b from-[#D4B483]/8 to-transparent px-4 py-3 mb-6 space-y-2">
-                      <div className="flex items-center gap-2 text-sm font-bold text-[#0A192F]">
-                        <Zap size={15} className="text-[#B08D57] shrink-0" /> מימוש מיידי
-                      </div>
-                      <div className="flex items-center gap-2 text-sm font-bold text-[#0A192F]">
-                        <CalendarCheck size={15} className="text-[#626D58] shrink-0" /> הוראת קבע
-                      </div>
+                    {/* מימוש מיידי — מסגרת זהב עדינה */}
+                    <div className="flex items-center gap-2 rounded-2xl border border-[#D4B483]/50 bg-gradient-to-b from-[#D4B483]/8 to-transparent px-4 py-3 mb-6">
+                      <Zap size={15} className="text-[#B08D57] shrink-0" />
+                      <span className="text-sm font-bold text-[#0A192F]">מימוש מיידי</span>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/immediate-redemption')}
+                        className="text-xs font-semibold text-[#B08D57] hover:underline ms-auto"
+                      >
+                        לפרטים
+                      </button>
                     </div>
 
                     {/* Hotels */}
