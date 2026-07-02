@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { PREVIEW_PLACES, PREVIEW_PLAN_META, planMetaByLevel } from '../../data/previewVacations';
+import { FormattedDescription } from '../../components/FormattedDescription';
 import {
   Upload, Trash2, ChevronUp, ChevronDown, ImageIcon, Loader2, Check,
-  ExternalLink, Eye, EyeOff, MapPin, Moon, Star, Plus, X, Send, Video, Link2,
+  ExternalLink, Eye, EyeOff, MapPin, Moon, Star, Plus, X, Send, Video, Link2, Navigation, ArrowRightLeft,
 } from 'lucide-react';
 
 interface VacationImage { id: string; place_id: string; url: string; sort_order: number; media_type?: 'image' | 'video'; }
-interface DbPlace { id: string; name_he: string; city_he: string; region: string; level: string; description_he: string; website_url: string; is_new: boolean; published: boolean; source: 'db'; }
+interface DbPlace { id: string; name_he: string; city_he: string; region: string; level: string; description_he: string; website_url: string; map_url?: string; linked_hotel_id?: string | null; is_new: boolean; published: boolean; source: 'db'; }
 
 const BUCKET = 'vacations';
 const REGIONS = ['טבריה', 'צפת', 'גליל', 'כרמל', 'מרכז', 'דרום'];
@@ -37,9 +38,13 @@ export const AdminVacationGalleryPage = () => {
   const [cityHe, setCityHe] = useState('');
   const [description, setDescription] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
+  const [mapUrl, setMapUrl] = useState('');
+  const [linkedHotelId, setLinkedHotelId] = useState('');
+  const [hotelsList, setHotelsList] = useState<{ id: string; name_he: string; city_he: string }[]>([]);
+  const [syncing, setSyncing] = useState(false);
 
   // טופס הוספה
-  const [newPlace, setNewPlace] = useState({ name_he: '', city_he: '', region: REGIONS[0], level: PREVIEW_PLAN_META[0].level, description_he: '', website_url: '', is_new: true, published: false });
+  const [newPlace, setNewPlace] = useState({ name_he: '', city_he: '', region: REGIONS[0], level: PREVIEW_PLAN_META[0].level, description_he: '', website_url: '', map_url: '', is_new: true, published: false });
   const [addingPlace, setAddingPlace] = useState(false);
 
   const allPlaces = [
@@ -49,7 +54,12 @@ export const AdminVacationGalleryPage = () => {
   const place = allPlaces.find(p => p.id === selectedId) ?? allPlaces[0];
   const meta = place ? planMetaByLevel(place.level) : null;
 
-  useEffect(() => { loadDbPlaces(); loadStaticPublished(); }, []);
+  useEffect(() => { loadDbPlaces(); loadStaticPublished(); loadHotelsList(); }, []);
+
+  const loadHotelsList = async () => {
+    const { data } = await supabase.from('hotels').select('id,name_he,city_he').eq('active', true).order('name_he');
+    setHotelsList(data ?? []);
+  };
 
   const loadStaticPublished = async () => {
     const { data } = await supabase.from('vacation_place_meta').select('place_id, published, removed');
@@ -88,7 +98,7 @@ export const AdminVacationGalleryPage = () => {
     // DB places already have full data
     if (place.source === 'db') {
       const p = dbPlaces.find(d => d.id === selectedId);
-      if (p) { setNameHe(p.name_he); setCityHe(p.city_he); setDescription(p.description_he); setWebsiteUrl(p.website_url); }
+      if (p) { setNameHe(p.name_he); setCityHe(p.city_he); setDescription(p.description_he); setWebsiteUrl(p.website_url); setMapUrl(p.map_url || ''); setLinkedHotelId(p.linked_hotel_id || ''); }
       return;
     }
     const { data } = await supabase.from('vacation_place_meta').select('*').eq('place_id', selectedId).maybeSingle();
@@ -97,21 +107,67 @@ export const AdminVacationGalleryPage = () => {
     setCityHe(data?.city_he || sp.city_he);
     setDescription(data?.description_he || sp.description_he || '');
     setWebsiteUrl(data?.website_url || sp.website_url || '');
+    setMapUrl(data?.map_url || sp.map_url || '');
+    setLinkedHotelId(data?.linked_hotel_id || '');
   };
 
   const saveMeta = async () => {
     setSaving(true);
+    let error;
     if (place.source === 'db') {
-      await supabase.from('vacation_places').update({ name_he: nameHe, city_he: cityHe, description_he: description, website_url: websiteUrl }).eq('id', selectedId);
+      ({ error } = await supabase.from('vacation_places').update({ name_he: nameHe, city_he: cityHe, description_he: description, website_url: websiteUrl, map_url: mapUrl, linked_hotel_id: linkedHotelId || null }).eq('id', selectedId));
       await loadDbPlaces();
     } else {
-      await supabase.from('vacation_place_meta').upsert(
-        { place_id: selectedId, name_he: nameHe, city_he: cityHe, description_he: description, website_url: websiteUrl },
+      ({ error } = await supabase.from('vacation_place_meta').upsert(
+        { place_id: selectedId, name_he: nameHe, city_he: cityHe, description_he: description, website_url: websiteUrl, map_url: mapUrl, linked_hotel_id: linkedHotelId || null },
         { onConflict: 'place_id' }
-      );
+      ));
     }
     setSaving(false);
+    if (error) {
+      showToast('השמירה נכשלה: ' + error.message + ' (ייתכן שצריך להריץ את ה-SQL של migration עמודות map_url / linked_hotel_id)');
+      return;
+    }
     showToast('✓ נשמר בהצלחה');
+  };
+
+  // סנכרון: גלריית נופשים (vacation_place_images) → מלון מקושר (hotel_images)
+  const syncToHotel = async () => {
+    if (!linkedHotelId) return;
+    if (!confirm('לסנכרן את התמונות והתיאור מהגלריה אל המלון המקושר? זה ידרוס תמונות ותיאור קיימים במלון.')) return;
+    setSyncing(true);
+    const { error: descErr } = await supabase.from('hotels').update({ description_he: description }).eq('id', linkedHotelId);
+    await supabase.from('hotel_images').delete().eq('hotel_id', linkedHotelId);
+    const imagesOnly = images.filter(i => i.media_type !== 'video');
+    let imgErr = null;
+    if (imagesOnly.length) {
+      const rows = imagesOnly.map((img, idx) => ({ hotel_id: linkedHotelId, image_url: img.url, display_order: idx }));
+      ({ error: imgErr } = await supabase.from('hotel_images').insert(rows));
+    }
+    setSyncing(false);
+    const error = descErr || imgErr;
+    if (error) { showToast('סנכרון נכשל: ' + error.message); return; }
+    showToast('✓ סונכרן למלון בהצלחה');
+  };
+
+  // סנכרון: מלון מקושר (hotels + hotel_images) → גלריית נופשים (vacation_place_images)
+  const syncFromHotel = async () => {
+    if (!linkedHotelId) return;
+    if (!confirm('לסנכרן את התמונות והתיאור מהמלון המקושר לכאן? זה ידרוס תמונות ותיאור קיימים בגלריה (התיאור ישונה בטופס — יש ללחוץ "שמור שינויים" כדי לשמור אותו).')) return;
+    setSyncing(true);
+    const { data: hotel } = await supabase.from('hotels').select('description_he').eq('id', linkedHotelId).maybeSingle();
+    const { data: hImages } = await supabase.from('hotel_images').select('*').eq('hotel_id', linkedHotelId).order('display_order');
+    await supabase.from('vacation_place_images').delete().eq('place_id', selectedId);
+    let imgErr = null;
+    if (hImages?.length) {
+      const rows = hImages.map((img: { image_url: string }, idx: number) => ({ place_id: selectedId, url: img.image_url, sort_order: idx, media_type: 'image' }));
+      ({ error: imgErr } = await supabase.from('vacation_place_images').insert(rows));
+    }
+    if (hotel?.description_he) setDescription(hotel.description_he);
+    await loadImages();
+    setSyncing(false);
+    if (imgErr) { showToast('סנכרון נכשל: ' + imgErr.message); return; }
+    showToast('✓ סונכרן מהמלון — לחצו "שמור שינויים" כדי לשמור את התיאור');
   };
 
   const handleUpload = async (files: FileList | null, mediaType: 'image' | 'video' = 'image') => {
@@ -175,7 +231,7 @@ export const AdminVacationGalleryPage = () => {
     await loadDbPlaces();
     setSelectedId(id);
     setShowAddModal(false);
-    setNewPlace({ name_he: '', city_he: '', region: REGIONS[0], level: PREVIEW_PLAN_META[0].level, description_he: '', website_url: '', is_new: true });
+    setNewPlace({ name_he: '', city_he: '', region: REGIONS[0], level: PREVIEW_PLAN_META[0].level, description_he: '', website_url: '', map_url: '', is_new: true, published: false });
     setAddingPlace(false);
     showToast('✓ מקום חדש נוסף');
   };
@@ -351,6 +407,47 @@ export const AdminVacationGalleryPage = () => {
                   </div>
                 </div>
 
+                <div>
+                  <label className="text-xs font-bold text-[#33332D]/50 uppercase tracking-widest block mb-1.5">קישור מיקום (Waze / Google Maps)</label>
+                  <div className="flex gap-2">
+                    <input type="url" value={mapUrl} onChange={e => setMapUrl(e.target.value)}
+                      placeholder="https://waze.com/ul?ll=... או https://maps.app.goo.gl/..." dir="ltr"
+                      className="flex-1 border border-[#E5E1D8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A192F] text-[#0A192F]" />
+                    {mapUrl && (
+                      <a href={mapUrl} target="_blank" rel="noopener noreferrer"
+                        className="p-2.5 rounded-xl border border-[#E5E1D8] text-[#33332D]/50 hover:text-[#0A192F] transition-colors">
+                        <Navigation size={16} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-[#E5E1D8]/50">
+                  <label className="text-xs font-bold text-[#33332D]/50 uppercase tracking-widest block mb-1.5">קישור למלון קיים (לסנכרון תמונות + תיאור)</label>
+                  <select value={linkedHotelId} onChange={e => setLinkedHotelId(e.target.value)}
+                    className="w-full border border-[#E5E1D8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A192F] bg-white text-[#0A192F]">
+                    <option value="">ללא קישור</option>
+                    {hotelsList.map(h => (
+                      <option key={h.id} value={h.id}>{h.name_he} · {h.city_he}</option>
+                    ))}
+                  </select>
+                  {linkedHotelId && (
+                    <div className="flex gap-2 mt-2.5">
+                      <button onClick={syncToHotel} disabled={syncing} type="button"
+                        className="flex-1 py-2.5 rounded-xl bg-[#626D58] text-white text-xs font-semibold hover:bg-[#626D58]/90 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
+                        {syncing ? <Loader2 size={13} className="animate-spin" /> : <ArrowRightLeft size={13} />}
+                        סנכרן גלריה ← למלון
+                      </button>
+                      <button onClick={syncFromHotel} disabled={syncing} type="button"
+                        className="flex-1 py-2.5 rounded-xl border-2 border-[#626D58] text-[#626D58] text-xs font-semibold hover:bg-[#626D58]/5 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
+                        {syncing ? <Loader2 size={13} className="animate-spin" /> : <ArrowRightLeft size={13} />}
+                        סנכרן מלון ← לגלריה
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-[#33332D]/30 mt-1.5">יש לשמור (״שמור שינויים״) כדי לשמור את הקישור למלון עצמו.</p>
+                </div>
+
                 <button onClick={saveMeta} disabled={saving}
                   className="w-full py-2.5 rounded-xl bg-[#0A192F] text-white text-sm font-semibold hover:bg-[#0A192F]/90 transition-all flex items-center justify-center gap-2">
                   {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
@@ -461,9 +558,9 @@ export const AdminVacationGalleryPage = () => {
                       </div>
                       <h3 className="text-base font-bold text-[#0A192F]">{nameHe || place?.name_he}</h3>
                     </div>
-                    <p className={`text-xs leading-relaxed font-light ${description ? 'text-[#33332D]/55' : 'text-[#33332D]/25 italic'}`}>
-                      {description || 'התיאור יופיע כאן...'}
-                    </p>
+                    <div className={`text-xs font-light line-clamp-2 ${description ? 'text-[#33332D]/55' : 'text-[#33332D]/25 italic'}`}>
+                      {description ? <FormattedDescription text={description} variant="compact" /> : 'התיאור יופיע כאן...'}
+                    </div>
                     {meta && (
                       <div className="flex items-center gap-2 text-xs text-[#33332D]/60">
                         <Moon size={12} className="text-[#626D58]" />
@@ -561,6 +658,13 @@ export const AdminVacationGalleryPage = () => {
                 <label className="text-xs font-bold text-[#33332D]/50 block mb-1.5">קישור לאתר</label>
                 <input type="url" value={newPlace.website_url} onChange={e => setNewPlace(p => ({ ...p, website_url: e.target.value }))}
                   placeholder="https://..." dir="ltr"
+                  className="w-full border border-[#E5E1D8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A192F]" />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#33332D]/50 block mb-1.5">קישור מיקום (Waze / Google Maps)</label>
+                <input type="url" value={newPlace.map_url} onChange={e => setNewPlace(p => ({ ...p, map_url: e.target.value }))}
+                  placeholder="https://waze.com/ul?ll=..." dir="ltr"
                   className="w-full border border-[#E5E1D8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A192F]" />
               </div>
 

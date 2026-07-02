@@ -1,32 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowRight, MapPin, Moon, Star, ExternalLink, X, ChevronLeft, ChevronRight, Hotel as HotelIcon, Sparkles, Video, PlayCircle } from 'lucide-react';
 import { Layout } from '../components/Layout';
-import { PREVIEW_PLACES, planMetaByLevel } from '../data/previewVacations';
+import { planMetaByLevel } from '../data/previewVacations';
 import { useVacationImages, getVideoEmbedUrl } from '../hooks/useVacationImages';
-import { supabase } from '../lib/supabase';
+import { useVacationPlaces } from '../hooks/useVacationPlaces';
+import { FormattedDescription } from '../components/FormattedDescription';
 
 interface MediaItem { url: string; type: 'image' | 'video'; }
 
 export default function VacationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const place = PREVIEW_PLACES.find((p) => p.id === id);
+  const { places, loading } = useVacationPlaces();
+  const place = places.find((p) => p.id === id);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const { images: dbImages } = useVacationImages(id ?? '');
-  const [dbWebsiteUrl, setDbWebsiteUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!id) return;
-    supabase
-      .from('vacation_place_meta')
-      .select('website_url')
-      .eq('place_id', id)
-      .maybeSingle()
-      .then(({ data }) => { if (data?.website_url) setDbWebsiteUrl(data.website_url); });
-  }, [id]);
 
   if (!place) {
+    if (loading) return <Layout><div className="min-h-[60vh]" /></Layout>;
     return (
       <Layout>
         <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4" dir="rtl">
@@ -49,7 +41,8 @@ export default function VacationDetailPage() {
     ? [{ url: place.image_url, type: 'image' as const }]
     : [];
   const hasGallery = gallery.length > 0;
-  const websiteUrl = dbWebsiteUrl ?? place.website_url;
+  const websiteUrl = place.website_url;
+  const mapUrl = place.map_url;
 
   const openLightbox = (idx: number) => setLightboxIdx(idx);
   const closeLightbox = () => setLightboxIdx(null);
@@ -90,9 +83,9 @@ export default function VacationDetailPage() {
               </div>
             </div>
             <h1 className="text-3xl md:text-4xl font-black text-[#0A192F] mb-3">{place.name_he}</h1>
-            <p className="text-[#33332D]/60 text-base leading-relaxed font-light max-w-2xl">
-              {place.description_he}
-            </p>
+            <div className="text-[#33332D]/60 text-base max-w-2xl">
+              <FormattedDescription text={place.description_he} />
+            </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 items-start">
@@ -167,25 +160,37 @@ export default function VacationDetailPage() {
                 </div>
               )}
 
-              {/* קישור לאתר המלון */}
-              {websiteUrl && (
-                <a
-                  href={websiteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-[#0A192F] text-sm font-semibold text-[#0A192F] hover:bg-[#0A192F] hover:text-white transition-all"
-                >
-                  <ExternalLink size={15} />
-                  <span>לאתר {place.name_he}</span>
-                </a>
-              )}
+              {/* קישור לאתר המלון + ניווט */}
+              <div className="mt-4 flex flex-wrap gap-3">
+                {websiteUrl ? (
+                  <a
+                    href={websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-[#0A192F] text-sm font-semibold text-[#0A192F] hover:bg-[#0A192F] hover:text-white transition-all"
+                  >
+                    <ExternalLink size={15} />
+                    <span>לאתר {place.name_he}</span>
+                  </a>
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-dashed border-[#E5E1D8] text-sm text-[#33332D]/30">
+                    <ExternalLink size={15} />
+                    <span>קישור לאתר יתווסף בקרוב</span>
+                  </div>
+                )}
 
-              {!websiteUrl && (
-                <div className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-dashed border-[#E5E1D8] text-sm text-[#33332D]/30">
-                  <ExternalLink size={15} />
-                  <span>קישור לאתר יתווסף בקרוב</span>
-                </div>
-              )}
+                {mapUrl && (
+                  <a
+                    href={mapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#626D58] text-sm font-semibold text-white hover:bg-[#626D58]/90 transition-all"
+                  >
+                    <MapPin size={15} />
+                    <span>נווט למקום</span>
+                  </a>
+                )}
+              </div>
             </div>
 
             {/* Sidebar — 1/3 */}

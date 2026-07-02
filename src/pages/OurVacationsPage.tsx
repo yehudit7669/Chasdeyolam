@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, MapPin, Moon, Star, Sparkles, X, ChevronLeft, ChevronRight, Hotel as HotelIcon } from 'lucide-react';
+import { ArrowRight, MapPin, Moon, Star, Sparkles, X, ChevronLeft, ChevronRight, Hotel as HotelIcon, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { PREVIEW_PLAN_META, planMetaByLevel, ALL_REGIONS } from '../data/previewVacations';
 import { useAllVacationImages } from '../hooks/useVacationImages';
 import { useVacationPlaces } from '../hooks/useVacationPlaces';
+import { FormattedDescription } from '../components/FormattedDescription';
 
 export default function OurVacationsPage() {
   const navigate = useNavigate();
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [regionFilter, setRegionFilter] = useState<string>('הכל');
-  const [lightbox, setLightbox] = useState<{ index: number } | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [lightbox, setLightbox] = useState<{ placeIdx: number } | null>(null);
+  const [imgIndex, setImgIndex] = useState<Record<string, number>>({});
   const { imagesByPlace } = useAllVacationImages();
   const { places: allPlaces } = useVacationPlaces();
 
@@ -28,19 +31,31 @@ export default function OurVacationsPage() {
     return byPlan && byRegion;
   });
 
-  // lightbox navigation
-  const openLightbox = (index: number) => setLightbox({ index });
-  const closeLightbox = () => setLightbox(null);
-  const prevPhoto = () => {
-    if (!lightbox) return;
-    setLightbox({ index: (lightbox.index - 1 + filtered.length) % filtered.length });
-  };
-  const nextPhoto = () => {
-    if (!lightbox) return;
-    setLightbox({ index: (lightbox.index + 1) % filtered.length });
+  const activeFilterCount = (planFilter !== 'all' ? 1 : 0) + (regionFilter !== 'הכל' ? 1 : 0);
+
+  // גלריית תמונות לכל כרטיסייה — כל תמונות ה-DB של המקום (או fallback לתמונה הסטטית)
+  const getGallery = (place: (typeof allPlaces)[number]) => {
+    const dbImages = imagesByPlace[place.id]?.filter((i) => i.media_type !== 'video') ?? [];
+    return dbImages.length ? dbImages.map((i) => i.url) : place.image_url ? [place.image_url] : [];
   };
 
-  const lightboxPlace = lightbox ? filtered[lightbox.index] : null;
+  const stepImage = (placeId: string, dir: 1 | -1, count: number) => {
+    if (count < 2) return;
+    setImgIndex((prev) => {
+      const cur = prev[placeId] ?? 0;
+      return { ...prev, [placeId]: (cur + dir + count) % count };
+    });
+  };
+
+  // lightbox navigation — גלילה בין כל התמונות של אותו מקום
+  const openLightbox = (placeIdx: number) => setLightbox({ placeIdx });
+  const closeLightbox = () => setLightbox(null);
+
+  const lightboxPlace = lightbox ? filtered[lightbox.placeIdx] : null;
+  const lightboxGallery = lightboxPlace ? getGallery(lightboxPlace) : [];
+  const lightboxIdx = lightboxPlace ? (imgIndex[lightboxPlace.id] ?? 0) % Math.max(lightboxGallery.length, 1) : 0;
+  const prevPhoto = () => { if (lightboxPlace) stepImage(lightboxPlace.id, -1, lightboxGallery.length); };
+  const nextPhoto = () => { if (lightboxPlace) stepImage(lightboxPlace.id, 1, lightboxGallery.length); };
 
   return (
     <Layout>
@@ -56,57 +71,74 @@ export default function OurVacationsPage() {
             <span>חזרה</span>
           </button>
 
-          {/* Header */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#626D58]/10 text-[#626D58] text-xs font-semibold uppercase tracking-widest mb-4">
-              <Sparkles size={12} />
-              <span>הנופשים שלנו</span>
-            </div>
-            <h1 className="text-4xl md:text-5xl font-black text-[#0A192F] tracking-tight mb-4">
-              המקומות שמחכים לכם
-            </h1>
-            <p className="text-[#33332D]/50 max-w-xl mx-auto font-light text-lg">
-              מבחר מלונות, וילות וצימרים מפנקים בכל רחבי הצפון — חופשה זוגית שמגיעה לכם.
-            </p>
-          </div>
-
-          {/* Filters bar */}
-          <div className="max-w-3xl mx-auto bg-white rounded-[1.75rem] border border-[#E5E1D8]/70 p-5 md:p-6 mb-8" style={{ boxShadow: '0 4px 24px rgba(98,109,88,0.06)' }}>
-            {/* תוכנית */}
-            <div className="mb-5">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#33332D]/35 mb-2.5">
-                <Sparkles size={12} className="text-[#626D58]" /> תוכנית
+          {/* Header — קומפקטי כדי שהמקומות יופיעו מיד */}
+          <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#626D58]/10 text-[#626D58] text-[11px] font-semibold uppercase tracking-widest mb-2">
+                <Sparkles size={11} />
+                <span>הנופשים שלנו</span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {planFilters.map((f) => (
-                  <button key={f.key} onClick={() => setPlanFilter(f.key)}
-                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                      planFilter === f.key ? 'bg-[#0A192F] text-white shadow-sm' : 'bg-[#F7F5F0] text-[#33332D]/55 hover:bg-[#E5E1D8]/70'}`}>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
+              <h1 className="text-2xl md:text-3xl font-black text-[#0A192F] tracking-tight">
+                המקומות שמחכים לכם
+              </h1>
             </div>
 
-            {/* אזור */}
-            <div className="pt-5 border-t border-[#E5E1D8]/60">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#33332D]/35 mb-2.5">
-                <MapPin size={12} className="text-[#626D58]" /> אזור
+            {/* כפתור הגדרות סינון יחיד */}
+            <button
+              onClick={() => setFiltersOpen((o) => !o)}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
+                filtersOpen ? 'bg-[#0A192F] text-white border-[#0A192F]' : 'bg-white text-[#0A192F] border-[#E5E1D8] hover:bg-[#F7F5F0]'}`}
+            >
+              <SlidersHorizontal size={15} />
+              <span>הגדרות סינון</span>
+              {activeFilterCount > 0 && (
+                <span className={`text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center ${filtersOpen ? 'bg-white/25' : 'bg-[#626D58] text-white'}`}>
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDown size={14} className={`transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+
+          {/* פאנל סינון — נפתח/נסגר לפי הכפתור */}
+          {filtersOpen && (
+            <div className="bg-white rounded-[1.75rem] border border-[#E5E1D8]/70 p-5 md:p-6 mb-6" style={{ boxShadow: '0 4px 24px rgba(98,109,88,0.06)' }}>
+              {/* תוכנית */}
+              <div className="mb-5">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#33332D]/35 mb-2.5">
+                  <Sparkles size={12} className="text-[#626D58]" /> תוכנית
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {planFilters.map((f) => (
+                    <button key={f.key} onClick={() => setPlanFilter(f.key)}
+                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                        planFilter === f.key ? 'bg-[#0A192F] text-white shadow-sm' : 'bg-[#F7F5F0] text-[#33332D]/55 hover:bg-[#E5E1D8]/70'}`}>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {ALL_REGIONS.map((r) => (
-                  <button key={r} onClick={() => setRegionFilter(r)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                      regionFilter === r ? 'bg-[#626D58] text-white shadow-sm' : 'bg-[#F7F5F0] text-[#33332D]/50 hover:bg-[#E5E1D8]/70'}`}>
-                    {r}
-                  </button>
-                ))}
+
+              {/* אזור */}
+              <div className="pt-5 border-t border-[#E5E1D8]/60">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#33332D]/35 mb-2.5">
+                  <MapPin size={12} className="text-[#626D58]" /> אזור
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {ALL_REGIONS.map((r) => (
+                    <button key={r} onClick={() => setRegionFilter(r)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                        regionFilter === r ? 'bg-[#626D58] text-white shadow-sm' : 'bg-[#F7F5F0] text-[#33332D]/50 hover:bg-[#E5E1D8]/70'}`}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Count */}
-          <p className="text-center text-xs text-[#33332D]/35 mb-8 font-medium tracking-wide">
+          <p className="text-start text-xs text-[#33332D]/35 mb-4 font-medium tracking-wide">
             {filtered.length} מקומות
           </p>
 
@@ -120,18 +152,17 @@ export default function OurVacationsPage() {
                   className="bg-white rounded-[2rem] overflow-hidden border border-[#E5E1D8]/60 transition-all duration-300 hover:-translate-y-1 flex flex-col"
                   style={{ boxShadow: '0 4px 24px 0 rgba(98,109,88,0.08)' }}
                 >
-                  {/* Image */}
+                  {/* Image — גלריה עם דפדוף בין כל התמונות בלי לפתוח את הכרטיסייה */}
                   {(() => {
-                    const dbImages = imagesByPlace[place.id];
-                    const coverUrl = dbImages?.find((i) => i.media_type !== 'video')?.url ?? place.image_url;
+                    const gallery = getGallery(place);
+                    const curIdx = (imgIndex[place.id] ?? 0) % Math.max(gallery.length, 1);
+                    const activeUrl = gallery[curIdx];
                     return (
-                  <div
-                    className="relative h-52 bg-gradient-to-br from-[#E5E1D8] to-[#F7F5F0] flex items-center justify-center cursor-pointer group"
-                    onClick={() => openLightbox(idx)}
-                  >
-                    {coverUrl ? (
+                  <div className="relative h-52 bg-gradient-to-br from-[#E5E1D8] to-[#F7F5F0] flex items-center justify-center group">
+                    <div className="absolute inset-0 cursor-pointer" onClick={() => openLightbox(idx)}>
+                    {activeUrl ? (
                       <img
-                        src={coverUrl}
+                        src={activeUrl}
                         alt={place.name_he}
                         className="w-full h-full object-cover"
                         loading="lazy"
@@ -151,6 +182,30 @@ export default function OurVacationsPage() {
                         הגדל
                       </span>
                     </div>
+                    </div>
+
+                    {/* חצי דפדוף בין תמונות המקום — בלי לפתוח את הכרטיסייה */}
+                    {gallery.length > 1 && (
+                      <>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); stepImage(place.id, -1, gallery.length); }}
+                          className="absolute start-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-[#33332D] p-2 rounded-xl transition-colors shadow-sm z-10"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); stepImage(place.id, 1, gallery.length); }}
+                          className="absolute end-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-[#33332D] p-2 rounded-xl transition-colors shadow-sm z-10"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                          {gallery.map((_, i) => (
+                            <div key={i} className={`h-1.5 rounded-full transition-all ${i === curIdx ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`} />
+                          ))}
+                        </div>
+                      </>
+                    )}
 
                     {/* Rating badge */}
                     <div className="absolute top-3 end-3 flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 text-xs font-bold text-[#B08D57]">
@@ -176,14 +231,25 @@ export default function OurVacationsPage() {
                         <span>{place.city_he}</span>
                         <span className="text-[#33332D]/20">·</span>
                         <span>{place.region}</span>
+                        {place.map_url && (
+                          <a
+                            href={place.map_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[#626D58] font-semibold hover:underline mr-auto"
+                          >
+                            נווט
+                          </a>
+                        )}
                       </div>
                       <h3 className="text-lg font-bold text-[#0A192F]">{place.name_he}</h3>
                     </div>
 
                     {/* תיאור */}
-                    <p className="text-xs text-[#33332D]/55 leading-relaxed mb-4 font-light">
-                      {place.description_he}
-                    </p>
+                    <div className="text-xs text-[#33332D]/55 leading-relaxed mb-4 font-light line-clamp-2">
+                      <FormattedDescription text={place.description_he} variant="compact" />
+                    </div>
 
                     {/* מה מקבלים */}
                     {meta && (
@@ -254,26 +320,30 @@ export default function OurVacationsPage() {
             <X size={22} />
           </button>
 
-          <button
-            className="absolute end-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
-            onClick={(e) => { e.stopPropagation(); prevPhoto(); }}
-          >
-            <ChevronRight size={22} />
-          </button>
-          <button
-            className="absolute start-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
-            onClick={(e) => { e.stopPropagation(); nextPhoto(); }}
-          >
-            <ChevronLeft size={22} />
-          </button>
+          {lightboxGallery.length > 1 && (
+            <>
+              <button
+                className="absolute end-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
+                onClick={(e) => { e.stopPropagation(); prevPhoto(); }}
+              >
+                <ChevronRight size={22} />
+              </button>
+              <button
+                className="absolute start-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
+                onClick={(e) => { e.stopPropagation(); nextPhoto(); }}
+              >
+                <ChevronLeft size={22} />
+              </button>
+            </>
+          )}
 
           <div
             className="max-w-2xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {lightboxPlace.image_url ? (
+            {lightboxGallery[lightboxIdx] ? (
               <img
-                src={lightboxPlace.image_url}
+                src={lightboxGallery[lightboxIdx]}
                 alt={lightboxPlace.name_he}
                 className="w-full h-72 object-cover"
               />
@@ -293,9 +363,9 @@ export default function OurVacationsPage() {
                 </span>
               </div>
               <h3 className="text-xl font-black text-[#0A192F] mb-2">{lightboxPlace.name_he}</h3>
-              <p className="text-sm text-[#33332D]/60 leading-relaxed font-light mb-4">
-                {lightboxPlace.description_he}
-              </p>
+              <div className="text-sm text-[#33332D]/60 mb-4 max-h-40 overflow-y-auto">
+                <FormattedDescription text={lightboxPlace.description_he} />
+              </div>
               <button
                 onClick={() => { closeLightbox(); navigate('/plans'); }}
                 className="w-full py-3 rounded-xl font-semibold text-sm bg-[#0A192F] text-white hover:bg-[#0A192F]/90 transition-all"
@@ -305,9 +375,11 @@ export default function OurVacationsPage() {
             </div>
           </div>
 
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/50 text-xs">
-            {lightbox.index + 1} / {filtered.length}
-          </div>
+          {lightboxGallery.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/50 text-xs">
+              {lightboxIdx + 1} / {lightboxGallery.length}
+            </div>
+          )}
         </div>
       )}
     </Layout>

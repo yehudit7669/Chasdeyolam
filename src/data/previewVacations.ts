@@ -20,6 +20,7 @@ export interface PreviewPlace {
   image_url?: string;       // תמונה ראשית (כרטיסייה)
   images?: string[];        // גלריה מלאה — URLs מ-Supabase Storage
   website_url?: string;     // קישור לאתר המלון/צימר
+  map_url?: string;         // קישור לניווט (Waze / Google Maps)
   is_new?: boolean;         // תגית "חדש"
 }
 

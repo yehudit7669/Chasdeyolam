@@ -32,6 +32,7 @@ export function useVacationPlaces() {
           city_he: m.city_he || p.city_he,
           description_he: m.description_he || p.description_he,
           website_url: m.website_url || p.website_url,
+          map_url: m.map_url || p.map_url,
           source: 'static' as const,
         };
       });
@@ -44,6 +45,7 @@ export function useVacationPlaces() {
       level: p.level,
       description_he: p.description_he ?? '',
       website_url: p.website_url ?? '',
+      map_url: p.map_url ?? '',
       is_new: p.is_new ?? false,
       source: 'db' as const,
     }));
