@@ -13,6 +13,16 @@ export function stayTypeLabel(t: string | null | undefined): string {
   return STAY_TYPE_OPTIONS.find((o) => o.value === t)?.label ?? 'ללא הגבלה';
 }
 
+// תווית קצרה לתצוגה בכרטיסיות (בלי "2 לילות")
+export function stayTypeName(t: string | null | undefined): string {
+  switch (t) {
+    case 'midweek': return 'אמצע שבוע';
+    case 'shabbat': return 'שבת';
+    case 'weekend': return 'סוף שבוע';
+    default: return '';
+  }
+}
+
 // ימי כניסה מותרים לפי סוג שהייה (0=ראשון ... 6=שבת)
 const ALLOWED_DAYS: Record<StayType, number[]> = {
   midweek: [0, 1, 2, 3],   // ראשון–רביעי

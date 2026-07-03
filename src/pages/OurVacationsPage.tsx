@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, MapPin, Moon, Star, Sparkles, X, ChevronLeft, ChevronRight, Hotel as HotelIcon, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { PREVIEW_PLAN_META, planMetaByLevel, ALL_REGIONS } from '../data/previewVacations';
+import { stayTypeName } from '../lib/stayType';
 import { useAllVacationImages } from '../hooks/useVacationImages';
 import { useVacationPlaces } from '../hooks/useVacationPlaces';
 import { FormattedDescription } from '../components/FormattedDescription';
@@ -52,7 +53,6 @@ export default function OurVacationsPage() {
   const closeLightbox = () => setLightbox(null);
 
   const lightboxPlace = lightbox ? filtered[lightbox.placeIdx] : null;
-  const lightboxMeta = lightboxPlace ? planMetaByLevel(lightboxPlace.level) : null;
   const lightboxGallery = lightboxPlace ? getGallery(lightboxPlace) : [];
   const lightboxIdx = lightboxPlace ? (imgIndex[lightboxPlace.id] ?? 0) % Math.max(lightboxGallery.length, 1) : 0;
   const prevPhoto = () => { if (lightboxPlace) stepImage(lightboxPlace.id, -1, lightboxGallery.length); };
@@ -252,13 +252,18 @@ export default function OurVacationsPage() {
                       <FormattedDescription text={place.description_he} variant="compact" />
                     </div>
 
-                    {/* מה מקבלים */}
-                    {meta && (
-                      <div className="flex items-center gap-2 text-sm text-[#33332D]/60 mb-4">
-                        <Moon size={14} className="text-[#626D58]" />
-                        <span>{meta.nights} לילות באמצע השבוע · חופשה זוגית</span>
-                      </div>
-                    )}
+                    {/* מה מקבלים — לפי נתוני המנהל (לילות + סוג שהייה) */}
+                    {(() => {
+                      const nights = place.nights ?? meta?.nights;
+                      const stayName = stayTypeName(place.stay_type);
+                      if (!nights) return null;
+                      return (
+                        <div className="flex items-center gap-2 text-sm text-[#33332D]/60 mb-4">
+                          <Moon size={14} className="text-[#626D58]" />
+                          <span>{nights} לילות{stayName ? ` · ${stayName}` : ''} · חופשה זוגית</span>
+                        </div>
+                      );
+                    })()}
 
                     {/* משויך לתוכנית */}
                     {meta && (
@@ -338,43 +343,19 @@ export default function OurVacationsPage() {
             </>
           )}
 
-          <div
-            className="max-w-2xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {lightboxGallery[lightboxIdx] ? (
-              <img
-                src={lightboxGallery[lightboxIdx]}
-                alt={lightboxPlace.name_he}
-                className="w-full h-72 object-cover"
-              />
-            ) : (
-              <div className="w-full h-72 bg-gradient-to-br from-[#E5E1D8] to-[#F7F5F0] flex items-center justify-center">
-                <HotelIcon className="text-[#33332D]/20" size={56} />
-              </div>
-            )}
-            <div className="p-6" dir="rtl">
-              <div className="flex items-center gap-2 mb-1">
-                {lightboxPlace.is_new && (
-                  <span className="px-2 py-0.5 rounded-lg bg-[#626D58] text-white text-[10px] font-bold">חדש</span>
-                )}
-                <span className="text-xs text-[#33332D]/40 flex items-center gap-1">
-                  <MapPin size={11} className="text-[#626D58]" />
-                  {lightboxPlace.city_he} · {lightboxPlace.region}
-                </span>
-              </div>
-              <h3 className="text-xl font-black text-[#0A192F] mb-2">{lightboxPlace.name_he}</h3>
-              <div className="text-sm text-[#33332D]/60 mb-4 max-h-40 overflow-y-auto">
-                <FormattedDescription text={lightboxPlace.description_he} />
-              </div>
-              <button
-                onClick={() => { closeLightbox(); navigate(lightboxMeta ? `/plans?level=${lightboxMeta.hotel_level}` : '/plans'); }}
-                className="w-full py-3 rounded-xl font-semibold text-sm bg-[#0A192F] text-white hover:bg-[#0A192F]/90 transition-all"
-              >
-                הצטרפו לתוכנית
-              </button>
+          {/* תמונה מוגדלת בלבד */}
+          {lightboxGallery[lightboxIdx] ? (
+            <img
+              src={lightboxGallery[lightboxIdx]}
+              alt={lightboxPlace.name_he}
+              className="max-h-[85vh] max-w-[90vw] rounded-2xl shadow-2xl object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <div className="w-80 h-72 bg-gradient-to-br from-[#E5E1D8] to-[#F7F5F0] rounded-2xl flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+              <HotelIcon className="text-[#33332D]/20" size={56} />
             </div>
-          </div>
+          )}
 
           {lightboxGallery.length > 1 && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/50 text-xs">

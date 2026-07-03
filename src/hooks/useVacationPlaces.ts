@@ -4,6 +4,8 @@ import { PREVIEW_PLACES, PreviewPlace } from '../data/previewVacations';
 
 export interface VacationPlace extends PreviewPlace {
   source: 'static' | 'db';
+  nights?: number | null;
+  stay_type?: string | null;
 }
 
 export function useVacationPlaces() {
@@ -33,6 +35,8 @@ export function useVacationPlaces() {
           description_he: m.description_he || p.description_he,
           website_url: m.website_url || p.website_url,
           map_url: m.map_url || p.map_url,
+          nights: m.nights ?? null,
+          stay_type: m.stay_type ?? null,
           source: 'static' as const,
         };
       });
@@ -47,6 +51,8 @@ export function useVacationPlaces() {
       website_url: p.website_url ?? '',
       map_url: p.map_url ?? '',
       is_new: p.is_new ?? false,
+      nights: p.nights ?? null,
+      stay_type: p.stay_type ?? null,
       source: 'db' as const,
     }));
 
