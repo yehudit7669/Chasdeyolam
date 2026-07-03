@@ -3,6 +3,7 @@ import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { PREVIEW_PLACES, PREVIEW_PLAN_META, planMetaByLevel } from '../../data/previewVacations';
 import { FormattedDescription } from '../../components/FormattedDescription';
+import { stayTypeName } from '../../lib/stayType';
 import {
   Upload, Trash2, ChevronUp, ChevronDown, ImageIcon, Loader2, Check,
   ExternalLink, Eye, EyeOff, MapPin, Moon, Star, Plus, X, Send, Video, Link2, Navigation, ArrowRightLeft,
@@ -586,12 +587,17 @@ export const AdminVacationGalleryPage = () => {
                     <div className={`text-xs font-light line-clamp-2 ${description ? 'text-[#33332D]/55' : 'text-[#33332D]/25 italic'}`}>
                       {description ? <FormattedDescription text={description} variant="compact" /> : 'התיאור יופיע כאן...'}
                     </div>
-                    {meta && (
-                      <div className="flex items-center gap-2 text-xs text-[#33332D]/60">
-                        <Moon size={12} className="text-[#626D58]" />
-                        <span>{meta.nights} לילות באמצע השבוע · חופשה זוגית</span>
-                      </div>
-                    )}
+                    {(() => {
+                      const previewNights = nights.trim() !== '' ? parseInt(nights) : meta?.nights;
+                      const previewStay = stayTypeName(stayType);
+                      if (!previewNights) return null;
+                      return (
+                        <div className="flex items-center gap-2 text-xs text-[#33332D]/60">
+                          <Moon size={12} className="text-[#626D58]" />
+                          <span>{previewNights} לילות{previewStay ? ` · ${previewStay}` : ''} · חופשה זוגית</span>
+                        </div>
+                      );
+                    })()}
                     {meta && (
                       <div className="rounded-xl bg-[#626D58]/8 border border-[#626D58]/15 px-4 py-2.5">
                         <div className="text-[9px] font-bold uppercase tracking-widest text-[#626D58]/60 mb-0.5">משויך לתוכנית</div>
