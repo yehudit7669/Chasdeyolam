@@ -42,13 +42,7 @@ interface Payment {
   nedarim_raw_payload: Record<string, unknown> | null;
 }
 
-type PaymentTypeFilter = 'all' | 'immediate' | 'standing_order' | 'additional' | 'one_time';
-
-// מספר התשלומים (Tashloumim) שהעסקה חולקה אליהם — לחישוב הסכום שירד עכשיו במימוש מיידי
-const getTashloumim = (p: { nedarim_tashloumim: string | null }) => {
-  const n = parseInt((p.nedarim_tashloumim ?? '').replace(/\D/g, ''));
-  return Number.isFinite(n) && n > 0 ? n : 1;
-};
+type PaymentTypeFilter = 'all' | 'recurring_290' | 'recurring_350' | 'one_time' | 'additional';
 type StatusFilter = 'all' | 'succeeded' | 'failed' | 'pending';
 
 const TODAY = new Date().toISOString().split('T')[0];
@@ -151,40 +145,38 @@ export const AdminPaymentsPage = () => {
     }
   };
 
-  // סיווג סוג התשלום: מיידי / הוראת קבע / תרומה נוספת / חד-פעמי
+  // Derive payment type label from plan amount + keva_id presence
   const getPaymentType = (p: Payment): PaymentTypeFilter => {
-    if (!p.subscription_id) return 'additional';           // תרומה נוספת — ללא מנוי
-    if (p.nedarim_keva_id) return 'standing_order';        // הוראת קבע — יש KevaId
-    if (getTashloumim(p) > 1) return 'immediate';          // מימוש מיידי — עסקה בתשלומים
-    return 'standing_order';                                // מנוי ללא keva — נחשב הוראת קבע
-  };
-
-  // הסכום שירד עכשיו: במימוש מיידי = הסכום המלא חלקי מספר התשלומים; אחרת = הסכום הרגיל
-  const getChargedNow = (p: Payment) => {
-    if (getPaymentType(p) === 'immediate') return Math.round(p.amount / getTashloumim(p));
-    return p.amount;
+    const amount = p.subscriptions?.plans?.monthly_amount ?? p.amount;
+    const isRecurring = !!p.nedarim_keva_id || !!p.subscription_id;
+    if (!isRecurring) return 'one_time';
+    if (amount === 290) return 'recurring_290';
+    if (amount === 350) return 'recurring_350';
+    return 'additional';
   };
 
   const getPaymentTypeLabel = (p: Payment) => {
+    const type = getPaymentType(p);
     const labels: Record<PaymentTypeFilter, string> = {
       all: 'הכל',
-      immediate: 'מימוש מיידי',
-      standing_order: 'הוראת קבע',
-      additional: 'תרומה נוספת',
+      recurring_290: 'קבוע 290₪',
+      recurring_350: 'קבוע 350₪',
       one_time: 'חד-פעמי',
+      additional: 'תרומה נוספת',
     };
-    return labels[getPaymentType(p)];
+    return labels[type];
   };
 
   const getPaymentTypeBadgeClass = (p: Payment) => {
+    const type = getPaymentType(p);
     const classes: Record<PaymentTypeFilter, string> = {
       all: '',
-      immediate: 'bg-[#D4B483]/25 text-[#8a6d2f]',
-      standing_order: 'bg-blue-100 text-blue-800',
-      additional: 'bg-teal-100 text-teal-800',
+      recurring_290: 'bg-blue-100 text-blue-800',
+      recurring_350: 'bg-sky-100 text-sky-800',
       one_time: 'bg-amber-100 text-amber-800',
+      additional: 'bg-teal-100 text-teal-800',
     };
-    return classes[getPaymentType(p)];
+    return classes[type];
   };
 
   const getMatchSourceLabel = (source: Payment['nedarim_match_source']) => {
@@ -242,7 +234,7 @@ export const AdminPaymentsPage = () => {
     );
     const activeRecurring = new Set(
       payments
-        .filter((p) => p.subscription_id && getPaymentType(p) === 'standing_order')
+        .filter((p) => p.subscription_id && getPaymentType(p).startsWith('recurring'))
         .map((p) => p.subscription_id)
     ).size;
     const failed = payments.filter((p) => p.status === 'failed').length;
@@ -460,10 +452,10 @@ export const AdminPaymentsPage = () => {
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C5D]/20"
             >
               <option value="all">כל הסוגים</option>
-              <option value="immediate">מימוש מיידי</option>
-              <option value="standing_order">הוראת קבע</option>
-              <option value="additional">תרומה נוספת</option>
+              <option value="recurring_290">קבוע 290₪</option>
+              <option value="recurring_350">קבוע 350₪</option>
               <option value="one_time">חד-פעמי</option>
+              <option value="additional">תרומה נוספת</option>
             </select>
           </div>
 
@@ -544,7 +536,7 @@ export const AdminPaymentsPage = () => {
                   : null;
                 const matchInfo = getMatchSourceLabel(p.nedarim_match_source);
                 const date = (p.paid_at ?? p.created_at).slice(0, 10);
-                const isRecurring = getPaymentType(p) === 'standing_order';
+                const isRecurring = getPaymentType(p).startsWith('recurring');
 
                 return (
                   <tr key={p.id} className="hover:bg-gray-50/60 transition-colors">
@@ -575,12 +567,9 @@ export const AdminPaymentsPage = () => {
                       </span>
                     </td>
 
-                    {/* Amount — במיידי מציג את הסכום שירד עכשיו, לא את המסגרת המלאה */}
-                    <td className="px-4 py-3">
-                      <span className="text-sm font-semibold text-gray-900">₪{getChargedNow(p).toLocaleString('he-IL')}</span>
-                      {getPaymentType(p) === 'immediate' && getTashloumim(p) > 1 && (
-                        <span className="block text-[10px] text-gray-400">מסגרת ₪{p.amount.toLocaleString('he-IL')} · {getTashloumim(p)} תשלומים</span>
-                      )}
+                    {/* Amount */}
+                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                      ₪{p.amount}
                     </td>
 
                     {/* Status */}
@@ -697,14 +686,7 @@ export const AdminPaymentsPage = () => {
 
             {/* 2. Payment information */}
             <ModalSection title="פרטי תשלום" icon="💳">
-              {getPaymentType(detailPayment) === 'immediate' && getTashloumim(detailPayment) > 1 ? (
-                <>
-                  <DetailRow label="סכום לתשלום חודשי" value={`₪${getChargedNow(detailPayment).toLocaleString('he-IL')}`} highlight />
-                  <DetailRow label={'סה"כ תפיסת מסגרת'} value={`₪${detailPayment.amount.toLocaleString('he-IL')} (${getTashloumim(detailPayment)} תשלומים)`} />
-                </>
-              ) : (
-                <DetailRow label="סכום" value={`₪${detailPayment.amount.toLocaleString('he-IL')}`} highlight />
-              )}
+              <DetailRow label="סכום" value={`₪${detailPayment.amount}`} highlight />
               <DetailRow
                 label="סטטוס"
                 value={

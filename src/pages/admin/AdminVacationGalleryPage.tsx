@@ -3,14 +3,13 @@ import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { PREVIEW_PLACES, PREVIEW_PLAN_META, planMetaByLevel } from '../../data/previewVacations';
 import { FormattedDescription } from '../../components/FormattedDescription';
-import { stayTypeName } from '../../lib/stayType';
 import {
   Upload, Trash2, ChevronUp, ChevronDown, ImageIcon, Loader2, Check,
   ExternalLink, Eye, EyeOff, MapPin, Moon, Star, Plus, X, Send, Video, Link2, Navigation, ArrowRightLeft,
 } from 'lucide-react';
 
 interface VacationImage { id: string; place_id: string; url: string; sort_order: number; media_type?: 'image' | 'video'; }
-interface DbPlace { id: string; name_he: string; city_he: string; region: string; level: string; description_he: string; website_url: string; map_url?: string; linked_hotel_id?: string | null; nights?: number | null; stay_type?: string | null; is_new: boolean; published: boolean; source: 'db'; }
+interface DbPlace { id: string; name_he: string; city_he: string; region: string; level: string; description_he: string; website_url: string; map_url?: string; linked_hotel_id?: string | null; is_new: boolean; published: boolean; source: 'db'; }
 
 const BUCKET = 'vacations';
 const REGIONS = ['טבריה', 'צפת', 'גליל', 'כרמל', 'מרכז', 'דרום'];
@@ -40,8 +39,6 @@ export const AdminVacationGalleryPage = () => {
   const [description, setDescription] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [mapUrl, setMapUrl] = useState('');
-  const [nights, setNights] = useState('');
-  const [stayType, setStayType] = useState('');
   const [linkedHotelId, setLinkedHotelId] = useState('');
   const [hotelsList, setHotelsList] = useState<{ id: string; name_he: string; city_he: string }[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -101,7 +98,7 @@ export const AdminVacationGalleryPage = () => {
     // DB places already have full data
     if (place.source === 'db') {
       const p = dbPlaces.find(d => d.id === selectedId);
-      if (p) { setNameHe(p.name_he); setCityHe(p.city_he); setDescription(p.description_he); setWebsiteUrl(p.website_url); setMapUrl(p.map_url || ''); setLinkedHotelId(p.linked_hotel_id || ''); setNights(p.nights != null ? String(p.nights) : ''); setStayType(p.stay_type || ''); }
+      if (p) { setNameHe(p.name_he); setCityHe(p.city_he); setDescription(p.description_he); setWebsiteUrl(p.website_url); setMapUrl(p.map_url || ''); setLinkedHotelId(p.linked_hotel_id || ''); }
       return;
     }
     const { data } = await supabase.from('vacation_place_meta').select('*').eq('place_id', selectedId).maybeSingle();
@@ -112,21 +109,17 @@ export const AdminVacationGalleryPage = () => {
     setWebsiteUrl(data?.website_url || sp.website_url || '');
     setMapUrl(data?.map_url || sp.map_url || '');
     setLinkedHotelId(data?.linked_hotel_id || '');
-    setNights(data?.nights != null ? String(data.nights) : '');
-    setStayType(data?.stay_type || '');
   };
 
   const saveMeta = async () => {
     setSaving(true);
     let error;
-    const nightsVal = nights.trim() === '' ? null : parseInt(nights);
-    const stayVal = stayType || null;
     if (place.source === 'db') {
-      ({ error } = await supabase.from('vacation_places').update({ name_he: nameHe, city_he: cityHe, description_he: description, website_url: websiteUrl, map_url: mapUrl, linked_hotel_id: linkedHotelId || null, nights: nightsVal, stay_type: stayVal }).eq('id', selectedId));
+      ({ error } = await supabase.from('vacation_places').update({ name_he: nameHe, city_he: cityHe, description_he: description, website_url: websiteUrl, map_url: mapUrl, linked_hotel_id: linkedHotelId || null }).eq('id', selectedId));
       await loadDbPlaces();
     } else {
       ({ error } = await supabase.from('vacation_place_meta').upsert(
-        { place_id: selectedId, name_he: nameHe, city_he: cityHe, description_he: description, website_url: websiteUrl, map_url: mapUrl, linked_hotel_id: linkedHotelId || null, nights: nightsVal, stay_type: stayVal },
+        { place_id: selectedId, name_he: nameHe, city_he: cityHe, description_he: description, website_url: websiteUrl, map_url: mapUrl, linked_hotel_id: linkedHotelId || null },
         { onConflict: 'place_id' }
       ));
     }
@@ -429,25 +422,6 @@ export const AdminVacationGalleryPage = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#E5E1D8]/50">
-                  <div>
-                    <label className="text-xs font-bold text-[#33332D]/50 uppercase tracking-widest block mb-1.5">מספר לילות</label>
-                    <input type="number" min={1} max={14} value={nights} onChange={e => setNights(e.target.value)}
-                      placeholder="למשל 2"
-                      className="w-full border border-[#E5E1D8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A192F] text-[#0A192F]" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-[#33332D]/50 uppercase tracking-widest block mb-1.5">סוג שהייה</label>
-                    <select value={stayType} onChange={e => setStayType(e.target.value)}
-                      className="w-full border border-[#E5E1D8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A192F] bg-white text-[#0A192F]">
-                      <option value="">— בחר —</option>
-                      <option value="midweek">אמצע שבוע</option>
-                      <option value="shabbat">שבת</option>
-                      <option value="weekend">סוף שבוע</option>
-                    </select>
-                  </div>
-                </div>
-
                 <div className="pt-2 border-t border-[#E5E1D8]/50">
                   <label className="text-xs font-bold text-[#33332D]/50 uppercase tracking-widest block mb-1.5">קישור למלון קיים (לסנכרון תמונות + תיאור)</label>
                   <select value={linkedHotelId} onChange={e => setLinkedHotelId(e.target.value)}
@@ -587,17 +561,12 @@ export const AdminVacationGalleryPage = () => {
                     <div className={`text-xs font-light line-clamp-2 ${description ? 'text-[#33332D]/55' : 'text-[#33332D]/25 italic'}`}>
                       {description ? <FormattedDescription text={description} variant="compact" /> : 'התיאור יופיע כאן...'}
                     </div>
-                    {(() => {
-                      const previewNights = nights.trim() !== '' ? parseInt(nights) : meta?.nights;
-                      const previewStay = stayTypeName(stayType);
-                      if (!previewNights) return null;
-                      return (
-                        <div className="flex items-center gap-2 text-xs text-[#33332D]/60">
-                          <Moon size={12} className="text-[#626D58]" />
-                          <span>{previewNights} לילות{previewStay ? ` · ${previewStay}` : ''} · חופשה זוגית</span>
-                        </div>
-                      );
-                    })()}
+                    {meta && (
+                      <div className="flex items-center gap-2 text-xs text-[#33332D]/60">
+                        <Moon size={12} className="text-[#626D58]" />
+                        <span>{meta.nights} לילות באמצע השבוע · חופשה זוגית</span>
+                      </div>
+                    )}
                     {meta && (
                       <div className="rounded-xl bg-[#626D58]/8 border border-[#626D58]/15 px-4 py-2.5">
                         <div className="text-[9px] font-bold uppercase tracking-widest text-[#626D58]/60 mb-0.5">משויך לתוכנית</div>

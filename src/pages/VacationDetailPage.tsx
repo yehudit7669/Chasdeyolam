@@ -4,7 +4,6 @@ import { ArrowRight, MapPin, Moon, Star, ExternalLink, X, ChevronLeft, ChevronRi
 import { Layout } from '../components/Layout';
 import { planMetaByLevel } from '../data/previewVacations';
 import { useVacationImages, getVideoEmbedUrl } from '../hooks/useVacationImages';
-import { stayTypeName } from '../lib/stayType';
 import { useVacationPlaces } from '../hooks/useVacationPlaces';
 import { FormattedDescription } from '../components/FormattedDescription';
 
@@ -16,7 +15,6 @@ export default function VacationDetailPage() {
   const { places, loading } = useVacationPlaces();
   const place = places.find((p) => p.id === id);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
-  const [activeIdx, setActiveIdx] = useState(0);
   const { images: dbImages } = useVacationImages(id ?? '');
 
   if (!place) {
@@ -96,69 +94,60 @@ export default function VacationDetailPage() {
             <div className="md:col-span-2">
               {hasGallery ? (
                 <div className="space-y-3">
-                  {/* תמונה/סרטון ראשי — לפי הבחירה בממוזערות */}
-                  {(() => {
-                    const safeIdx = Math.min(activeIdx, gallery.length - 1);
-                    const activeItem = gallery[safeIdx];
-                    return (
-                      <div
-                        className="relative rounded-3xl overflow-hidden h-80 md:h-96 cursor-pointer group bg-black/5"
-                        onClick={() => openLightbox(safeIdx)}
-                      >
-                        {activeItem.type === 'video' ? (
-                          getVideoEmbedUrl(activeItem.url) ? (
-                            <div className="w-full h-full flex items-center justify-center bg-[#0A192F]/5">
-                              <PlayCircle className="text-[#33332D]/25" size={64} />
-                            </div>
-                          ) : (
-                            <video src={activeItem.url} className="w-full h-full object-cover" muted preload="metadata" />
-                          )
-                        ) : (
-                          <img src={activeItem.url} alt={place.name_he} className="w-full h-full object-cover" />
-                        )}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-all flex items-center justify-center">
-                          {activeItem.type === 'video' ? (
-                            <PlayCircle className="text-white/90 drop-shadow-lg" size={56} />
-                          ) : (
-                            <span className="opacity-0 group-hover:opacity-100 text-white text-sm font-semibold bg-black/40 px-4 py-2 rounded-full transition-all">
-                              הגדל
-                            </span>
-                          )}
+                  {/* פריט ראשי */}
+                  <div
+                    className="relative rounded-3xl overflow-hidden h-80 cursor-pointer group bg-black/5"
+                    onClick={() => openLightbox(0)}
+                  >
+                    {gallery[0].type === 'video' ? (
+                      getVideoEmbedUrl(gallery[0].url) ? (
+                        <div className="w-full h-full flex items-center justify-center bg-[#0A192F]/5">
+                          <PlayCircle className="text-[#33332D]/25" size={64} />
                         </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* רצועת ממוזערות — 2 שורות, גלילה הצידה. לחיצה מחליפה את התמונה הגדולה */}
+                      ) : (
+                        <video src={gallery[0].url} className="w-full h-full object-cover" muted preload="metadata" />
+                      )
+                    ) : (
+                      <img src={gallery[0].url} alt={place.name_he} className="w-full h-full object-cover" />
+                    )}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-all flex items-center justify-center">
+                      {gallery[0].type === 'video' ? (
+                        <PlayCircle className="text-white/90 drop-shadow-lg" size={56} />
+                      ) : (
+                        <span className="opacity-0 group-hover:opacity-100 text-white text-sm font-semibold bg-black/40 px-4 py-2 rounded-full transition-all">
+                          הגדל
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* שאר הפריטים */}
                   {gallery.length > 1 && (
-                    <div className="grid grid-rows-2 grid-flow-col auto-cols-[6.5rem] gap-2 overflow-x-auto pb-2">
-                      {gallery.map((item, i) => {
-                        const isActive = Math.min(activeIdx, gallery.length - 1) === i;
-                        return (
-                          <button
-                            key={i}
-                            onClick={() => setActiveIdx(i)}
-                            className={`relative rounded-xl overflow-hidden h-20 w-[6.5rem] shrink-0 bg-black/5 transition-all ${isActive ? 'ring-2 ring-[#0A192F]' : 'ring-1 ring-[#E5E1D8] hover:ring-[#626D58]/50'}`}
-                          >
-                            {item.type === 'video' ? (
-                              getVideoEmbedUrl(item.url) ? (
-                                <div className="w-full h-full flex items-center justify-center bg-[#0A192F]/5">
-                                  <Video className="text-[#33332D]/25" size={18} />
-                                </div>
-                              ) : (
-                                <video src={item.url} className="w-full h-full object-cover" muted preload="metadata" />
-                              )
-                            ) : (
-                              <img src={item.url} alt={`${place.name_he} ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
-                            )}
-                            {item.type === 'video' && (
-                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <PlayCircle className="text-white/90 drop-shadow-lg" size={20} />
+                    <div className="grid grid-cols-3 gap-3">
+                      {gallery.slice(1).map((item, i) => (
+                        <div
+                          key={i}
+                          className="relative rounded-2xl overflow-hidden h-28 cursor-pointer group bg-black/5"
+                          onClick={() => openLightbox(i + 1)}
+                        >
+                          {item.type === 'video' ? (
+                            getVideoEmbedUrl(item.url) ? (
+                              <div className="w-full h-full flex items-center justify-center bg-[#0A192F]/5">
+                                <Video className="text-[#33332D]/25" size={22} />
                               </div>
-                            )}
-                          </button>
-                        );
-                      })}
+                            ) : (
+                              <video src={item.url} className="w-full h-full object-cover" muted preload="metadata" />
+                            )
+                          ) : (
+                            <img src={item.url} alt={`${place.name_he} ${i + 2}`} className="w-full h-full object-cover" loading="lazy" />
+                          )}
+                          {item.type === 'video' && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <PlayCircle className="text-white/90 drop-shadow-lg" size={26} />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -223,7 +212,7 @@ export default function VacationDetailPage() {
                         <span className="text-xs text-[#33332D]/50">לילות</span>
                         <span className="text-sm font-bold text-[#0A192F] flex items-center gap-1">
                           <Moon size={13} className="text-[#626D58]" />
-                          {(place.nights ?? meta.nights)} לילות{stayTypeName(place.stay_type) ? ` · ${stayTypeName(place.stay_type)}` : ''}
+                          {meta.nights} לילות באמצע השבוע
                         </span>
                       </div>
                       <div className="flex items-center justify-between py-2.5 border-b border-[#E5E1D8]/40">
