@@ -280,7 +280,6 @@ export const AdminImmediateRequestsPage = () => {
                         )}
                         <p className="text-[#33332D]/55">תוכנית: {req.plan_name_he || '—'}</p>
                       </div>
-                      <p className="text-[10px] text-[#33332D]/30 font-mono mt-0.5">uid:{req.user_id}</p>
 
                       {/* בחירת המשתמש (בשלבים מתקדמים) */}
                       {(req.selected_hotel_id || req.selected_date) && (

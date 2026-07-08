@@ -202,7 +202,6 @@ export default function DonorDashboardPage() {
             </div>
             <h2 className="text-2xl font-black text-[#0A192F] mb-3">{t.dashboard.noSubscriptionTitle}</h2>
             <p className="text-[#33332D]/50 mb-8 max-w-xs font-light">{t.dashboard.noSubscriptionDesc}</p>
-            <p className="text-[10px] text-[#33332D]/20 font-mono mb-4">uid:{user?.id}</p>
             <button
               onClick={() => navigate('/plans')}
               className="px-8 py-3.5 bg-[#0A192F] text-white font-semibold rounded-xl hover:bg-[#0A192F]/90 transition-all shadow-sm hover:shadow-md"
