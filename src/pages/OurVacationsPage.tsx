@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, MapPin, Moon, Star, Sparkles, X, ChevronLeft, ChevronRight, Hotel as HotelIcon, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { stayTypeLabel } from '../lib/stayType';
 import { Layout } from '../components/Layout';
 import { PREVIEW_PLAN_META, planMetaByLevel, ALL_REGIONS } from '../data/previewVacations';
 import { useAllVacationImages } from '../hooks/useVacationImages';
@@ -15,7 +16,7 @@ export default function OurVacationsPage() {
   const [lightbox, setLightbox] = useState<{ placeIdx: number } | null>(null);
   const [imgIndex, setImgIndex] = useState<Record<string, number>>({});
   const { imagesByPlace } = useAllVacationImages();
-  const { places: allPlaces, availByHotel } = useVacationPlaces();
+  const { places: allPlaces, availByHotel, hotelInfoById } = useVacationPlaces();
 
   const planFilters = [
     { key: 'all', label: 'כל התוכניות' },
@@ -263,12 +264,17 @@ export default function OurVacationsPage() {
                     </div>
 
                     {/* מה מקבלים */}
-                    {meta && (
-                      <div className="flex items-center gap-2 text-sm text-[#33332D]/60 mb-4">
-                        <Moon size={14} className="text-[#626D58]" />
-                        <span>{meta.nights} לילות באמצע השבוע · חופשה זוגית</span>
-                      </div>
-                    )}
+                    {(() => {
+                      const hotelInfo = place.linked_hotel_id ? hotelInfoById[place.linked_hotel_id] : null;
+                      const nights = hotelInfo?.bookable_nights ?? meta?.nights;
+                      const stayLabel = hotelInfo?.stay_type ? stayTypeLabel(hotelInfo.stay_type) : 'אמצע השבוע';
+                      return nights ? (
+                        <div className="flex items-center gap-2 text-sm text-[#33332D]/60 mb-4">
+                          <Moon size={14} className="text-[#626D58]" />
+                          <span>{nights} לילות · {stayLabel} · חופשה זוגית</span>
+                        </div>
+                      ) : null;
+                    })()}
 
                     {/* משויך לתוכנית */}
                     {meta && (

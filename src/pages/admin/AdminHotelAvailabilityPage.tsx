@@ -123,9 +123,9 @@ export const AdminHotelAvailabilityPage = () => {
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#626D58]" size={28} /></div>
         ) : (
-          <div className="grid lg:grid-cols-3 gap-6">
+          <div className="grid xl:grid-cols-5 lg:grid-cols-2 gap-6">
             {/* בחירת מלון */}
-            <div className="lg:col-span-1">
+            <div className="xl:col-span-2 lg:col-span-1">
               <label className="block text-sm font-bold text-[#0A192F] mb-2">בחר מלון</label>
               <select
                 value={selectedHotel}
@@ -227,7 +227,7 @@ export const AdminHotelAvailabilityPage = () => {
             </div>
 
             {/* רשימת זמינות */}
-            <div className="lg:col-span-2">
+            <div className="xl:col-span-3 lg:col-span-1">
               <h3 className="text-sm font-bold text-[#0A192F] mb-3">תקופות זמינות מוגדרות</h3>
               {avail.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-[#E5E1D8]/60 p-10 text-center">

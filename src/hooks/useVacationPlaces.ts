@@ -7,9 +7,12 @@ export interface VacationPlace extends PreviewPlace {
   linked_hotel_id?: string | null;
 }
 
+export interface LinkedHotelInfo { stay_type: string | null; bookable_nights: number | null; }
+
 export function useVacationPlaces() {
   const [places, setPlaces] = useState<VacationPlace[]>([]);
   const [availByHotel, setAvailByHotel] = useState<Record<string, boolean>>({});
+  const [hotelInfoById, setHotelInfoById] = useState<Record<string, LinkedHotelInfo>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { load(); }, []);
@@ -58,16 +61,16 @@ export function useVacationPlaces() {
     const allPlaces = [...staticPlaces, ...dbPlaces];
     setPlaces(allPlaces);
 
-    // טען זמינות עתידית לכל מלון מקושר
+    // טען זמינות + פרטי מלון לכל מלון מקושר
     const hotelIds = Array.from(new Set(allPlaces.map(p => p.linked_hotel_id).filter(Boolean))) as string[];
     if (hotelIds.length) {
-      const { data: avail } = await supabase
-        .from('hotel_availability')
-        .select('hotel_id, kind, start_date, end_date')
-        .in('hotel_id', hotelIds);
+      const [availRes, hotelsRes] = await Promise.all([
+        supabase.from('hotel_availability').select('hotel_id, kind, start_date, end_date').in('hotel_id', hotelIds),
+        supabase.from('hotels').select('id, stay_type, bookable_nights').in('id', hotelIds),
+      ]);
 
       const byHotel: Record<string, boolean> = {};
-      for (const row of avail ?? []) {
+      for (const row of availRes.data ?? []) {
         if (byHotel[row.hotel_id]) continue;
         const isActive = row.kind === 'date'
           ? row.start_date >= today
@@ -75,10 +78,14 @@ export function useVacationPlaces() {
         if (isActive) byHotel[row.hotel_id] = true;
       }
       setAvailByHotel(byHotel);
+
+      const infoMap: Record<string, LinkedHotelInfo> = {};
+      for (const h of hotelsRes.data ?? []) infoMap[h.id] = { stay_type: h.stay_type, bookable_nights: h.bookable_nights };
+      setHotelInfoById(infoMap);
     }
 
     setLoading(false);
   };
 
-  return { places, availByHotel, loading, reload: load };
+  return { places, availByHotel, hotelInfoById, loading, reload: load };
 }
