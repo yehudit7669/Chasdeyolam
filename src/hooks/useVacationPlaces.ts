@@ -64,9 +64,10 @@ export function useVacationPlaces() {
     // טען זמינות + פרטי מלון לכל מלון מקושר
     const hotelIds = Array.from(new Set(allPlaces.map(p => p.linked_hotel_id).filter(Boolean))) as string[];
     if (hotelIds.length) {
-      const [availRes, hotelsRes] = await Promise.all([
+      const [availRes, hotelsRes, plansRes] = await Promise.all([
         supabase.from('hotel_availability').select('hotel_id, kind, start_date, end_date').in('hotel_id', hotelIds),
-        supabase.from('hotels').select('id, stay_type, bookable_nights').in('id', hotelIds),
+        supabase.from('hotels').select('id, level, bookable_nights').in('id', hotelIds),
+        supabase.from('plans').select('hotel_level, stay_type').eq('active', true),
       ]);
 
       const byHotel: Record<string, boolean> = {};
@@ -79,8 +80,15 @@ export function useVacationPlaces() {
       }
       setAvailByHotel(byHotel);
 
+      // סוג השהייה בפועל נקבע ע"י המנהל על התוכנית (plans.stay_type) — לא על עמודת hotels.stay_type
+      // שאין לה מסך עריכה ולכן תמיד ריקה. ממפים לפי רמת המלון (hotel_level) שהתוכנית משויכת אליה.
+      const stayTypeByLevel: Record<string, string> = {};
+      for (const p of plansRes.data ?? []) {
+        if (p.hotel_level && !stayTypeByLevel[p.hotel_level] && p.stay_type) stayTypeByLevel[p.hotel_level] = p.stay_type;
+      }
+
       const infoMap: Record<string, LinkedHotelInfo> = {};
-      for (const h of hotelsRes.data ?? []) infoMap[h.id] = { stay_type: h.stay_type, bookable_nights: h.bookable_nights };
+      for (const h of hotelsRes.data ?? []) infoMap[h.id] = { stay_type: stayTypeByLevel[h.level] ?? null, bookable_nights: h.bookable_nights };
       setHotelInfoById(infoMap);
     }
 
