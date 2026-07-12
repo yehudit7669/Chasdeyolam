@@ -15,7 +15,7 @@ export default function OurVacationsPage() {
   const [lightbox, setLightbox] = useState<{ placeIdx: number } | null>(null);
   const [imgIndex, setImgIndex] = useState<Record<string, number>>({});
   const { imagesByPlace } = useAllVacationImages();
-  const { places: allPlaces } = useVacationPlaces();
+  const { places: allPlaces, availByHotel } = useVacationPlaces();
 
   const planFilters = [
     { key: 'all', label: 'כל התוכניות' },
@@ -213,8 +213,19 @@ export default function OurVacationsPage() {
                       <span>5.0</span>
                     </div>
 
+                    {/* תגית זמינות */}
+                    {place.linked_hotel_id && (
+                      <div className={`absolute top-3 start-3 px-2.5 py-1 rounded-xl text-[10px] font-bold tracking-wide ${
+                        availByHotel[place.linked_hotel_id]
+                          ? 'bg-green-500 text-white'
+                          : 'bg-[#33332D]/40 text-white'
+                      }`}>
+                        {availByHotel[place.linked_hotel_id] ? 'תאריכים פנויים ✓' : 'לא זמין כרגע'}
+                      </div>
+                    )}
+
                     {/* "חדש" badge */}
-                    {place.is_new && (
+                    {!place.linked_hotel_id && place.is_new && (
                       <div className="absolute top-3 start-3 px-2.5 py-1 rounded-xl bg-[#626D58] text-white text-[10px] font-bold tracking-wide">
                         חדש
                       </div>
