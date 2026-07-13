@@ -3,6 +3,7 @@ import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { PREVIEW_PLACES, PREVIEW_PLAN_META, planMetaByLevel } from '../../data/previewVacations';
 import { FormattedDescription } from '../../components/FormattedDescription';
+import { stayTypeLabel } from '../../lib/stayType';
 import {
   Upload, Trash2, ChevronUp, ChevronDown, ImageIcon, Loader2, Check,
   ExternalLink, Eye, EyeOff, MapPin, Moon, Star, Plus, X, Send, Video, Link2, Navigation, ArrowRightLeft,
@@ -41,6 +42,7 @@ export const AdminVacationGalleryPage = () => {
   const [mapUrl, setMapUrl] = useState('');
   const [linkedHotelId, setLinkedHotelId] = useState('');
   const [hotelsList, setHotelsList] = useState<{ id: string; name_he: string; city_he: string }[]>([]);
+  const [linkedHotelInfo, setLinkedHotelInfo] = useState<{ stay_type: string | null; bookable_nights: number | null } | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   // טופס הוספה
@@ -60,6 +62,19 @@ export const AdminVacationGalleryPage = () => {
     const { data } = await supabase.from('hotels').select('id,name_he,city_he').eq('active', true).order('name_he');
     setHotelsList(data ?? []);
   };
+
+  // פרטי לילות/סוג שהייה בפועל של המלון המקושר — כדי שתצוגת "ללקוח" תשקף את מה שהלקוח באמת יראה
+  useEffect(() => {
+    if (!linkedHotelId) { setLinkedHotelInfo(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data: hotel } = await supabase.from('hotels').select('level, bookable_nights').eq('id', linkedHotelId).maybeSingle();
+      if (!hotel) { if (!cancelled) setLinkedHotelInfo(null); return; }
+      const { data: plan } = await supabase.from('plans').select('stay_type').eq('hotel_level', hotel.level).eq('active', true).maybeSingle();
+      if (!cancelled) setLinkedHotelInfo({ stay_type: plan?.stay_type ?? null, bookable_nights: hotel.bookable_nights ?? null });
+    })();
+    return () => { cancelled = true; };
+  }, [linkedHotelId]);
 
   const loadStaticPublished = async () => {
     const { data } = await supabase.from('vacation_place_meta').select('place_id, published, removed');
@@ -561,12 +576,16 @@ export const AdminVacationGalleryPage = () => {
                     <div className={`text-xs font-light line-clamp-2 ${description ? 'text-[#33332D]/55' : 'text-[#33332D]/25 italic'}`}>
                       {description ? <FormattedDescription text={description} variant="compact" /> : 'התיאור יופיע כאן...'}
                     </div>
-                    {meta && (
-                      <div className="flex items-center gap-2 text-xs text-[#33332D]/60">
-                        <Moon size={12} className="text-[#626D58]" />
-                        <span>{meta.nights} לילות באמצע השבוע · חופשה זוגית</span>
-                      </div>
-                    )}
+                    {(() => {
+                      const nights = linkedHotelInfo?.bookable_nights ?? meta?.nights;
+                      const stayLabel = linkedHotelInfo?.stay_type ? stayTypeLabel(linkedHotelInfo.stay_type) : 'אמצע השבוע';
+                      return nights ? (
+                        <div className="flex items-center gap-2 text-xs text-[#33332D]/60">
+                          <Moon size={12} className="text-[#626D58]" />
+                          <span>{nights} לילות · {stayLabel} · חופשה זוגית</span>
+                        </div>
+                      ) : null;
+                    })()}
                     {meta && (
                       <div className="rounded-xl bg-[#626D58]/8 border border-[#626D58]/15 px-4 py-2.5">
                         <div className="text-[9px] font-bold uppercase tracking-widest text-[#626D58]/60 mb-0.5">משויך לתוכנית</div>
