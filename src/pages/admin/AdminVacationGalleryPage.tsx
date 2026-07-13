@@ -3,7 +3,7 @@ import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { PREVIEW_PLACES, PREVIEW_PLAN_META, planMetaByLevel } from '../../data/previewVacations';
 import { FormattedDescription } from '../../components/FormattedDescription';
-import { stayTypeLabel } from '../../lib/stayType';
+import { formatBookableDays, effectiveBookableDays } from '../../lib/stayType';
 import {
   Upload, Trash2, ChevronUp, ChevronDown, ImageIcon, Loader2, Check,
   ExternalLink, Eye, EyeOff, MapPin, Moon, Star, Plus, X, Send, Video, Link2, Navigation, ArrowRightLeft,
@@ -42,7 +42,7 @@ export const AdminVacationGalleryPage = () => {
   const [mapUrl, setMapUrl] = useState('');
   const [linkedHotelId, setLinkedHotelId] = useState('');
   const [hotelsList, setHotelsList] = useState<{ id: string; name_he: string; city_he: string }[]>([]);
-  const [linkedHotelInfo, setLinkedHotelInfo] = useState<{ stay_type: string | null; bookable_nights: number | null } | null>(null);
+  const [linkedHotelInfo, setLinkedHotelInfo] = useState<{ bookable_days: number[]; bookable_nights: number | null } | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   // טופס הוספה
@@ -63,15 +63,19 @@ export const AdminVacationGalleryPage = () => {
     setHotelsList(data ?? []);
   };
 
-  // פרטי לילות/סוג שהייה בפועל של המלון המקושר — כדי שתצוגת "ללקוח" תשקף את מה שהלקוח באמת יראה
+  // פרטי לילות/ימי כניסה בפועל של המלון המקושר — כדי שתצוגת "ללקוח" תשקף את מה שהלקוח באמת יראה
+  // (ברירת מחדל מהתוכנית, אלא אם למלון יש חריגה עצמית — ראו lib/stayType)
   useEffect(() => {
     if (!linkedHotelId) { setLinkedHotelInfo(null); return; }
     let cancelled = false;
     (async () => {
-      const { data: hotel } = await supabase.from('hotels').select('level, bookable_nights').eq('id', linkedHotelId).maybeSingle();
+      const { data: hotel } = await supabase.from('hotels').select('level, bookable_days, bookable_nights').eq('id', linkedHotelId).maybeSingle();
       if (!hotel) { if (!cancelled) setLinkedHotelInfo(null); return; }
-      const { data: plan } = await supabase.from('plans').select('stay_type').eq('hotel_level', hotel.level).eq('active', true).maybeSingle();
-      if (!cancelled) setLinkedHotelInfo({ stay_type: plan?.stay_type ?? null, bookable_nights: hotel.bookable_nights ?? null });
+      const { data: plan } = await supabase.from('plans').select('bookable_days').eq('hotel_level', hotel.level).eq('active', true).maybeSingle();
+      if (!cancelled) setLinkedHotelInfo({
+        bookable_days: effectiveBookableDays(hotel.bookable_days, plan?.bookable_days),
+        bookable_nights: hotel.bookable_nights ?? null,
+      });
     })();
     return () => { cancelled = true; };
   }, [linkedHotelId]);
@@ -578,7 +582,7 @@ export const AdminVacationGalleryPage = () => {
                     </div>
                     {(() => {
                       const nights = linkedHotelInfo?.bookable_nights ?? meta?.nights;
-                      const stayLabel = linkedHotelInfo?.stay_type ? stayTypeLabel(linkedHotelInfo.stay_type) : 'אמצע השבוע';
+                      const stayLabel = linkedHotelInfo ? formatBookableDays(linkedHotelInfo.bookable_days) : 'אמצע השבוע';
                       return nights ? (
                         <div className="flex items-center gap-2 text-xs text-[#33332D]/60">
                           <Moon size={12} className="text-[#626D58]" />
