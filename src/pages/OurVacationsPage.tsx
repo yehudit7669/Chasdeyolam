@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, MapPin, Moon, Star, Sparkles, X, ChevronLeft, ChevronRight, Hotel as HotelIcon, SlidersHorizontal, ChevronDown } from 'lucide-react';
-import { stayTypeLabel } from '../lib/stayType';
+import { formatBookableDays } from '../lib/stayType';
 import { Layout } from '../components/Layout';
 import { PREVIEW_PLAN_META, planMetaByLevel, ALL_REGIONS } from '../data/previewVacations';
 import { useAllVacationImages } from '../hooks/useVacationImages';
@@ -267,7 +267,7 @@ export default function OurVacationsPage() {
                     {(() => {
                       const hotelInfo = place.linked_hotel_id ? hotelInfoById[place.linked_hotel_id] : null;
                       const nights = hotelInfo?.bookable_nights ?? meta?.nights;
-                      const stayLabel = hotelInfo?.stay_type ? stayTypeLabel(hotelInfo.stay_type) : 'אמצע השבוע';
+                      const stayLabel = formatBookableDays(hotelInfo?.bookable_days);
                       return nights ? (
                         <div className="flex items-center gap-2 text-sm text-[#33332D]/60 mb-4">
                           <Moon size={14} className="text-[#626D58]" />

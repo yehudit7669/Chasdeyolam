@@ -7,7 +7,7 @@ import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
 import { Toast } from '../../components/admin/Toast';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../contexts/AuthContext';
-import { STAY_TYPE_OPTIONS, stayTypeLabel } from '../../lib/stayType';
+import { DAY_NAMES, formatBookableDays } from '../../lib/stayType';
 
 interface Plan {
   id: string;
@@ -18,7 +18,7 @@ interface Plan {
   monthly_amount: number;
   required_successful_payments: number;
   hotel_level: string;
-  stay_type: string | null;
+  bookable_days: number[] | null;
   active: boolean;
   created_at: string;
   nedarim_url_immediate: string | null;
@@ -62,7 +62,7 @@ export const AdminPlansPage = () => {
     monthly_amount: '',
     required_successful_payments: '',
     hotel_level: 'bronze',
-    stay_type: 'any',
+    bookable_days: [] as number[],
     nedarim_url_immediate: '',
     nedarim_url_regular: '',
     allow_immediate: true,
@@ -114,7 +114,7 @@ export const AdminPlansPage = () => {
         monthly_amount: plan.monthly_amount.toString(),
         required_successful_payments: plan.required_successful_payments.toString(),
         hotel_level: plan.hotel_level,
-        stay_type: plan.stay_type || 'any',
+        bookable_days: plan.bookable_days || [],
         nedarim_url_immediate: plan.nedarim_url_immediate || '',
         nedarim_url_regular: plan.nedarim_url_regular || '',
         allow_immediate: plan.allow_immediate ?? true,
@@ -130,7 +130,7 @@ export const AdminPlansPage = () => {
         monthly_amount: '',
         required_successful_payments: '',
         hotel_level: 'bronze',
-        stay_type: 'any',
+        bookable_days: [],
         nedarim_url_immediate: '',
         nedarim_url_regular: '',
         allow_immediate: true,
@@ -156,7 +156,7 @@ export const AdminPlansPage = () => {
       monthly_amount: parseInt(formData.monthly_amount),
       required_successful_payments: parseInt(formData.required_successful_payments),
       hotel_level: formData.hotel_level,
-      stay_type: formData.stay_type,
+      bookable_days: formData.bookable_days,
       nedarim_url_immediate: formData.nedarim_url_immediate || null,
       nedarim_url_regular: formData.nedarim_url_regular || null,
       allow_immediate: formData.allow_immediate,
@@ -342,9 +342,9 @@ export const AdminPlansPage = () => {
                   </div>
 
                   <div className="flex items-center justify-between py-2 border-b border-gray-200">
-                    <span className="text-sm text-gray-600">סוג שהייה:</span>
+                    <span className="text-sm text-gray-600">ימי כניסה:</span>
                     <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#626D58]/15 text-[#626D58]">
-                      {stayTypeLabel(plan.stay_type)}
+                      {formatBookableDays(plan.bookable_days)}
                     </span>
                   </div>
                 </div>
@@ -536,18 +536,28 @@ export const AdminPlansPage = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              סוג שהייה * <span className="text-xs text-gray-400 font-normal">(קובע אילו ימי כניסה התורם יוכל לבחור)</span>
+              ימי כניסה מותרים <span className="text-xs text-gray-400 font-normal">(ברירת מחדל לכל המלונות בתוכנית זו — מלון בודד יכול לחרוג מזה בעריכת המלון שלו)</span>
             </label>
-            <select
-              value={formData.stay_type}
-              onChange={(e) => setFormData({ ...formData, stay_type: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C5D] focus:border-transparent"
-              required
-            >
-              {STAY_TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+            <div className="flex flex-wrap gap-1.5">
+              {DAY_NAMES.map((name, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setFormData((f) => ({
+                    ...f,
+                    bookable_days: f.bookable_days.includes(i)
+                      ? f.bookable_days.filter((d) => d !== i)
+                      : [...f.bookable_days, i].sort((a, b) => a - b),
+                  }))}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    formData.bookable_days.includes(i) ? 'bg-[#0B3C5D] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  {name}
+                </button>
               ))}
-            </select>
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">{formData.bookable_days.length === 0 ? 'ללא הגבלה — כל הימים' : `${formData.bookable_days.length} ימים נבחרו`}</p>
           </div>
 
           <div className="rounded-lg border border-gray-200 p-4 bg-gray-50/50">

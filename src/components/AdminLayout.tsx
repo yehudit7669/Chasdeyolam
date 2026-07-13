@@ -3,7 +3,7 @@ import logoImg from '../assets/לוגו-חסדי.png';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  LayoutDashboard, FileText, Users, CreditCard, Hotel, Calendar,
+  LayoutDashboard, FileText, Users, CreditCard, Hotel,
   BookOpen, MessageSquare, Settings, LogOut, Menu, X,
   CircleUser as UserCircle, Building2, HeartHandshake, Wrench, Images, Zap,
 } from 'lucide-react';
@@ -59,8 +59,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
     {
       title: 'מלונות',
       items: [
-        { path: '/admin/hotels', icon: Hotel, label: 'מלונות' },
-        { path: '/admin/hotel-availability', icon: Calendar, label: 'זמינות מלונות' },
+        { path: '/admin/hotels', icon: Hotel, label: 'מלונות ותוכניות' },
         { path: '/admin/bookings', icon: BookOpen, label: 'הזמנות' },
         { path: '/admin/vacation-gallery', icon: Images, label: 'גלריית נופשים' },
       ],

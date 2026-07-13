@@ -253,13 +253,7 @@ export const AdminDashboardPage = () => {
               href="/admin/hotels"
               className="block px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              ניהול מלונות
-            </a>
-            <a
-              href="/admin/inventory"
-              className="block px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              ניהול מלאי חדרים
+              מלונות ותוכניות
             </a>
             <a
               href="/admin/service-desk"

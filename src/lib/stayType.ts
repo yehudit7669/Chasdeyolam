@@ -1,28 +1,24 @@
-// סוג שהייה של תוכנית — קובע אילו ימי כניסה מותרים
+// ימי כניסה מותרים (0=ראשון ... 6=שבת).
+// ברירת מחדל נקבעת ברמת התוכנית (plans.bookable_days) וחלה על כל המלונות שלה אוטומטית.
+// מלון עם הגדרה עצמית (hotels.bookable_days לא ריק) — זו חריגה שגוברת על ברירת המחדל של התוכנית.
 
-export type StayType = 'midweek' | 'shabbat' | 'weekend' | 'any';
+export const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
-export const STAY_TYPE_OPTIONS: { value: StayType; label: string }[] = [
-  { value: 'midweek', label: 'אמצע שבוע (2 לילות)' },
-  { value: 'shabbat', label: 'שבת' },
-  { value: 'weekend', label: 'סוף שבוע' },
-  { value: 'any', label: 'ללא הגבלה' },
-];
-
-export function stayTypeLabel(t: string | null | undefined): string {
-  return STAY_TYPE_OPTIONS.find((o) => o.value === t)?.label ?? 'ללא הגבלה';
+export function formatBookableDays(days: number[] | null | undefined): string {
+  if (!days || days.length === 0 || days.length === 7) return 'ללא הגבלה — כל הימים';
+  return days.slice().sort((a, b) => a - b).map((d) => DAY_NAMES[d]).join(', ');
 }
 
-// ימי כניסה מותרים לפי סוג שהייה (0=ראשון ... 6=שבת)
-const ALLOWED_DAYS: Record<StayType, number[]> = {
-  midweek: [0, 1, 2, 3],   // ראשון–רביעי
-  shabbat: [5],            // שישי (כניסה לשבת)
-  weekend: [4, 5],         // חמישי–שישי
-  any: [0, 1, 2, 3, 4, 5, 6],
-};
+// הימים שבפועל חלים על מלון: החריגה שלו אם קיימת, אחרת ברירת המחדל של התוכנית
+export function effectiveBookableDays(
+  hotelDays: number[] | null | undefined,
+  planDays: number[] | null | undefined
+): number[] {
+  if (hotelDays && hotelDays.length > 0) return hotelDays;
+  return planDays ?? [];
+}
 
-export function isDayAllowed(date: Date, stayType: string | null | undefined): boolean {
-  const st = (stayType ?? 'any') as StayType;
-  const days = ALLOWED_DAYS[st] ?? ALLOWED_DAYS.any;
-  return days.includes(date.getDay());
+export function isDayAllowed(date: Date, allowedDays: number[] | null | undefined): boolean {
+  if (!allowedDays || allowedDays.length === 0) return true;
+  return allowedDays.includes(date.getDay());
 }

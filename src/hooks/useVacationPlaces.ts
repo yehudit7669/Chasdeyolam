@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { PREVIEW_PLACES, PreviewPlace } from '../data/previewVacations';
+import { effectiveBookableDays } from '../lib/stayType';
 
 export interface VacationPlace extends PreviewPlace {
   source: 'static' | 'db';
   linked_hotel_id?: string | null;
 }
 
-export interface LinkedHotelInfo { stay_type: string | null; bookable_nights: number | null; }
+export interface LinkedHotelInfo { bookable_days: number[]; bookable_nights: number | null; }
 
 export function useVacationPlaces() {
   const [places, setPlaces] = useState<VacationPlace[]>([]);
@@ -66,8 +67,8 @@ export function useVacationPlaces() {
     if (hotelIds.length) {
       const [availRes, hotelsRes, plansRes] = await Promise.all([
         supabase.from('hotel_availability').select('hotel_id, kind, start_date, end_date').in('hotel_id', hotelIds),
-        supabase.from('hotels').select('id, level, bookable_nights').in('id', hotelIds),
-        supabase.from('plans').select('hotel_level, stay_type').eq('active', true),
+        supabase.from('hotels').select('id, level, bookable_days, bookable_nights').in('id', hotelIds),
+        supabase.from('plans').select('hotel_level, bookable_days').eq('active', true),
       ]);
 
       const byHotel: Record<string, boolean> = {};
@@ -80,15 +81,20 @@ export function useVacationPlaces() {
       }
       setAvailByHotel(byHotel);
 
-      // סוג השהייה בפועל נקבע ע"י המנהל על התוכנית (plans.stay_type) — לא על עמודת hotels.stay_type
-      // שאין לה מסך עריכה ולכן תמיד ריקה. ממפים לפי רמת המלון (hotel_level) שהתוכנית משויכת אליה.
-      const stayTypeByLevel: Record<string, string> = {};
+      // ימי הכניסה בפועל: ברירת המחדל של התוכנית (plans.bookable_days) לפי רמת המלון,
+      // אלא אם למלון עצמו יש חריגה (hotels.bookable_days) שגוברת עליה.
+      const planDaysByLevel: Record<string, number[]> = {};
       for (const p of plansRes.data ?? []) {
-        if (p.hotel_level && !stayTypeByLevel[p.hotel_level] && p.stay_type) stayTypeByLevel[p.hotel_level] = p.stay_type;
+        if (p.hotel_level && !planDaysByLevel[p.hotel_level]) planDaysByLevel[p.hotel_level] = p.bookable_days ?? [];
       }
 
       const infoMap: Record<string, LinkedHotelInfo> = {};
-      for (const h of hotelsRes.data ?? []) infoMap[h.id] = { stay_type: stayTypeByLevel[h.level] ?? null, bookable_nights: h.bookable_nights };
+      for (const h of hotelsRes.data ?? []) {
+        infoMap[h.id] = {
+          bookable_days: effectiveBookableDays(h.bookable_days, planDaysByLevel[h.level]),
+          bookable_nights: h.bookable_nights,
+        };
+      }
       setHotelInfoById(infoMap);
     }
 

@@ -4,7 +4,7 @@ import DonorLayout from '../components/DonorLayout';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { createNotification } from '../hooks/useNotifications';
-import { isDayAllowed, stayTypeLabel } from '../lib/stayType';
+import { isDayAllowed, formatBookableDays, effectiveBookableDays } from '../lib/stayType';
 import heroHotelImg from '../assets/hero-hotel.jpg';
 import {
   MapPin, Hotel as HotelIcon, Moon, CheckCircle, Loader2, Star,
@@ -13,7 +13,7 @@ import {
 
 interface Hotel { id: string; name_he: string; city_he: string; level: string; bookable_days: number[] | null; bookable_nights: number | null; images?: { image_url: string; display_order: number }[]; }
 interface Avail { hotel_id: string; kind: string; start_date: string; end_date: string | null; }
-interface PlanInfo { name_he: string; stay_type: string; hotel_level: string; }
+interface PlanInfo { name_he: string; bookable_days: number[] | null; hotel_level: string; }
 interface Req {
   id: string; plan_id: string | null; status: string;
   selected_hotel_id: string | null; selected_date: string | null; selected_end_date: string | null;
@@ -71,7 +71,7 @@ export default function MyOrdersPage() {
     // 3 שאילתות בלתי-תלויות במקביל
     const [plansRes, infoRes, setnRes] = await Promise.all([
       planIds.length
-        ? supabase.from('plans').select('id, name_he, stay_type, hotel_level').in('id', planIds)
+        ? supabase.from('plans').select('id, name_he, bookable_days, hotel_level').in('id', planIds)
         : Promise.resolve({ data: [] as any[] }),
       selectedHotelIds.length
         ? supabase.from('hotels').select('id, name_he, address, map_url, arrival_instructions').in('id', selectedHotelIds)
@@ -126,11 +126,11 @@ export default function MyOrdersPage() {
     const result: Record<string, string[]> = {};
     const today = new Date(); today.setHours(0, 0, 0, 0);
     for (const [reqId, hs] of Object.entries(hotelsByReq)) {
-      const stay = planByReq[reqId]?.stay_type ?? 'any';
+      const planDays = planByReq[reqId]?.bookable_days ?? [];
       for (const hotel of hs) {
         const windows = availByHotel[hotel.id] ?? [];
-        const hotelDays = hotel.bookable_days ?? [];
-        const ok = (d: Date) => d >= today && isDayAllowed(d, stay) && (hotelDays.length === 0 || hotelDays.includes(d.getDay()));
+        const effDays = effectiveBookableDays(hotel.bookable_days, planDays);
+        const ok = (d: Date) => d >= today && isDayAllowed(d, effDays);
         const set = new Set<string>();
         for (const w of windows) {
           if (w.kind === 'date') { const d = parseDate(w.start_date); if (ok(d)) set.add(toKey(d)); }
@@ -368,7 +368,7 @@ export default function MyOrdersPage() {
           <div className="mb-4">
             <h2 className="text-xl font-black text-[#0A192F]">בחירת נופש 🎉</h2>
             <p className="text-[#33332D]/50 text-sm mt-1 font-light">
-              תוכנית <b className="text-[#0A192F]">{plan?.name_he || req.plan_name_he}</b> · סוג שהייה: <b className="text-[#626D58]">{stayTypeLabel(plan?.stay_type)}</b> · בחרו מקום ולחצו לבחירת תאריך
+              תוכנית <b className="text-[#0A192F]">{plan?.name_he || req.plan_name_he}</b> · ימי כניסה: <b className="text-[#626D58]">{formatBookableDays(plan?.bookable_days)}</b> · בחרו מקום ולחצו לבחירת תאריך
             </p>
           </div>
           {renderHotelPicker(req, 'book')}
