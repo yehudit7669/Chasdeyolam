@@ -50,10 +50,14 @@ export default function HomePage() {
             </span>
           </h1>
 
+          <p className="text-base md:text-lg text-[#626D58] font-semibold mb-4 -mt-6">
+            {isRtl ? '(ניתן לתרום גם ממעשרות ע"פ הוראת מורה הוראה)' : '(You can also donate from ma\'aser tithes, in accordance with a halachic authority)'}
+          </p>
+
           <p className="text-xl md:text-2xl text-[#33332D]/70 max-w-2xl mx-auto leading-relaxed mb-14 font-light">
             {isRtl
-              ? 'הצטרפו להיות מנציבי הגמ"ח ע"י תרומה חודשית [אפשר ממעשרות*]\nשתעניק לכם זכות לחופשה זוגית**'
-              : "Join as GMACH delegates with a monthly donation [tithes accepted*] that grants you the right to a couples' vacation.**"}
+              ? 'הצטרפו להיות מנציבי הגמ"ח ע"י תרומה חודשית\nשתעניק לכם זכות לחופשה זוגית**'
+              : "Join as GMACH delegates with a monthly donation that grants you the right to a couples' vacation.**"}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
