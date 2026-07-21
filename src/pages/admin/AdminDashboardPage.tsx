@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
-import { Users, UserX, Award, Hotel, DollarSign, AlertCircle } from 'lucide-react';
+import { Users, UserX, Award, Hotel, DollarSign, AlertCircle, UserCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Stats {
+  totalUsers: number;
   activeSubscriptions: number;
   frozenSubscriptions: number;
   eligibleDonors: number;
@@ -25,6 +26,7 @@ interface RecentActivity {
 
 export const AdminDashboardPage = () => {
   const [stats, setStats] = useState<Stats>({
+    totalUsers: 0,
     activeSubscriptions: 0,
     frozenSubscriptions: 0,
     eligibleDonors: 0,
@@ -46,7 +48,8 @@ export const AdminDashboardPage = () => {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
 
-      const [activeRes, frozenRes, eligibleRes, bookingsRes, paymentsRes, failedPaymentsRes] = await Promise.all([
+      const [totalUsersRes, activeRes, frozenRes, eligibleRes, bookingsRes, paymentsRes, failedPaymentsRes] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'frozen'),
         supabase.from('subscriptions').select('id', { count: 'exact', head: true }).eq('is_eligible', true).eq('status', 'active'),
@@ -58,6 +61,7 @@ export const AdminDashboardPage = () => {
       const paymentsSum = paymentsRes.data?.reduce((sum, p) => sum + p.amount, 0) || 0;
 
       setStats({
+        totalUsers: totalUsersRes.count || 0,
         activeSubscriptions: activeRes.count || 0,
         frozenSubscriptions: frozenRes.count || 0,
         eligibleDonors: eligibleRes.count || 0,
@@ -132,6 +136,12 @@ export const AdminDashboardPage = () => {
   };
 
   const statCards = [
+    {
+      title: 'סה"כ משתמשים רשומים',
+      value: stats.totalUsers,
+      icon: UserCircle,
+      color: 'bg-[#0B3C5D]',
+    },
     {
       title: 'מנויים פעילים',
       value: stats.activeSubscriptions,

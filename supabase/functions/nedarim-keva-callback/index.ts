@@ -221,6 +221,26 @@ async function processKeva(
               }).catch((e: unknown) => console.error("[nedarim-keva-callback] email error:", e))
             );
           }
+
+          // Notify admin — new subscription actually created (not just started)
+          const { data: planRow } = await supabase
+            .from("plans").select("name_he").eq("id", planId!).maybeSingle();
+          EdgeRuntime.waitUntil(
+            fetch(`${base}/functions/v1/send-email`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${svcKey}` },
+              body: JSON.stringify({
+                template: "new_subscription_admin",
+                to: "sh0533130728@gmail.com",
+                data: {
+                  donorName: profile?.full_name || profile?.email || "תורם",
+                  planName: planRow?.name_he || "תוכנית לא ידועה",
+                },
+                relatedId: subscriptionId,
+                relatedType: "subscription",
+              }),
+            }).catch((e: unknown) => console.error("[nedarim-keva-callback] admin email error:", e))
+          );
         }
       }
     } else {

@@ -63,6 +63,7 @@ interface TemplateData {
   appUrl?: string;
   body?: string;
   link?: string;
+  planName?: string;
 }
 
 interface EmailPayload {
@@ -153,6 +154,22 @@ function buildEmail(template: string, data: TemplateData, appUrl: string): Email
             <a href="${url}/dashboard"
                style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
               לאזור האישי
+            </a>
+          </div>`,
+      };
+
+    case "new_subscription_admin":
+      return {
+        to: ADMIN_EMAIL,
+        subject: `מנוי חדש: ${data.donorName ?? "תורם"} — ${data.planName ?? "תוכנית לא ידועה"}`,
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0B3C5D;">מנוי חדש נוצר</h2>
+            <p><strong>תורם:</strong> ${data.donorName ?? "לא ידוע"}</p>
+            <p><strong>תוכנית:</strong> ${data.planName ?? "לא ידוע"}</p>
+            <a href="${url}/admin/donors"
+               style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
+              צפה בתורמים
             </a>
           </div>`,
       };
