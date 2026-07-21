@@ -431,7 +431,7 @@ export default function MyOrdersPage() {
           <div className="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0"><AlertTriangle className="text-red-600" size={22} /></div>
           <div className="flex-1">
             <div className="flex items-start justify-between gap-3">
-              <p className="font-bold text-red-800 text-lg mb-1">יש בעיה עם המימוש המיידי</p>
+              <p className="font-bold text-red-800 text-lg mb-1">יש בעיה עם ההזמנה שלך</p>
               <button onClick={() => removeOrder(req.id)} title="הסר" className="p-2 rounded-lg text-[#33332D]/30 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"><Trash2 size={16} /></button>
             </div>
             <p className="text-sm text-red-700/80 font-light leading-relaxed">{req.admin_note || 'נא ליצור איתנו קשר דרך עמוד התמיכה כדי להשלים את התהליך.'}</p>

@@ -52,7 +52,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       items: [
         { path: '/admin/subscriptions', icon: FileText, label: 'מנויים' },
         { path: '/admin/payments', icon: CreditCard, label: 'תשלומים' },
-        { path: '/admin/immediate-requests', icon: Zap, label: 'מימוש מיידי', highlight: true },
+        { path: '/admin/immediate-requests', icon: Zap, label: 'בקשות הזמנה', highlight: true },
         { path: '/admin/plans', icon: FileText, label: 'תוכניות' },
       ],
     },

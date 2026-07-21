@@ -245,7 +245,7 @@ async function processPayment(
 
 async function recordPayment(
   supabase: ReturnType<typeof makeSupabase>,
-  sub: { id: string; successful_payments_count: number; plans: unknown },
+  sub: { id: string; user_id: string; successful_payments_count: number; plans: unknown },
   payload: NedarimPaymentPayload
 ) {
   await supabase.from("payments").insert({
@@ -258,6 +258,7 @@ async function recordPayment(
 
   const newCount = (sub.successful_payments_count ?? 0) + 1;
   const required = (sub.plans as any)?.required_successful_payments ?? 15;
+  const wasEligible = (sub.successful_payments_count ?? 0) >= required;
   const isEligible = newCount >= required;
 
   await supabase.from("subscriptions").update({
@@ -272,6 +273,62 @@ async function recordPayment(
   console.log("[nedarim-payment-callback] Subscription updated", {
     subscriptionId: sub.id, newCount, isEligible,
   });
+
+  // מסלול רגיל הגיע לזכאות עכשיו — יוצרים בקשת הזמנה (guard לפי subscription_id מונע כפילות,
+  // וגם פוסל אוטומטית תורמי מימוש-מיידי שכבר יש להם בקשה מהתשלום הראשון)
+  if (!wasEligible && isEligible) {
+    try {
+      const { data: existingReq } = await supabase
+        .from("immediate_requests").select("id")
+        .eq("subscription_id", sub.id).maybeSingle();
+
+      if (!existingReq) {
+        const [{ data: subRow }, { data: profileRow }] = await Promise.all([
+          supabase.from("subscriptions").select("plan_id, plans(name_he)").eq("id", sub.id).maybeSingle(),
+          supabase.from("profiles").select("full_name").eq("id", sub.user_id).maybeSingle(),
+        ]);
+        const planId = (subRow as any)?.plan_id ?? null;
+        const planNameHe = (subRow as any)?.plans?.name_he ?? null;
+        const fullName = profileRow?.full_name ?? "";
+
+        const { error: reqErr } = await supabase.from("immediate_requests").insert({
+          user_id: sub.user_id,
+          plan_id: planId,
+          subscription_id: sub.id,
+          redemption_type: "regular",
+          status: "pending_review",
+          plan_name_he: planNameHe,
+          user_full_name: fullName,
+        });
+
+        if (reqErr) {
+          console.error("[nedarim-payment-callback] regular-path request insert failed:", reqErr.message);
+        } else {
+          const title = "מסלול רגיל — הגיע לזכאות";
+          const body = `${fullName || "משתמש"} סיים לשלם את כל התשלומים בתוכנית "${planNameHe ?? ""}". יש לבדוק ולפתוח להזמנה.`;
+          await supabase.from("notifications").insert({
+            for_admin: true, type: "regular_eligible", title, body, link: "/admin/immediate-requests",
+          });
+
+          const base = Deno.env.get("SUPABASE_URL")!;
+          const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          EdgeRuntime.waitUntil(
+            fetch(`${base}/functions/v1/send-email`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${svcKey}` },
+              body: JSON.stringify({
+                template: "immediate_admin",
+                to: "sh0533130728@gmail.com",
+                data: { subject: title, body, link: "/admin/immediate-requests" },
+              }),
+            }).catch((e: unknown) => console.error("[nedarim-payment-callback] admin email error:", e))
+          );
+        }
+      }
+    } catch (err: unknown) {
+      console.error("[nedarim-payment-callback] eligibility-transition request creation failed:", err);
+    }
+  }
 }
 
 function buildRow(

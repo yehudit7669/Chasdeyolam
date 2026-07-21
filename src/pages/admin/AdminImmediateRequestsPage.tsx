@@ -25,6 +25,8 @@ interface ImmediateRequest {
   plan_name_he: string | null;
   user_full_name: string | null;
   created_at: string;
+  redemption_type: string | null;
+  subscription_id: string | null;
 }
 
 const STATUS_META: Record<string, { label: string; color: string; icon: any }> = {
@@ -225,7 +227,7 @@ export const AdminImmediateRequestsPage = () => {
           <div className="w-10 h-10 rounded-xl bg-[#D4B483]/15 flex items-center justify-center">
             <Zap className="text-[#B08D57]" size={20} />
           </div>
-          <h1 className="text-2xl font-black text-[#0A192F]">בקשות מימוש מיידי</h1>
+          <h1 className="text-2xl font-black text-[#0A192F]">בקשות הזמנת חופשה</h1>
         </div>
 
         {/* טאבים */}
@@ -261,6 +263,9 @@ export const AdminImmediateRequestsPage = () => {
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full ${meta.color}`}>
                           <Icon size={12} /> {meta.label}
+                        </span>
+                        <span className={`text-[11px] font-bold px-2 py-1 rounded-full ${req.redemption_type === 'regular' ? 'bg-slate-100 text-slate-600' : 'bg-[#D4B483]/15 text-[#B08D57]'}`}>
+                          {req.redemption_type === 'regular' ? 'מסלול רגיל' : 'מימוש מיידי'}
                         </span>
                         <span className="text-[11px] text-[#33332D]/35">
                           {new Date(req.created_at).toLocaleDateString('he-IL')} · {new Date(req.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
