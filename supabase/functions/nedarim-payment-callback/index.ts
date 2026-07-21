@@ -248,13 +248,18 @@ async function recordPayment(
   sub: { id: string; user_id: string; successful_payments_count: number; plans: unknown },
   payload: NedarimPaymentPayload
 ) {
-  await supabase.from("payments").insert({
+  const { error: paymentInsertError } = await supabase.from("payments").insert({
     subscription_id: sub.id,
     amount: payload.Amount ? Math.round(parseFloat(payload.Amount)) : null,
     status: "succeeded",
     attempt_number: 1,
     paid_at: payload.TransactionTime ?? new Date().toISOString(),
   });
+  if (paymentInsertError) {
+    console.error("[nedarim-payment-callback] payments insert failed — subscription counter will still update:", {
+      subscriptionId: sub.id, message: paymentInsertError.message,
+    });
+  }
 
   const newCount = (sub.successful_payments_count ?? 0) + 1;
   const required = (sub.plans as any)?.required_successful_payments ?? 15;
@@ -379,6 +384,19 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
   const url = new URL(req.url);
+
+  // אימות טוקן — שלב 1 (warn-only): רושמים ללוג אם חסר/שגוי, לא חוסמים עדיין.
+  // אחרי שמאמתים בלוגים שתשלומים אמיתיים מגיעים עם טוקן תקין (ראו תוכנית האבטחה) —
+  // להחליף ל-return 401 כשה-token לא תקין.
+  const expectedToken = Deno.env.get("NEDARIM_CALLBACK_TOKEN");
+  const providedToken = url.searchParams.get("token");
+  const tokenValid = !!expectedToken && providedToken === expectedToken;
+  if (!tokenValid) {
+    console.warn("[nedarim-payment-callback] טוקן חסר/שגוי בבקשה נכנסת", {
+      hasToken: !!providedToken, path: url.pathname,
+    });
+  }
+
   if (req.method === "POST" && url.pathname.endsWith("/test")) {
     const testPayload: NedarimPaymentPayload = {
       TransactionId: `TEST-${Date.now()}`,

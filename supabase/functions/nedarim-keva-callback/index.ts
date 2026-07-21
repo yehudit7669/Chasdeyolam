@@ -328,6 +328,13 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // חיזוק נוסף (warn-only, לא חוסם עדיין) — MosadNumber חשוף בקוד הלקוח כך שזה לא סוד
+    // אמיתי, אבל מסנן payloads רשלניים/גנריים במקום לקבל כל דבר עם שדה לא-ריק.
+    const EXPECTED_MOSAD = "7010422";
+    if (payload.MosadNumber !== EXPECTED_MOSAD) {
+      console.warn("[nedarim-keva-callback] MosadNumber לא תואם לצפוי", { received: payload.MosadNumber });
+    }
+
     if (payload.KevaId) {
       const { data: existing } = await supabase
         .from("nedarim_keva_callbacks").select("id")
