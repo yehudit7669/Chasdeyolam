@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
 import { supabase } from '../lib/supabase';
 import { sendEmail } from '../lib/sendEmail';
+import { createNotification } from '../hooks/useNotifications';
 import { MessageSquare, Send, X, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import DonorLayout from '../components/DonorLayout';
@@ -120,6 +121,13 @@ export const SupportPage = () => {
           relatedId: thread.id,
           relatedType: 'support_thread',
         });
+        createNotification({
+          for_admin: true,
+          type: 'support_new_ticket',
+          title: `פנייה חדשה: ${newThreadSubject}`,
+          body: newThreadMessage.slice(0, 200),
+          link: `/admin/support?thread=${thread.id}`,
+        });
 
         setNewThreadSubject('');
         setNewThreadMessage('');
@@ -163,6 +171,13 @@ export const SupportPage = () => {
         },
         relatedId: threadId,
         relatedType: 'support_thread',
+      });
+      createNotification({
+        for_admin: true,
+        type: 'support_reply',
+        title: `תגובה חדשה: ${thread?.subject ?? ''}`,
+        body: replyMessage.slice(0, 200),
+        link: `/admin/support?thread=${threadId}`,
       });
 
       setReplyMessage('');

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { sendEmail } from '../../lib/sendEmail';
+import { createNotification } from '../../hooks/useNotifications';
 import { MessageSquare, Lock, Unlock, Send, Building2, CheckCircle, X } from 'lucide-react';
 import { Toast } from '../../components/admin/Toast';
 import { useToast } from '../../hooks/useToast';
@@ -201,6 +202,14 @@ export const AdminSupportPage = () => {
           relatedType: 'support_thread',
         });
       }
+
+      createNotification({
+        recipient_id: selectedThread.user_id,
+        type: 'support_admin_reply',
+        title: `תשובה לפנייתך: ${selectedThread.subject}`,
+        body: newMessage.slice(0, 200),
+        link: '/support',
+      });
 
       showToast('הודעה נשלחה', 'success');
       setNewMessage('');

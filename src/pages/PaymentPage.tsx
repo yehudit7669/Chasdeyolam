@@ -307,6 +307,15 @@ export default function PaymentPage() {
           message: body,
           is_admin: false,
         });
+
+        createNotification({
+          for_admin: true,
+          type: 'support_bank_request',
+          title: `בקשת הוראת קבע בנקאית — ${plan.name_he}`,
+          body: `${user.email ?? 'משתמש'} ביקש הוראת קבע בנקאית לתוכנית "${plan.name_he}"`,
+          link: `/admin/support?thread=${thread.id}`,
+          email: { toAdmin: true },
+        });
       }
 
       setShowBankModal(false);
