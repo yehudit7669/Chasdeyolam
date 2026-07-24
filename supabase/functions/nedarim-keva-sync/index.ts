@@ -113,7 +113,7 @@ function toDateOnly(iso: string | null): string | null {
 }
 
 async function syncSubscription(
-  sub: { id: string; user_id: string; status: string; keva_id: string; plan_id: string; next_payment_date: string | null },
+  sub: { id: string; user_id: string; status: string; keva_id: string; plan_id: string; next_payment_date: string | null; successful_payments_count: number },
   svc: ReturnType<typeof makeServiceClient>
 ): Promise<{ result: "synced" | "unchanged" | "error"; reason: string; newStatus?: string }> {
   const tag = `[sync] sub ${sub.id} keva ${sub.keva_id}`;
@@ -177,12 +177,15 @@ async function syncSubscription(
     // --- Recalculate eligibility ---
     const successCount = records.filter((r) => classifyCharge(String(r["Name"] ?? "")) === "success").length;
     const required = await getRequiredPayments(sub.plan_id, svc);
-    const nowEligible = successCount >= required;
+    // הגנה: לעולם לא להקטין את הספירה השמורה. HistoryData מנדרים פלוס עלול לחזור ריק/חלקי
+    // (עיכוב דיווח, תקלה זמנית, חלון היסטוריה מוגבל) — דריסה עיוורת הייתה מאפסת תשלומים אמיתיים.
+    const newCount = Math.max(sub.successful_payments_count ?? 0, successCount);
+    const nowEligible = newCount >= required;
 
     // --- Build update payload ---
     const updates: Record<string, unknown> = {
       nedarim_raw_status: kevaStatus,
-      successful_payments_count: successCount,
+      successful_payments_count: newCount,
       is_eligible: nowEligible,
       nedarim_last_synced_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -258,7 +261,7 @@ async function runSync(): Promise<{ synced: number; unchanged: number; errors: n
 
   const { data: subs, error } = await svc
     .from("subscriptions")
-    .select("id, user_id, status, keva_id, plan_id, next_payment_date")
+    .select("id, user_id, status, keva_id, plan_id, next_payment_date, successful_payments_count")
     .in("status", ["active", "frozen"])
     .not("keva_id", "is", null);
 
@@ -270,7 +273,7 @@ async function runSync(): Promise<{ synced: number; unchanged: number; errors: n
   let errors = 0;
   const details: SubDetail[] = [];
 
-  for (const sub of subs as { id: string; user_id: string; status: string; keva_id: string; plan_id: string; next_payment_date: string | null }[]) {
+  for (const sub of subs as { id: string; user_id: string; status: string; keva_id: string; plan_id: string; next_payment_date: string | null; successful_payments_count: number }[]) {
     const oldStatus = sub.status;
     const { result, reason, newStatus } = await syncSubscription(sub, svc);
     if (result === "synced") synced++;

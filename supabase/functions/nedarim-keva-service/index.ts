@@ -218,19 +218,22 @@ async function syncHistory(
     } catch (e) { console.warn("[history upsert]", e); }
   }
 
-  const { data: current } = await svc.from("subscriptions").select("is_eligible, credited_payments").eq("id", subId).maybeSingle();
+  const { data: current } = await svc.from("subscriptions").select("is_eligible, credited_payments, successful_payments_count").eq("id", subId).maybeSingle();
   const wasEligible = current?.is_eligible ?? false;
   const creditedPayments = current?.credited_payments ?? 0;
-  const nowEligible = (successCount + creditedPayments) >= required;
+  // הגנה: לעולם לא להקטין את הספירה השמורה. HistoryData מנדרים פלוס עלול לחזור ריק/חלקי
+  // (עיכוב דיווח, תקלה זמנית, חלון היסטוריה מוגבל) — דריסה עיוורת הייתה מאפסת תשלומים אמיתיים.
+  const newCount = Math.max(current?.successful_payments_count ?? 0, successCount);
+  const nowEligible = (newCount + creditedPayments) >= required;
 
   await svc.from("subscriptions").update({
-    successful_payments_count: successCount,
+    successful_payments_count: newCount,
     is_eligible: nowEligible,
     nedarim_last_synced_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }).eq("id", subId);
 
-  return { successCount, becameEligible: !wasEligible && nowEligible };
+  return { successCount: newCount, becameEligible: !wasEligible && nowEligible };
 }
 
 // ---------------------------------------------------------------------------
