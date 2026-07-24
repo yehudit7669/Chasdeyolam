@@ -43,8 +43,9 @@ const FROM_ADDRESS = (_FROM_SECRET && !_FROM_SECRET.endsWith("@resend.dev"))
 const FROM_NAME = Deno.env.get("EMAIL_FROM_NAME") ?? "חסדי עולם";
 const APP_URL = Deno.env.get("APP_URL") ?? "https://chasdeyolam.com";
 
-// Admin email(s) to notify for support tickets
-const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "support@chasdeyolam.com";
+// כתובת מנהל אחידה לכל התראות המנהל (מנוי חדש, תמיכה, החלפת תוכנית, מימוש מיידי) —
+// קבועה בקוד במכוון (לא תלויה ב-secret ADMIN_EMAIL) כדי שכל ההתראות יגיעו לאותה תיבה בוודאות.
+const ADMIN_EMAIL = "sh0533130728@gmail.com";
 
 // ── Supabase client (service role for logging) ────────────────────────────────
 const supabase = createClient(
