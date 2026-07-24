@@ -10,6 +10,7 @@ import DonorDashboardPage from './pages/DonorDashboardPage';
 import DonorHotelsPage from './pages/DonorHotelsPage';
 import DonorAdditionalDonationPage from './pages/DonorAdditionalDonationPage';
 import DonorManageSubscriptionPage from './pages/DonorManageSubscriptionPage';
+import SwitchPlanPage from './pages/SwitchPlanPage';
 import { SignIn } from './pages/SignIn';
 import { SignUp } from './pages/SignUp';
 import { SupportPage } from './pages/SupportPage';
@@ -116,6 +117,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DonorManageSubscriptionPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/donor/switch-plan"
+        element={
+          <ProtectedRoute>
+            <SwitchPlanPage />
           </ProtectedRoute>
         }
       />

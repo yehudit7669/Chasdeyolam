@@ -51,6 +51,120 @@ function makeSupabase() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// ביטול הוראת קבע ישנה בעת החלפת תוכנית (plan_change_requests, status='approved')
+// ---------------------------------------------------------------------------
+const NEDARIM_BASE = "https://matara.pro/nedarimplus/Reports/Manage3.aspx";
+
+async function deleteOldKeva(kevaId: string): Promise<{ success: boolean; error?: string }> {
+  const c = {
+    MosadId: Deno.env.get("NEDARIM_MOSAD_ID") ?? "7010422",
+    ApiPassword: Deno.env.get("NEDARIM_API_PASSWORD") ?? "mj227",
+    ApiValid: Deno.env.get("NEDARIM_API_VALID") ?? "Rd8QEQCDEY",
+  };
+  const url = new URL(NEDARIM_BASE);
+  url.searchParams.set("Action", "DeleteKeva");
+  url.searchParams.set("MosadId", c.MosadId);
+  url.searchParams.set("ApiPassword", c.ApiPassword);
+  url.searchParams.set("ApiValid", c.ApiValid);
+  url.searchParams.set("KevaId", kevaId);
+  try {
+    const res = await fetch(url.toString(), { method: "GET", signal: AbortSignal.timeout(15000) });
+    const text = await res.text();
+    if (text.trim() === "OK") return { success: true };
+    return { success: false, error: text.trim() };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+// מטפל בתשלום שמשלים בקשת "החלפת תוכנית" (plan_change_requests, status='approved'):
+// יוצר מנוי חדש עם חודשי הזיכוי, ומבטל את המנוי/הוראת הקבע הישנים.
+async function handlePlanChangeIfApplicable(
+  supabase: ReturnType<typeof makeSupabase>,
+  profileId: string,
+  newPlanId: string,
+  kevaId: string,
+  nextPaymentDate: string | null
+): Promise<string | null> {
+  const { data: reqRow } = await supabase
+    .from("plan_change_requests")
+    .select("id, old_subscription_id, credited_months")
+    .eq("user_id", profileId).eq("new_plan_id", newPlanId).eq("status", "approved")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (!reqRow) return null;
+
+  const { data: plan } = await supabase
+    .from("plans").select("required_successful_payments").eq("id", newPlanId).maybeSingle();
+  const required = plan?.required_successful_payments ?? 15;
+  const creditedMonths = reqRow.credited_months ?? 0;
+
+  const { data: newSub } = await supabase
+    .from("subscriptions").insert({
+      user_id: profileId, plan_id: newPlanId, status: "active",
+      keva_id: kevaId, subscription_source: "nedarim_iframe",
+      successful_payments_count: 0, failed_payment_attempts: 0,
+      credited_payments: creditedMonths,
+      is_eligible: creditedMonths >= required,
+      started_at: new Date().toISOString(),
+      next_payment_date: nextPaymentDate,
+    }).select("id").single();
+  const newSubscriptionId = newSub?.id ?? null;
+
+  const { data: oldSub } = await supabase
+    .from("subscriptions").select("id, keva_id").eq("id", reqRow.old_subscription_id).maybeSingle();
+
+  let cancelResult: { success: boolean; error?: string } = { success: false, error: "no keva_id on old subscription" };
+  if (oldSub?.keva_id) cancelResult = await deleteOldKeva(oldSub.keva_id);
+
+  if (cancelResult.success) {
+    await supabase.from("subscriptions").update({
+      status: "canceled", canceled_at: new Date().toISOString(),
+      cancellation_reason: "plan_change", updated_at: new Date().toISOString(),
+    }).eq("id", reqRow.old_subscription_id);
+  } else {
+    console.error("[nedarim-keva-callback] Failed to cancel old keva on plan change:", cancelResult.error);
+  }
+
+  await supabase.from("plan_change_requests").update({
+    status: "completed", new_subscription_id: newSubscriptionId,
+    admin_note: cancelResult.success ? null : `⚠️ ביטול הוראת הקבע הישנה נכשל אוטומטית: ${cancelResult.error}. נדרש טיפול ידני!`,
+    updated_at: new Date().toISOString(),
+  }).eq("id", reqRow.id);
+
+  const base = Deno.env.get("SUPABASE_URL")!;
+  const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const { data: profile } = await supabase.from("profiles").select("email, full_name").eq("id", profileId).maybeSingle();
+  if (profile?.email) {
+    EdgeRuntime.waitUntil(
+      fetch(`${base}/functions/v1/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${svcKey}` },
+        body: JSON.stringify({
+          template: "plan_change_completed", to: profile.email,
+          data: { donorName: profile.full_name || profile.email },
+          relatedId: newSubscriptionId, relatedType: "subscription",
+        }),
+      }).catch((e: unknown) => console.error("[nedarim-keva-callback] plan change email error:", e))
+    );
+  }
+  if (!cancelResult.success) {
+    EdgeRuntime.waitUntil(
+      fetch(`${base}/functions/v1/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${svcKey}` },
+        body: JSON.stringify({
+          template: "plan_change_manual_action_needed", to: "sh0533130728@gmail.com",
+          data: { donorName: profile?.full_name || profile?.email || "תורם", error: cancelResult.error ?? "" },
+          relatedId: reqRow.old_subscription_id, relatedType: "subscription",
+        }),
+      }).catch((e: unknown) => console.error("[nedarim-keva-callback] admin alert email error:", e))
+    );
+  }
+
+  return newSubscriptionId;
+}
+
 async function parseBody(req: Request): Promise<NedarimKevaPayload> {
   const ct = req.headers.get("content-type") ?? "";
   if (ct.includes("application/json")) return await req.json();
@@ -164,35 +278,49 @@ async function processKeva(
         planId = plan?.id ?? null;
       }
 
-      const { data: existingSub } = await supabase
-        .from("subscriptions").select("id")
-        .eq("user_id", profileId).in("status", ["active", "frozen"])
-        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      // בדיקה ראשונה: האם זה תשלום שמשלים בקשת "החלפת תוכנית" מאושרת?
+      // אם כן — יוצר מנוי חדש עם חודשי הזיכוי ומבטל את הישן. לא עובר דרך existingSub הרגיל,
+      // כדי שלא יחליף בטעות רק את ה-keva_id של המנוי הישן ותוך כדי ישמור על plan_id הישן.
+      const planChangeSubId = planId
+        ? await handlePlanChangeIfApplicable(supabase, profileId, planId, payload.KevaId, nextPaymentDate)
+        : null;
 
-      if (existingSub) {
-        subscriptionId = existingSub.id;
-        const upd: Record<string, unknown> = {
-          status: "active",
-          keva_id: payload.KevaId,
-          subscription_source: "nedarim_iframe",
-          updated_at: new Date().toISOString(),
-        };
-        if (nextPaymentDate) upd.next_payment_date = nextPaymentDate;
-        await supabase.from("subscriptions").update(upd).eq("id", existingSub.id);
-      } else if (planId) {
-        const { data: newSub } = await supabase
-          .from("subscriptions").insert({
-            user_id: profileId, plan_id: planId, status: "active",
+      let existingSub: { id: string } | null = null;
+
+      if (planChangeSubId) {
+        subscriptionId = planChangeSubId;
+      } else {
+        const { data: existingSubRow } = await supabase
+          .from("subscriptions").select("id")
+          .eq("user_id", profileId).in("status", ["active", "frozen"])
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        existingSub = existingSubRow;
+
+        if (existingSub) {
+          subscriptionId = existingSub.id;
+          const upd: Record<string, unknown> = {
+            status: "active",
             keva_id: payload.KevaId,
             subscription_source: "nedarim_iframe",
-            successful_payments_count: 0, failed_payment_attempts: 0,
-            is_eligible: false, started_at: new Date().toISOString(),
-            next_payment_date: nextPaymentDate,
-          }).select("id").single();
-        subscriptionId = newSub?.id ?? null;
-      } else {
-        processingError = `Could not find plan for amount ${payload.Amount}`;
-        console.warn("[nedarim-keva-callback]", processingError);
+            updated_at: new Date().toISOString(),
+          };
+          if (nextPaymentDate) upd.next_payment_date = nextPaymentDate;
+          await supabase.from("subscriptions").update(upd).eq("id", existingSub.id);
+        } else if (planId) {
+          const { data: newSub } = await supabase
+            .from("subscriptions").insert({
+              user_id: profileId, plan_id: planId, status: "active",
+              keva_id: payload.KevaId,
+              subscription_source: "nedarim_iframe",
+              successful_payments_count: 0, failed_payment_attempts: 0,
+              is_eligible: false, started_at: new Date().toISOString(),
+              next_payment_date: nextPaymentDate,
+            }).select("id").single();
+          subscriptionId = newSub?.id ?? null;
+        } else {
+          processingError = `Could not find plan for amount ${payload.Amount}`;
+          console.warn("[nedarim-keva-callback]", processingError);
+        }
       }
 
       if (subscriptionId) {
@@ -200,8 +328,9 @@ async function processKeva(
           subscriptionId, kevaId: payload.KevaId, identitySource,
         });
 
-        // Fire subscription_created email for new subscriptions only
-        if (!existingSub) {
+        // Fire subscription_created email for brand-new subscriptions only
+        // (plan-change subscriptions already got their own "plan_change_completed" email above)
+        if (!existingSub && !planChangeSubId) {
           const base = Deno.env.get("SUPABASE_URL")!;
           const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
           const { data: profile } = await supabase

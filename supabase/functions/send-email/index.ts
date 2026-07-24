@@ -64,6 +64,7 @@ interface TemplateData {
   body?: string;
   link?: string;
   planName?: string;
+  error?: string;
 }
 
 interface EmailPayload {
@@ -86,6 +87,7 @@ function buildEmail(template: string, data: TemplateData, appUrl: string): Email
     subject: sanitize(data.subject),
     messagePreview: sanitize(data.messagePreview),
     body: sanitize(data.body),
+    error: sanitize(data.error),
     // קישור פנימי בלבד — חייב להתחיל ב-/ (מנטרל הזרקת כתובת זרה ל-href)
     link: data.link && data.link.startsWith("/") ? sanitize(data.link) : undefined,
   };
@@ -170,6 +172,40 @@ function buildEmail(template: string, data: TemplateData, appUrl: string): Email
             <a href="${url}/admin/donors"
                style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
               צפה בתורמים
+            </a>
+          </div>`,
+      };
+
+    case "plan_change_completed":
+      return {
+        to: "",
+        subject: "התוכנית שלך הוחלפה בהצלחה!",
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #0B3C5D;">התוכנית שלך הוחלפה בהצלחה</h2>
+            <p>שלום ${data.donorName ?? ""},</p>
+            <p>התשלום לתוכנית החדשה התקבל, והתוכנית הקודמת בוטלה. חודשי הזיכוי שהצטברו כבר נכנסו לתוקף.</p>
+            <a href="${url}/donor/manage-subscription"
+               style="display:inline-block;padding:10px 20px;background:#0B3C5D;color:#fff;border-radius:6px;text-decoration:none;">
+              לניהול המנוי
+            </a>
+          </div>`,
+      };
+
+    case "plan_change_manual_action_needed":
+      return {
+        to: ADMIN_EMAIL,
+        subject: `⚠️ נדרש טיפול ידני — ביטול הוראת קבע ישנה נכשל (${data.donorName ?? "תורם"})`,
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #b91c1c;">נדרש טיפול ידני בהחלפת תוכנית</h2>
+            <p><strong>תורם:</strong> ${data.donorName ?? "לא ידוע"}</p>
+            <p>המנוי החדש נוצר בהצלחה, אך ביטול הוראת הקבע הישנה בנדרים פלוס נכשל אוטומטית.</p>
+            ${data.error ? `<p><strong>פרטי השגיאה:</strong> ${data.error}</p>` : ""}
+            <p>יש לבטל את הוראת הקבע הישנה ידנית דרך עמוד "מנויים" באדמין, כדי למנוע חיוב כפול.</p>
+            <a href="${url}/admin/subscriptions"
+               style="display:inline-block;padding:10px 20px;background:#b91c1c;color:#fff;border-radius:6px;text-decoration:none;">
+              לניהול מנויים
             </a>
           </div>`,
       };

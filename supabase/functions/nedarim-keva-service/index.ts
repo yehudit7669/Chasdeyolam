@@ -160,7 +160,7 @@ async function getCallerRole(uid: string, svc: ReturnType<typeof makeServiceClie
 async function getSub(id: string, svc: ReturnType<typeof makeServiceClient>) {
   const { data, error } = await svc
     .from("subscriptions")
-    .select("id, user_id, status, keva_id, plan_id, successful_payments_count, is_eligible")
+    .select("id, user_id, status, keva_id, plan_id, successful_payments_count, is_eligible, credited_payments")
     .eq("id", id).maybeSingle();
   if (error) throw new Error("DB: " + error.message);
   return data;
@@ -218,9 +218,10 @@ async function syncHistory(
     } catch (e) { console.warn("[history upsert]", e); }
   }
 
-  const { data: current } = await svc.from("subscriptions").select("is_eligible").eq("id", subId).maybeSingle();
+  const { data: current } = await svc.from("subscriptions").select("is_eligible, credited_payments").eq("id", subId).maybeSingle();
   const wasEligible = current?.is_eligible ?? false;
-  const nowEligible = successCount >= required;
+  const creditedPayments = current?.credited_payments ?? 0;
+  const nowEligible = (successCount + creditedPayments) >= required;
 
   await svc.from("subscriptions").update({
     successful_payments_count: successCount,

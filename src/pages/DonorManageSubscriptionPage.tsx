@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, AlertTriangle, X, Info, Pause, Play, Trash2 } from 'lucide-react';
+import { Heart, AlertTriangle, X, Repeat, Pause, Play, Trash2, ChevronLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
@@ -241,19 +241,23 @@ export default function DonorManageSubscriptionPage() {
           </div>
         </div>
 
-        {/* Info — change plan */}
-        <div
-          className="flex items-start gap-4 p-5 rounded-2xl border border-[#0A192F]/10"
-          style={{ backgroundColor: 'rgba(10,25,47,0.03)' }}
-        >
-          <Info className="text-[#0A192F]/40 flex-shrink-0 mt-0.5" size={18} />
-          <div className="text-sm text-[#33332D]/60">
-            <p className="font-semibold text-[#33332D]/80 mb-1">{t.donor.manageSubscription.changePlanTitle}</p>
-            <p className="font-light leading-relaxed">
-              {t.donor.manageSubscription.changePlanDesc}
-            </p>
-          </div>
-        </div>
+        {/* Switch plan */}
+        {canSelfManage && isActive && (
+          <button
+            onClick={() => navigate('/donor/switch-plan')}
+            className="w-full flex items-center gap-4 p-5 rounded-2xl border border-[#0A192F]/10 hover:border-[#0A192F]/25 transition-all text-right"
+            style={{ backgroundColor: 'rgba(10,25,47,0.03)' }}
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#0A192F]/5 flex items-center justify-center flex-shrink-0">
+              <Repeat className="text-[#0A192F]/60" size={18} />
+            </div>
+            <div className="flex-1 text-sm text-[#33332D]/60">
+              <p className="font-semibold text-[#33332D]/80 mb-0.5">{t.donor.switchPlan.switchPlanBtn}</p>
+              <p className="font-light leading-relaxed">{t.donor.switchPlan.pageSubtitle}</p>
+            </div>
+            <ChevronLeft className="text-[#33332D]/30 flex-shrink-0" size={18} />
+          </button>
+        )}
 
         {/* Warning */}
         <div

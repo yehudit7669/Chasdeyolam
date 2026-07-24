@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, FileText, Users, CreditCard, Hotel,
   BookOpen, MessageSquare, Settings, LogOut, Menu, X,
-  CircleUser as UserCircle, Building2, HeartHandshake, Wrench, Images, Zap,
+  CircleUser as UserCircle, Building2, HeartHandshake, Wrench, Images, Zap, Repeat,
 } from 'lucide-react';
 import { useState } from 'react';
 import NotificationBell from './NotificationBell';
@@ -53,6 +53,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
         { path: '/admin/subscriptions', icon: FileText, label: 'מנויים' },
         { path: '/admin/payments', icon: CreditCard, label: 'תשלומים' },
         { path: '/admin/immediate-requests', icon: Zap, label: 'בקשות הזמנה', highlight: true },
+        { path: '/admin/plan-change-requests', icon: Repeat, label: 'בקשות החלפת תוכנית', highlight: true },
         { path: '/admin/plans', icon: FileText, label: 'תוכניות' },
       ],
     },

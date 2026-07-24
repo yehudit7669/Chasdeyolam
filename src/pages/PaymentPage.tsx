@@ -50,6 +50,9 @@ export default function PaymentPage() {
   // 'on_completion' (רגיל) | 'immediate' (מימוש מיידי) — נקבע בדף בחירת המסלול
   const redemptionType: 'on_completion' | 'immediate' = location.state?.redemptionType ?? 'on_completion';
   const isImmediateRedemption = redemptionType === 'immediate';
+  // מספר תשלומים מופחת — משמש בזרימת "החלפת תוכנית" (plan_change_requests) לאחר זיכוי חודשים
+  const overrideMonths: number | undefined = location.state?.overrideMonths;
+  const effectiveMonths = overrideMonths ?? plan?.required_successful_payments ?? 0;
   // תווית סוג התשלום לפי המסלול (מיידי = עסקה בתשלומים, רגיל = הוראת קבע)
   const paymentTypeLabel = isImmediateRedemption ? 'תשלומים — מימוש מיידי' : p.standingOrder;
   const paymentTypeLabelShort = isImmediateRedemption ? 'עסקה בתשלומים' : p.standingOrderType;
@@ -198,7 +201,7 @@ export default function PaymentPage() {
     // מסלול מיידי = עסקה רגילה (Ragil) שתופסת את הסכום המלא ומחלקת לתשלומים.
     // מסלול רגיל = הוראת קבע (HK) שמחייבת חודש-חודש.
     const isImmediate = redemptionType === 'immediate';
-    const months = plan.required_successful_payments;
+    const months = overrideMonths ?? plan.required_successful_payments;
     const payload = {
       Name: 'FinishTransaction2',
       Value: {
@@ -473,7 +476,7 @@ export default function PaymentPage() {
     );
   }
 
-  const totalAmount = plan ? plan.monthly_amount * plan.required_successful_payments : 0;
+  const totalAmount = plan ? plan.monthly_amount * effectiveMonths : 0;
 
   return (
     <div className="min-h-screen bg-[#F7F5F0] py-10 px-4" dir="rtl">
@@ -531,7 +534,7 @@ export default function PaymentPage() {
                         </div>
                         <div>
                           <div className="text-white/40 text-xs mb-0.5">{p.numPayments}</div>
-                          <div className="font-bold">{plan.required_successful_payments} {p.months}</div>
+                          <div className="font-bold">{effectiveMonths} {p.months}</div>
                         </div>
                         <div>
                           <div className="text-white/40 text-xs mb-0.5">{p.totalCommitment}</div>
@@ -646,7 +649,7 @@ export default function PaymentPage() {
                       <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-4 flex flex-wrap gap-x-6 gap-y-2 text-xs mb-1">
                         <span className="font-bold text-[#0A192F]">{plan.name_he}</span>
                         <span className="text-[#33332D]/50">{paymentTypeLabel}</span>
-                        <span className="text-[#626D58] font-semibold">₪{plan.monthly_amount.toLocaleString()} × {plan.required_successful_payments} {p.months}</span>
+                        <span className="text-[#626D58] font-semibold">₪{plan.monthly_amount.toLocaleString()} × {effectiveMonths} {p.months}</span>
                         <span className="text-[#B08D57] font-bold">{p.bankTotalLabel} ₪{totalAmount.toLocaleString()}</span>
                       </div>
                     </div>
@@ -722,7 +725,7 @@ export default function PaymentPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-white/50">{p.numPayments}</span>
-                    <span className="font-semibold">{plan.required_successful_payments}</span>
+                    <span className="font-semibold">{effectiveMonths}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-white/50">{p.paymentType}</span>

@@ -13,6 +13,7 @@ import { AdminBankDonorsPage } from './AdminBankDonorsPage';
 import { AdminUsersPage } from './AdminUsersPage';
 import { AdminVacationGalleryPage } from './AdminVacationGalleryPage';
 import { AdminImmediateRequestsPage } from './AdminImmediateRequestsPage';
+import { AdminPlanChangeRequestsPage } from './AdminPlanChangeRequestsPage';
 
 export const AdminDashboard = () => {
   return (
@@ -31,6 +32,7 @@ export const AdminDashboard = () => {
       <Route path="/settings" element={<AdminSettingsPage />} />
       <Route path="/vacation-gallery" element={<AdminVacationGalleryPage />} />
       <Route path="/immediate-requests" element={<AdminImmediateRequestsPage />} />
+      <Route path="/plan-change-requests" element={<AdminPlanChangeRequestsPage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   );
