@@ -60,6 +60,33 @@ function extractPlanId(p: NedarimPaymentPayload): string | null {
   return null;
 }
 
+// Nedarim sends TransactionTime as Israel local time "DD/MM/YYYY HH:mm:ss".
+// Passing it raw to Postgres reads it as MM/DD — fails from the 13th, swaps day/month before it.
+function jerusalemOffsetMs(utcMs: number): number {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Jerusalem", hourCycle: "h23",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    }).formatToParts(new Date(utcMs)).map((x) => [x.type, x.value])
+  );
+  return Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second) - utcMs;
+}
+
+function parseTransactionTime(raw?: string): string {
+  const s = raw?.trim() ?? "";
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (m) {
+    const [, d, mo, y, h = "0", mi = "0", sec = "0"] = m;
+    const asUtc = Date.UTC(+y, +mo - 1, +d, +h, +mi, +sec);
+    return new Date(asUtc - jerusalemOffsetMs(asUtc)).toISOString();
+  }
+  const d = new Date(s);
+  if (s && !isNaN(d.getTime())) return d.toISOString();
+  if (s) console.warn("[nedarim-payment-callback] Unrecognized TransactionTime, using now:", s);
+  return new Date().toISOString();
+}
+
 function makeSupabase() {
   return createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -176,7 +203,7 @@ async function processPayment(
           amount: payload.Amount ? Math.round(parseFloat(payload.Amount)) : null,
           status: "succeeded",
           attempt_number: 1,
-          paid_at: payload.TransactionTime ?? new Date().toISOString(),
+          paid_at: parseTransactionTime(payload.TransactionTime),
         });
         await supabase.from("nedarim_donation_callbacks").insert(
           buildRow(payload, null, rawPayload, profileId, null)
@@ -253,7 +280,7 @@ async function recordPayment(
     amount: payload.Amount ? Math.round(parseFloat(payload.Amount)) : null,
     status: "succeeded",
     attempt_number: 1,
-    paid_at: payload.TransactionTime ?? new Date().toISOString(),
+    paid_at: parseTransactionTime(payload.TransactionTime),
   });
   if (paymentInsertError) {
     console.error("[nedarim-payment-callback] payments insert failed — subscription counter will still update:", {
