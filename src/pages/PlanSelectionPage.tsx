@@ -5,6 +5,7 @@ import { supabase, hotelLevelLabel } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
 import { Layout } from '../components/Layout';
+import { HotelNameWithDetails, HOTEL_PACKAGE_COLUMNS, HotelPackage } from '../components/HotelPackageDetails';
 
 const HOTELS_INITIALLY_VISIBLE = 4;
 
@@ -22,6 +23,11 @@ function HotelList({ hotels, isFeatured, showLess, moreHotels, language }: { hot
     setExtraHeight(expanded ? extraRef.current.scrollHeight : 0);
   }, [expanded]);
 
+  // פירוט "עוד" שנפתח בתוך החלק המתקפל משנה את הגובה — מודדים מחדש אחרי הרינדור
+  const remeasure = () => requestAnimationFrame(() => {
+    if (extraRef.current && expanded) setExtraHeight(extraRef.current.scrollHeight);
+  });
+
   const itemCls = `flex items-start gap-2 text-sm font-semibold text-[#33332D]/80`;
   const checkCls = `mt-0.5 flex-shrink-0 text-[#626D58]`;
 
@@ -30,7 +36,9 @@ function HotelList({ hotels, isFeatured, showLess, moreHotels, language }: { hot
       {visible.map((hotel) => (
         <li key={hotel.id} className={itemCls}>
           <Check size={14} className={checkCls} />
-          <span>{language === 'he' ? hotel.name_he : (hotel.name_en || hotel.name_he)} — {language === 'he' ? hotel.city_he : (hotel.city_en || hotel.city_he)}</span>
+          <HotelNameWithDetails hotel={hotel} className="flex-1 min-w-0">
+            <span>{language === 'he' ? hotel.name_he : (hotel.name_en || hotel.name_he)} — {language === 'he' ? hotel.city_he : (hotel.city_en || hotel.city_he)}</span>
+          </HotelNameWithDetails>
         </li>
       ))}
 
@@ -52,7 +60,9 @@ function HotelList({ hotels, isFeatured, showLess, moreHotels, language }: { hot
                 {extra.map((hotel) => (
                   <li key={hotel.id} className={itemCls}>
                     <Check size={14} className={checkCls} />
-                    <span>{language === 'he' ? hotel.name_he : (hotel.name_en || hotel.name_he)} — {language === 'he' ? hotel.city_he : (hotel.city_en || hotel.city_he)}</span>
+                    <HotelNameWithDetails hotel={hotel} className="flex-1 min-w-0" onToggle={remeasure}>
+                      <span>{language === 'he' ? hotel.name_he : (hotel.name_en || hotel.name_he)} — {language === 'he' ? hotel.city_he : (hotel.city_en || hotel.city_he)}</span>
+                    </HotelNameWithDetails>
                   </li>
                 ))}
               </ul>
@@ -91,7 +101,7 @@ interface Plan {
   preview?: boolean;
 }
 
-interface HotelItem {
+interface HotelItem extends HotelPackage {
   id: string;
   name_he: string;
   name_en: string;
@@ -129,7 +139,7 @@ export default function PlanSelectionPage() {
     try {
       const [plansRes, hotelsRes] = await Promise.all([
         supabase.from('plans').select('*').eq('active', true).order('monthly_amount'),
-        supabase.from('hotels').select('id, name_he, name_en, city_he, city_en, level').eq('active', true),
+        supabase.from('hotels').select(`id, name_he, name_en, city_he, city_en, level, ${HOTEL_PACKAGE_COLUMNS}`).eq('active', true),
       ]);
 
       // רק תוכניות אמיתיות ופעילות מה-DB (תוכניות בטיוטה לא יוצגו לציבור)

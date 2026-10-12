@@ -49,6 +49,9 @@ interface Hotel {
   address: string | null;
   map_url: string | null;
   arrival_instructions: string | null;
+  room_type: string | null;
+  meals: string | null;
+  package_includes: string | null;
   images?: HotelImage[];
 }
 
@@ -100,6 +103,7 @@ export const AdminHotelsPage = () => {
     name_he: '', name_en: '', city_he: '', city_en: '',
     description_he: '', description_en: '',
     base_rooms: '2', extra_room_price: '0', change_deadline_days: '7',
+    room_type: '', meals: '', package_includes: '',
   });
 
   // --- זמינות (per הרחבת מלון) ---
@@ -189,6 +193,7 @@ export const AdminHotelsPage = () => {
         base_rooms: hotel.base_rooms.toString(),
         extra_room_price: hotel.extra_room_price.toString(),
         change_deadline_days: hotel.change_deadline_days.toString(),
+        room_type: hotel.room_type ?? '', meals: hotel.meals ?? '', package_includes: hotel.package_includes ?? '',
       });
       const existing: PendingImage[] = (hotel.images || []).map((img) => ({
         id: img.id, type: 'url', url: img.image_url, previewUrl: img.image_url, uploading: false,
@@ -200,6 +205,7 @@ export const AdminHotelsPage = () => {
         name_he: '', name_en: '', city_he: '', city_en: '',
         description_he: '', description_en: '',
         base_rooms: '2', extra_room_price: '0', change_deadline_days: '7',
+        room_type: '', meals: '', package_includes: '',
       });
       setPendingImages([]);
     }
@@ -319,6 +325,9 @@ export const AdminHotelsPage = () => {
         base_rooms: parseInt(formData.base_rooms),
         extra_room_price: parseInt(formData.extra_room_price),
         change_deadline_days: parseInt(formData.change_deadline_days),
+        room_type: formData.room_type.trim() || null,
+        meals: formData.meals.trim() || null,
+        package_includes: formData.package_includes.trim() || null,
       };
 
       let hotelId: string;
@@ -779,6 +788,35 @@ export const AdminHotelsPage = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">תיאור בעברית</label>
             <textarea value={formData.description_he} onChange={(e) => setFormData({ ...formData, description_he: e.target.value })}
               rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+          </div>
+
+          {/* מה מקבלים — מוצג ללקוח בכפתור "עוד" ליד שם המלון */}
+          <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-gray-800">מה מקבלים במקום הזה</p>
+              <p className="text-xs text-gray-500">מוצג ללקוח כשהוא לוחץ "עוד" ליד שם המלון. אפשר להשאיר ריק.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">סוג חדר</label>
+                <input type="text" value={formData.room_type} placeholder="לדוגמה: חדר זוגי סטנדרט"
+                  onChange={(e) => setFormData({ ...formData, room_type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ארוחות</label>
+                <input type="text" value={formData.meals} placeholder="לדוגמה: ארוחת בוקר + ארוחת ערב"
+                  onChange={(e) => setFormData({ ...formData, meals: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">עוד בחבילה</label>
+              <textarea value={formData.package_includes} rows={3}
+                placeholder={'כל שורה תוצג כסעיף נפרד. לדוגמה:\nכניסה לבריכה\nחניה חינם\nצ׳ק-אאוט מאוחר בשבת'}
+                onChange={(e) => setFormData({ ...formData, package_includes: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-4">

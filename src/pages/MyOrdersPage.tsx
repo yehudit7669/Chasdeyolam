@@ -7,12 +7,13 @@ import { createNotification } from '../hooks/useNotifications';
 import { isDayAllowed, formatBookableDays, effectiveBookableDays } from '../lib/stayType';
 import heroHotelImg from '../assets/hero-hotel.jpg';
 import { AvailabilityCheck, isExpired, isPayable, fmtRequestedDates } from '../lib/availabilityChecks';
+import { HotelNameWithDetails, HOTEL_PACKAGE_COLUMNS, HotelPackage } from '../components/HotelPackageDetails';
 import {
   MapPin, Hotel as HotelIcon, Moon, CheckCircle, Loader2, Star,
   ChevronRight, ChevronLeft, Clock, AlertTriangle, Calendar, Trash2,
 } from 'lucide-react';
 
-interface Hotel { id: string; name_he: string; city_he: string; level: string; bookable_days: number[] | null; bookable_nights: number | null; images?: { image_url: string; display_order: number }[]; }
+interface Hotel extends HotelPackage { id: string; name_he: string; city_he: string; level: string; bookable_days: number[] | null; bookable_nights: number | null; images?: { image_url: string; display_order: number }[]; }
 interface Avail { hotel_id: string; kind: string; start_date: string; end_date: string | null; }
 interface PlanInfo { name_he: string; bookable_days: number[] | null; hotel_level: string; }
 interface Req {
@@ -104,7 +105,7 @@ export default function MyOrdersPage() {
     if (levels.length) {
       const { data: hotelsData } = await supabase
         .from('hotels')
-        .select('id, name_he, city_he, level, bookable_days, bookable_nights, images:hotel_images(image_url, display_order)')
+        .select(`id, name_he, city_he, level, bookable_days, ${HOTEL_PACKAGE_COLUMNS}, images:hotel_images(image_url, display_order)`)
         .eq('active', true).in('level', levels).order('name_he');
       const byLevel: Record<string, Hotel[]> = {};
       for (const h of (hotelsData ?? []) as Hotel[]) (byLevel[h.level] ??= []).push(h);
@@ -327,6 +328,7 @@ export default function MyOrdersPage() {
                 </div>
                 <ChevronLeft size={20} className={`text-[#33332D]/30 shrink-0 transition-transform ${active ? '-rotate-90' : ''}`} />
               </button>
+              <HotelNameWithDetails hotel={h} className="px-4 pb-3 -mt-1"><span className="sr-only">{h.name_he}</span></HotelNameWithDetails>
               {active && renderCalendar(req, h.id, mode)}
             </div>
           );

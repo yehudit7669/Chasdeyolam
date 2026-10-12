@@ -5,6 +5,7 @@ import {
   Loader2, MapPin, Hotel as HotelIcon, Calendar, Phone, Shuffle, CreditCard,
 } from 'lucide-react';
 import { Layout } from '../components/Layout';
+import { HotelNameWithDetails, HOTEL_PACKAGE_COLUMNS, HotelPackage } from '../components/HotelPackageDetails';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { createNotification } from '../hooks/useNotifications';
@@ -13,7 +14,7 @@ import {
 } from '../lib/availabilityChecks';
 
 interface PlanLite { id: string; name_he: string; hotel_level: string; }
-interface HotelLite { id: string; name_he: string; city_he: string; }
+interface HotelLite extends HotelPackage { id: string; name_he: string; city_he: string; }
 
 type View = 'choose' | 'form' | 'status';
 
@@ -68,7 +69,7 @@ export default function AvailabilityCheckPage() {
       setPhone(profRes.data?.phone ?? '');
 
       // רק מלונות של התוכנית שנבחרה (לפי רמת המלון של התוכנית — כמו בבחירת הנופש)
-      const { data: hs } = await supabase.from('hotels').select('id, name_he, city_he')
+      const { data: hs } = await supabase.from('hotels').select(`id, name_he, city_he, ${HOTEL_PACKAGE_COLUMNS}`)
         .eq('active', true).eq('level', p.hotel_level).order('name_he');
       setHotels((hs ?? []) as HotelLite[]);
 
@@ -196,8 +197,9 @@ export default function AvailabilityCheckPage() {
   );
 
   const hotelOption = (h: HotelLite, selected: boolean, onClick: () => void, disabled = false) => (
-    <button key={h.id} type="button" onClick={onClick} disabled={disabled}
-      className={`text-right flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
+    <div key={h.id}>
+    <button type="button" onClick={onClick} disabled={disabled}
+      className={`w-full text-right flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
         selected ? 'border-[#626D58] bg-[#626D58]/5' : disabled ? 'border-[#E5E1D8]/40 opacity-40 cursor-not-allowed' : 'border-[#E5E1D8]/60 hover:border-[#626D58]/40'
       }`}>
       <HotelIcon size={18} className={selected ? 'text-[#626D58]' : 'text-[#33332D]/30'} />
@@ -206,6 +208,8 @@ export default function AvailabilityCheckPage() {
         <div className="text-xs text-[#33332D]/45 flex items-center gap-1"><MapPin size={10} />{h.city_he}</div>
       </div>
     </button>
+    {!disabled && <HotelNameWithDetails hotel={h} className="px-1 pt-1"><span className="sr-only">{h.name_he}</span></HotelNameWithDetails>}
+    </div>
   );
 
   const inputCls = 'w-full border border-[#E5E1D8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A192F]';
