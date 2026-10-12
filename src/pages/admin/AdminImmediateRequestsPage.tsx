@@ -5,6 +5,7 @@ import { createNotification } from '../../hooks/useNotifications';
 import {
   Zap, Clock, CheckCircle, XCircle, Loader2, Calendar, MapPin,
   MessageSquare, X, Send, Sparkles, AlertTriangle, Trash2, Mail, Phone,
+  ArrowLeftCircle, ListChecks,
 } from 'lucide-react';
 
 interface ImmediateRequest {
@@ -37,6 +38,30 @@ const STATUS_META: Record<string, { label: string; color: string; icon: any }> =
   rejected:       { label: 'נדחה', color: 'bg-red-100 text-red-700', icon: XCircle },
 };
 
+// מה הצעד הבא שלך בכל שלב — כדי שלא צריך לזכור את התהליך בעל-פה
+const NEXT_STEP: Record<string, string> = {
+  pending_review: 'בדוק בנדרים פלוס שהתשלום עבר, ואז לחץ "פתח תוכנית להזמנה".',
+  booking_open:   'הלקוח צריך לבחור מלון ותאריך באזור האישי. אם הוא מתעכב — כדאי להתקשר ולעזור לו.',
+  awaiting_admin: 'בדוק זמינות מול המלון, הזמן, ולחץ "אשר הזמנה" (אפשר לצרף שובר).',
+  confirmed:      'ההזמנה אושרה ללקוח. סמן בצ\'קליסט את מה שנשאר עד שהכל סגור.',
+};
+
+// צ'קליסט פנימי — נשמר ב-booking_admin_tracking, הלקוח לא רואה אותו
+const CHECKLIST: { key: string; label: string }[] = [
+  { key: 'payment_verified', label: 'תשלום אומת בנדרים' },
+  { key: 'customer_contacted', label: 'דיברתי עם הלקוח' },
+  { key: 'hotel_booked', label: 'הוזמן במלון' },
+  { key: 'hotel_paid', label: 'שולם למלון' },
+  { key: 'voucher_sent', label: 'שובר נשלח ללקוח' },
+];
+
+interface Tracking {
+  checklist: Record<string, boolean>;
+  internal_note: string | null;
+}
+
+type Tab = 'action' | 'waiting' | 'inProgress' | 'done';
+
 export const AdminImmediateRequestsPage = () => {
   const [requests, setRequests] = useState<ImmediateRequest[]>([]);
   const [hotels, setHotels] = useState<Record<string, string>>({});
@@ -49,7 +74,9 @@ export const AdminImmediateRequestsPage = () => {
   const [actionModal, setActionModal] = useState<{ req: ImmediateRequest; type: 'confirm' | 'decline' } | null>(null);
   const [actionNote, setActionNote] = useState('');
   const [actionFile, setActionFile] = useState<File | null>(null);
-  const [tab, setTab] = useState<'new' | 'final' | 'history'>('new');
+  const [tab, setTab] = useState<Tab>('action');
+  const [tracking, setTracking] = useState<Record<string, Tracking>>({});
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2500); };
 
@@ -74,8 +101,44 @@ export const AdminImmediateRequestsPage = () => {
       for (const p of profs ?? []) pmap[p.id] = { full_name: p.full_name, email: p.email, phone: p.phone };
       setProfiles(pmap);
     }
+
+    if (reqs.length) {
+      const { data: tr } = await supabase.from('booking_admin_tracking')
+        .select('request_id, checklist, internal_note').in('request_id', reqs.map((r) => r.id));
+      const tmap: Record<string, Tracking> = {};
+      for (const t of tr ?? []) tmap[t.request_id] = { checklist: t.checklist ?? {}, internal_note: t.internal_note };
+      setTracking(tmap);
+    }
     setLoading(false);
   };
+
+  const saveTracking = async (reqId: string, patch: Partial<Tracking>) => {
+    const current = tracking[reqId] ?? { checklist: {}, internal_note: null };
+    const next = { ...current, ...patch };
+    setTracking((prev) => ({ ...prev, [reqId]: next }));
+    const { error } = await supabase.from('booking_admin_tracking').upsert({
+      request_id: reqId, checklist: next.checklist, internal_note: next.internal_note,
+    });
+    if (error) {
+      setTracking((prev) => ({ ...prev, [reqId]: current }));
+      showToast('שגיאה בשמירה: ' + error.message);
+    }
+  };
+
+  const toggleCheck = (reqId: string, key: string) => {
+    const checklist = { ...(tracking[reqId]?.checklist ?? {}) };
+    checklist[key] = !checklist[key];
+    saveTracking(reqId, { checklist });
+  };
+
+  const saveNote = (reqId: string) => {
+    const draft = noteDrafts[reqId];
+    if (draft === undefined || draft === (tracking[reqId]?.internal_note ?? '')) return;
+    saveTracking(reqId, { internal_note: draft.trim() || null });
+    showToast('ההערה נשמרה');
+  };
+
+  const isChecklistDone = (reqId: string) => CHECKLIST.every((c) => tracking[reqId]?.checklist?.[c.key]);
 
   const openForBooking = async (req: ImmediateRequest) => {
     setBusyId(req.id);
@@ -201,23 +264,22 @@ export const AdminImmediateRequestsPage = () => {
     showToast('ההזמנה הוסרה');
   };
 
-  // 'final' כולל גם בקשות שינוי (שצריכות הכרעת מנהל), גם אם ההזמנה מאושרת
-  const inTab = (r: ImmediateRequest, t: 'new' | 'final' | 'history') => {
-    if (r.change_requested) return t === 'final';
-    if (t === 'new') return ['pending_review', 'booking_open'].includes(r.status);
-    if (t === 'final') return r.status === 'awaiting_admin';
-    return ['confirmed', 'rejected'].includes(r.status);
+  // הטאבים לפי "מי צריך לפעול עכשיו": אתה · הלקוח · סגירת קצוות אחרי אישור · סגור
+  const tabOf = (r: ImmediateRequest): Tab => {
+    if (r.change_requested) return 'action';
+    if (['pending_review', 'awaiting_admin'].includes(r.status)) return 'action';
+    if (r.status === 'booking_open') return 'waiting';
+    if (r.status === 'confirmed' && !isChecklistDone(r.id)) return 'inProgress';
+    return 'done';
   };
-  const counts = {
-    new: requests.filter(r => inTab(r, 'new')).length,
-    final: requests.filter(r => inTab(r, 'final')).length,
-    history: requests.filter(r => inTab(r, 'history')).length,
-  };
-  const visibleRequests = requests.filter(r => inTab(r, tab));
-  const TABS: { key: 'new' | 'final' | 'history'; label: string }[] = [
-    { key: 'new', label: 'בקשות חדשות' },
-    { key: 'final', label: 'לאישור סופי' },
-    { key: 'history', label: 'היסטוריה' },
+  const counts: Record<Tab, number> = { action: 0, waiting: 0, inProgress: 0, done: 0 };
+  for (const r of requests) counts[tabOf(r)]++;
+  const visibleRequests = requests.filter(r => tabOf(r) === tab);
+  const TABS: { key: Tab; label: string; empty: string }[] = [
+    { key: 'action', label: 'דורש טיפול שלך', empty: 'אין כרגע בקשות שמחכות לך' },
+    { key: 'waiting', label: 'ממתין לבחירת הלקוח', empty: 'אין לקוחות שמחכים לבחור מלון' },
+    { key: 'inProgress', label: 'אושר — בסגירה', empty: 'אין הזמנות מאושרות שנשאר בהן משהו לסגור' },
+    { key: 'done', label: 'הושלם / נדחה', empty: 'אין עדיין הזמנות סגורות' },
   ];
 
   return (
@@ -227,17 +289,22 @@ export const AdminImmediateRequestsPage = () => {
           <div className="w-10 h-10 rounded-xl bg-[#D4B483]/15 flex items-center justify-center">
             <Zap className="text-[#B08D57]" size={20} />
           </div>
-          <h1 className="text-2xl font-black text-[#0A192F]">בקשות הזמנת חופשה</h1>
+          <div>
+            <h1 className="text-2xl font-black text-[#0A192F]">לוח הזמנות</h1>
+            <p className="text-sm text-[#33332D]/50">כל לקוח שמגיע לו מלון — מהבדיקה ועד שהשובר אצלו</p>
+          </div>
         </div>
 
         {/* טאבים */}
-        <div className="flex gap-2 mb-6 border-b border-[#E5E1D8]">
+        <div className="flex gap-2 mb-6 border-b border-[#E5E1D8] overflow-x-auto overflow-y-hidden">
           {TABS.map(({ key, label }) => (
             <button key={key} onClick={() => setTab(key)}
-              className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-all flex items-center gap-2 ${tab === key ? 'border-[#0A192F] text-[#0A192F]' : 'border-transparent text-[#33332D]/45 hover:text-[#33332D]'}`}>
+              className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-all flex items-center gap-2 whitespace-nowrap ${tab === key ? 'border-[#0A192F] text-[#0A192F]' : 'border-transparent text-[#33332D]/45 hover:text-[#33332D]'}`}>
               {label}
               {counts[key] > 0 && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${tab === key ? 'bg-[#0A192F] text-white' : 'bg-[#E5E1D8] text-[#33332D]/60'}`}>{counts[key]}</span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  key === 'action' ? 'bg-red-500 text-white' : tab === key ? 'bg-[#0A192F] text-white' : 'bg-[#E5E1D8] text-[#33332D]/60'
+                }`}>{counts[key]}</span>
               )}
             </button>
           ))}
@@ -248,7 +315,7 @@ export const AdminImmediateRequestsPage = () => {
         ) : visibleRequests.length === 0 ? (
           <div className="bg-white rounded-2xl border border-[#E5E1D8]/60 p-12 text-center">
             <Zap className="text-[#33332D]/15 mx-auto mb-3" size={36} />
-            <p className="text-[#33332D]/40">{tab === 'new' ? 'אין בקשות חדשות' : tab === 'final' ? 'אין בקשות לאישור סופי' : 'אין היסטוריה'}</p>
+            <p className="text-[#33332D]/40">{TABS.find((t) => t.key === tab)?.empty}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -315,6 +382,45 @@ export const AdminImmediateRequestsPage = () => {
 
                       {req.status === 'rejected' && req.admin_note && (
                         <p className="mt-2 text-xs text-red-600">סיבת דחייה: {req.admin_note}</p>
+                      )}
+
+                      {NEXT_STEP[req.status] && !req.change_requested && !(req.status === 'confirmed' && isChecklistDone(req.id)) && (
+                        <p className="mt-3 flex items-start gap-1.5 text-sm text-[#0B3C5D] bg-sky-50 border border-sky-100 rounded-xl px-3 py-2">
+                          <ArrowLeftCircle size={15} className="mt-0.5 shrink-0" />
+                          <span><b>הצעד הבא:</b> {NEXT_STEP[req.status]}</span>
+                        </p>
+                      )}
+
+                      {/* צ'קליסט פנימי — רק המנהל רואה */}
+                      {req.status !== 'rejected' && (
+                        <div className="mt-3 rounded-xl border border-dashed border-[#E5E1D8] px-4 py-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold text-[#33332D]/60 flex items-center gap-1.5">
+                              <ListChecks size={13} /> מעקב פנימי (הלקוח לא רואה)
+                            </span>
+                            <span className="text-[11px] font-semibold text-[#626D58]">
+                              {CHECKLIST.filter((c) => tracking[req.id]?.checklist?.[c.key]).length}/{CHECKLIST.length}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                            {CHECKLIST.map((c) => (
+                              <label key={c.key} className="inline-flex items-center gap-1.5 text-sm text-[#33332D]/80 cursor-pointer select-none">
+                                <input type="checkbox" className="accent-[#626D58] w-4 h-4"
+                                  checked={!!tracking[req.id]?.checklist?.[c.key]}
+                                  onChange={() => toggleCheck(req.id, c.key)} />
+                                {c.label}
+                              </label>
+                            ))}
+                          </div>
+                          <textarea
+                            rows={1}
+                            value={noteDrafts[req.id] ?? tracking[req.id]?.internal_note ?? ''}
+                            onChange={(e) => setNoteDrafts((prev) => ({ ...prev, [req.id]: e.target.value }))}
+                            onBlur={() => saveNote(req.id)}
+                            placeholder="הערה פנימית (לדוגמה: דיברתי עם המלון, מחכה לאישור עד יום ג׳)"
+                            className="mt-2 w-full border border-[#E5E1D8] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#0A192F] resize-y"
+                          />
+                        </div>
                       )}
 
                       {/* בקשת שינוי */}

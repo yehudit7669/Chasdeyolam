@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage';
 import PlanSelectionPage from './pages/PlanSelectionPage';
 import PaymentPage from './pages/PaymentPage';
 import RedemptionChoicePage from './pages/RedemptionChoicePage';
+import AvailabilityCheckPage from './pages/AvailabilityCheckPage';
 import MyOrdersPage from './pages/MyOrdersPage';
 import DonorDashboardPage from './pages/DonorDashboardPage';
 import DonorHotelsPage from './pages/DonorHotelsPage';
@@ -69,6 +70,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             {isAdmin || canView ? <Navigate to="/admin" replace /> : <RedemptionChoicePage />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/availability-check"
+        element={
+          <ProtectedRoute>
+            {isAdmin || canView ? <Navigate to="/admin" replace /> : <AvailabilityCheckPage />}
           </ProtectedRoute>
         }
       />

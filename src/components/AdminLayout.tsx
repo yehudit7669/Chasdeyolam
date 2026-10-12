@@ -1,13 +1,14 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import logoImg from '../assets/לוגו-חסדי.png';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import {
   LayoutDashboard, FileText, Users, CreditCard, Hotel,
-  BookOpen, MessageSquare, Settings, LogOut, Menu, X,
-  CircleUser as UserCircle, Building2, HeartHandshake, Wrench, Images, Zap, Repeat,
+  MessageSquare, Settings, LogOut, Menu, X,
+  CircleUser as UserCircle, Building2, HeartHandshake, Wrench, Images, Repeat,
+  BedDouble, Wallet, ClipboardList, Hourglass, CalendarSearch,
 } from 'lucide-react';
-import { useState } from 'react';
 import NotificationBell from './NotificationBell';
 
 interface AdminLayoutProps {
@@ -27,58 +28,115 @@ interface MenuSection {
   items: MenuItem[];
 }
 
+interface AdminArea {
+  key: 'orders' | 'finance' | 'site';
+  label: string;
+  icon: React.ElementType;
+  sections: MenuSection[];
+}
+
+// שלושה אזורים: הזמנות (הטיפול היומיומי בלקוחות שמגיע להם מלון) · תורמים וכספים · ניהול האתר
+const ADMIN_AREAS: AdminArea[] = [
+  {
+    key: 'orders',
+    label: 'הזמנות',
+    icon: BedDouble,
+    sections: [
+      {
+        title: 'ניהול הזמנות',
+        items: [
+          { path: '/admin/availability-checks', icon: CalendarSearch, label: 'בדיקות זמינות לפני תשלום' },
+          { path: '/admin/immediate-requests', icon: ClipboardList, label: 'לוח הזמנות' },
+          { path: '/admin/approaching', icon: Hourglass, label: 'מתקרבים לזכאות' },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'finance',
+    label: 'תורמים וכספים',
+    icon: Wallet,
+    sections: [
+      {
+        title: 'ראשי',
+        items: [
+          { path: '/admin', icon: LayoutDashboard, label: 'לוח בקרה', exact: true },
+        ],
+      },
+      {
+        title: 'תורמים',
+        items: [
+          { path: '/admin/users', icon: Users, label: 'משתמשים' },
+          { path: '/admin/donors', icon: HeartHandshake, label: 'תורמים' },
+          { path: '/admin/bank-donors', icon: Building2, label: 'הוראת קבע בנקאית', highlight: true },
+        ],
+      },
+      {
+        title: 'מנויים ותשלומים',
+        items: [
+          { path: '/admin/subscriptions', icon: FileText, label: 'מנויים' },
+          { path: '/admin/payments', icon: CreditCard, label: 'תשלומים' },
+          { path: '/admin/plan-change-requests', icon: Repeat, label: 'בקשות החלפת תוכנית', highlight: true },
+        ],
+      },
+      {
+        title: 'תמיכה',
+        items: [
+          { path: '/admin/support', icon: MessageSquare, label: 'פניות תמיכה' },
+          { path: '/admin/service-desk', icon: Wrench, label: 'שירות לקוחות' },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'site',
+    label: 'ניהול האתר',
+    icon: Settings,
+    sections: [
+      {
+        title: 'תוכן האתר',
+        items: [
+          { path: '/admin/plans', icon: FileText, label: 'תוכניות' },
+          { path: '/admin/hotels', icon: Hotel, label: 'מלונות' },
+          { path: '/admin/vacation-gallery', icon: Images, label: 'גלריית נופשים' },
+        ],
+      },
+      {
+        title: 'מערכת',
+        items: [
+          { path: '/admin/settings', icon: Settings, label: 'הגדרות' },
+        ],
+      },
+    ],
+  },
+];
+
 export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const { profile, signOut } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const menuSections: MenuSection[] = [
-    {
-      title: 'ראשי',
-      items: [
-        { path: '/admin', icon: LayoutDashboard, label: 'לוח בקרה', exact: true },
-      ],
-    },
-    {
-      title: 'תורמים',
-      items: [
-        { path: '/admin/users', icon: Users, label: 'משתמשים' },
-        { path: '/admin/donors', icon: HeartHandshake, label: 'תורמים' },
-        { path: '/admin/bank-donors', icon: Building2, label: 'הוראת קבע בנקאית', highlight: true },
-      ],
-    },
-    {
-      title: 'מנויים ותשלומים',
-      items: [
-        { path: '/admin/subscriptions', icon: FileText, label: 'מנויים' },
-        { path: '/admin/payments', icon: CreditCard, label: 'תשלומים' },
-        { path: '/admin/immediate-requests', icon: Zap, label: 'בקשות הזמנה', highlight: true },
-        { path: '/admin/plan-change-requests', icon: Repeat, label: 'בקשות החלפת תוכנית', highlight: true },
-        { path: '/admin/plans', icon: FileText, label: 'תוכניות' },
-      ],
-    },
-    {
-      title: 'מלונות',
-      items: [
-        { path: '/admin/hotels', icon: Hotel, label: 'מלונות ותוכניות' },
-        { path: '/admin/bookings', icon: BookOpen, label: 'הזמנות' },
-        { path: '/admin/vacation-gallery', icon: Images, label: 'גלריית נופשים' },
-      ],
-    },
-    {
-      title: 'תמיכה',
-      items: [
-        { path: '/admin/support', icon: MessageSquare, label: 'פניות תמיכה' },
-        { path: '/admin/service-desk', icon: Wrench, label: 'שירות לקוחות' },
-        { path: '/admin/settings', icon: Settings, label: 'הגדרות' },
-      ],
-    },
-  ];
+  // כמה דברים מחכים להחלטה של המנהל (הזמנות + בדיקות זמינות) — מוצג על לשונית "הזמנות"
+  const [ordersWaiting, setOrdersWaiting] = useState(0);
+  useEffect(() => {
+    Promise.all([
+      supabase.from('immediate_requests').select('status, change_requested').eq('archived', false),
+      supabase.from('availability_checks').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    ]).then(([reqs, checks]) => setOrdersWaiting(
+      (reqs.data ?? []).filter((r) => r.change_requested || ['pending_review', 'awaiting_admin'].includes(r.status)).length
+      + (checks.count ?? 0)
+    ));
+  }, [location.pathname]);
 
   const isActive = (path: string, exact = false) => {
     if (exact) return location.pathname === path;
     return location.pathname.startsWith(path);
   };
+
+  const currentArea =
+    ADMIN_AREAS.find((a) => a.sections.some((s) => s.items.some((i) => isActive(i.path, i.exact))))
+    ?? ADMIN_AREAS[1];
+  const menuSections = currentArea.sections;
 
   const handleSignOut = async () => {
     try { await signOut(); } catch (error) { console.error('Sign out error:', error); }
@@ -101,6 +159,33 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
               decoding="async"
             />
             <p className="text-sm text-gray-300 mt-1">לוח ניהול</p>
+          </div>
+
+          {/* מעבר בין אזורים */}
+          <div className="p-3 border-b border-white/10 grid grid-cols-3 gap-1">
+            {ADMIN_AREAS.map((area) => {
+              const Icon = area.icon;
+              const active = area.key === currentArea.key;
+              const firstPath = area.sections[0].items[0].path;
+              return (
+                <Link
+                  key={area.key}
+                  to={firstPath}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`relative flex flex-col items-center gap-1 px-1 py-2.5 rounded-lg text-[11px] font-semibold transition-colors ${
+                    active ? 'bg-[#C6A75E] text-[#0B3C5D]' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <Icon size={18} />
+                  <span className="leading-tight text-center">{area.label}</span>
+                  {area.key === 'orders' && ordersWaiting > 0 && (
+                    <span className="absolute -top-1 -left-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {ordersWaiting}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
 
           <nav className="flex-1 p-4 overflow-y-auto">

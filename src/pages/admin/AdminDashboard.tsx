@@ -14,6 +14,8 @@ import { AdminUsersPage } from './AdminUsersPage';
 import { AdminVacationGalleryPage } from './AdminVacationGalleryPage';
 import { AdminImmediateRequestsPage } from './AdminImmediateRequestsPage';
 import { AdminPlanChangeRequestsPage } from './AdminPlanChangeRequestsPage';
+import { AdminApproachingEligibilityPage } from './AdminApproachingEligibilityPage';
+import { AdminAvailabilityChecksPage } from './AdminAvailabilityChecksPage';
 
 export const AdminDashboard = () => {
   return (
@@ -33,6 +35,8 @@ export const AdminDashboard = () => {
       <Route path="/vacation-gallery" element={<AdminVacationGalleryPage />} />
       <Route path="/immediate-requests" element={<AdminImmediateRequestsPage />} />
       <Route path="/plan-change-requests" element={<AdminPlanChangeRequestsPage />} />
+      <Route path="/approaching" element={<AdminApproachingEligibilityPage />} />
+      <Route path="/availability-checks" element={<AdminAvailabilityChecksPage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   );

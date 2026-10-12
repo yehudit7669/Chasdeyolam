@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from '../hooks/useTranslation';
 import { createNotification } from '../hooks/useNotifications';
+import { AvailabilityCheck, isPayable, fmtDay, fmtExpiry } from '../lib/availabilityChecks';
 
 interface Plan {
   id: string;
@@ -57,6 +58,10 @@ export default function PaymentPage() {
   const paymentTypeLabel = isImmediateRedemption ? 'תשלומים — מימוש מיידי' : p.standingOrder;
   const paymentTypeLabelShort = isImmediateRedemption ? 'עסקה בתשלומים' : p.standingOrderType;
   const immediateHandled = useRef(false);
+  // בדיקת זמינות שאושרה מראש (מימוש מיידי עם העדפת מקום/תאריך) — אם הגיעו מדף הבדיקה
+  const availabilityCheckId: string | undefined = location.state?.availabilityCheckId;
+  const [availCheck, setAvailCheck] = useState<AvailabilityCheck | null>(null);
+  const [availHotelName, setAvailHotelName] = useState('');
 
   // כשתשלום מיידי מצליח — יוצרים בקשת מימוש מיידי + התראה למנהל
   useEffect(() => {
@@ -66,22 +71,36 @@ export default function PaymentPage() {
     (async () => {
       try {
         const fullName = profile?.full_name ?? '';
-        const { error: reqErr } = await supabase.from('immediate_requests').insert({
+        // אם הזמינות נבדקה מראש — המקום והתאריכים כבר ידועים, ההזמנה נכנסת ישר ל"ממתין להכרעתך"
+        const preChecked = availCheck && availCheck.approved_hotel_id ? availCheck : null;
+        const { data: newReq, error: reqErr } = await supabase.from('immediate_requests').insert({
           user_id: user.id,
           plan_id: plan.id,
-          status: 'pending_review',
+          status: preChecked ? 'awaiting_admin' : 'pending_review',
           plan_name_he: plan.name_he,
           user_full_name: fullName,
-        });
+          ...(preChecked ? {
+            selected_hotel_id: preChecked.approved_hotel_id,
+            selected_date: preChecked.approved_date,
+            selected_end_date: preChecked.approved_end_date,
+            user_note: preChecked.user_note,
+          } : {}),
+        }).select('id').single();
         if (reqErr) {
           console.error('[Immediate] request insert failed:', reqErr.message);
           alert('שגיאה ביצירת בקשת המימוש: ' + reqErr.message);
+        }
+        if (preChecked) {
+          await supabase.from('availability_checks')
+            .update({ status: 'used', used_request_id: newReq?.id ?? null }).eq('id', preChecked.id);
         }
         const { error: notifErr } = await createNotification({
           for_admin: true,
           type: 'immediate_payment',
           title: 'מימוש מיידי — תשלום התקבל',
-          body: `${fullName || 'משתמש'} שילם בתוכנית "${plan.name_he}". יש לבדוק מול נדרים פלוס ולפתוח להזמנה.`,
+          body: preChecked
+            ? `${fullName || 'משתמש'} שילם בתוכנית "${plan.name_he}" אחרי שאישרת זמינות: ${availHotelName}${preChecked.approved_date ? ` · ${fmtDay(preChecked.approved_date)}` : ''}. יש לאמת את התשלום בנדרים ולהזמין במלון.`
+            : `${fullName || 'משתמש'} שילם בתוכנית "${plan.name_he}". יש לבדוק מול נדרים פלוס ולפתוח להזמנה.`,
           link: '/admin/immediate-requests',
           email: { toAdmin: true },
         });
@@ -93,14 +112,28 @@ export default function PaymentPage() {
         console.error('[Immediate] failed to create request/notification:', err);
       }
     })();
-  }, [pageState, redemptionType, user, plan, profile]);
+  }, [pageState, redemptionType, user, plan, profile, availCheck, availHotelName]);
 
   useEffect(() => {
     if (!user) { navigate('/signin'); return; }
     if (!planId) { navigate('/plans'); return; }
     loadPlan();
     loadProfile();
+    loadAvailabilityCheck();
   }, [user, planId]);
+
+  const loadAvailabilityCheck = async () => {
+    if (!availabilityCheckId) return;
+    const { data } = await supabase.from('availability_checks').select('*').eq('id', availabilityCheckId).maybeSingle();
+    const c = data as AvailabilityCheck | null;
+    // האישור פג (48 שעות) או לא בתוקף — חוזרים לדף הבדיקה, שם מוסבר מה לעשות
+    if (!c || !isPayable(c)) { navigate(`/availability-check?plan=${planId}`, { replace: true }); return; }
+    setAvailCheck(c);
+    if (c.approved_hotel_id) {
+      const { data: h } = await supabase.from('hotels').select('name_he').eq('id', c.approved_hotel_id).maybeSingle();
+      setAvailHotelName(h?.name_he ?? '');
+    }
+  };
 
   const loadProfile = async () => {
     if (!user) return;
@@ -414,7 +447,9 @@ export default function PaymentPage() {
           </h2>
           <p className="text-[#33332D]/60 text-sm mb-8 leading-relaxed">
             {isImmediate
-              ? 'אנחנו בודקים שהכל תקין ותכף נפתח לך את אפשרויות הבחירה. נעדכן אותך ברגע שאפשר להזמין — אפשר לעקוב בדף הבית.'
+              ? (availCheck
+                ? `המקום שבחרת (${availHotelName}) כבר נבדק ופנוי. אנחנו משלימים את ההזמנה מול המקום ונשלח לך אישור סופי — אפשר לעקוב ב"ההזמנות שלי".`
+                : 'אנחנו בודקים שהכל תקין ותכף נפתח לך את אפשרויות הבחירה. נעדכן אותך ברגע שאפשר להזמין — אפשר לעקוב בדף הבית.')
               : p.successDesc}
           </p>
           <button onClick={() => navigate('/dashboard')}
@@ -514,6 +549,23 @@ export default function PaymentPage() {
               {pageState === 'ready' && (
                 <div className="p-8">
                   <h1 className="text-2xl font-black text-[#0A192F] mb-6">{p.paymentDetails}</h1>
+
+                  {/* זמינות שאושרה מראש */}
+                  {availCheck && (
+                    <div className="rounded-2xl border border-[#626D58]/30 bg-[#626D58]/5 p-4 mb-4 text-sm">
+                      <div className="flex items-center gap-2 font-bold text-[#0A192F] mb-1">
+                        <CheckCircle size={16} className="text-[#626D58]" /> המקום נבדק ופנוי עבורך
+                      </div>
+                      <div className="text-[#33332D]/70">
+                        {availHotelName}
+                        {availCheck.approved_date && ` · ${fmtDay(availCheck.approved_date)}`}
+                        {availCheck.approved_end_date && ` עד ${fmtDay(availCheck.approved_end_date)}`}
+                      </div>
+                      {availCheck.expires_at && (
+                        <div className="text-xs text-amber-700 mt-1">שמור עבורך עד {fmtExpiry(availCheck.expires_at)}</div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Plan summary */}
                   {plan && (

@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { createNotification } from '../hooks/useNotifications';
 import { isDayAllowed, formatBookableDays, effectiveBookableDays } from '../lib/stayType';
 import heroHotelImg from '../assets/hero-hotel.jpg';
+import { AvailabilityCheck, isExpired, isPayable, fmtRequestedDates } from '../lib/availabilityChecks';
 import {
   MapPin, Hotel as HotelIcon, Moon, CheckCircle, Loader2, Star,
   ChevronRight, ChevronLeft, Clock, AlertTriangle, Calendar, Trash2,
@@ -47,6 +48,8 @@ export default function MyOrdersPage() {
   const [calBy, setCalBy] = useState<Record<string, Date>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [changeMode, setChangeMode] = useState<Record<string, boolean>>({});
+  // בדיקות זמינות פתוחות (לפני תשלום במימוש מיידי)
+  const [openChecks, setOpenChecks] = useState<(AvailabilityCheck & { hotel_name?: string })[]>([]);
 
   const loadAll = useCallback(async () => {
     if (!user) return;
@@ -58,6 +61,13 @@ export default function MyOrdersPage() {
 
     const reqs = (rows ?? []) as Req[];
     setRequests(reqs);
+
+    const { data: checks } = await supabase.from('availability_checks')
+      .select('*, hotel:hotels!availability_checks_hotel_id_fkey(name_he)')
+      .eq('user_id', user.id).in('status', ['pending', 'available', 'unavailable'])
+      .order('created_at', { ascending: false });
+    setOpenChecks(((checks ?? []) as (AvailabilityCheck & { hotel: { name_he: string } | null })[])
+      .map((c) => ({ ...c, hotel_name: c.hotel?.name_he })));
 
     const planMap: Record<string, PlanInfo> = {};
     const hotelsMap: Record<string, Hotel[]> = {};
@@ -459,7 +469,32 @@ export default function MyOrdersPage() {
     <DonorLayout>
       <div dir="rtl">
         {hero}
-        {requests.length === 0 ? (
+        {openChecks.length > 0 && (
+          <div className="space-y-3 mb-6">
+            {openChecks.map((c) => {
+              const payable = isPayable(c);
+              const label = c.status === 'pending' ? 'בודקים זמינות — עוד לא חויבת'
+                : payable ? 'יש מקום! אפשר להמשיך לתשלום'
+                : isExpired(c) ? 'אישור הזמינות פג — אפשר לבקש שוב' : 'התאריכים לא פנויים — אפשר לבחור אחרים';
+              return (
+                <button key={c.id} onClick={() => navigate(`/availability-check?plan=${c.plan_id}`)}
+                  className={`w-full text-right flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md ${
+                    payable ? 'border-[#626D58]/40 bg-[#626D58]/5' : c.status === 'pending' ? 'border-[#D4B483]/40 bg-[#D4B483]/5' : 'border-amber-300 bg-amber-50/50'
+                  }`}>
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+                    {payable ? <CheckCircle className="text-[#626D58]" size={20} /> : c.status === 'pending' ? <Clock className="text-[#B08D57]" size={20} /> : <AlertTriangle className="text-amber-600" size={20} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-[#0A192F]">{label}</p>
+                    <p className="text-xs text-[#33332D]/55 truncate">{c.plan_name_he} · {c.hotel_name} · {fmtRequestedDates(c)}</p>
+                  </div>
+                  <ChevronLeft size={18} className="text-[#33332D]/30 shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {requests.length === 0 && openChecks.length === 0 ? (
           <div className="text-center py-16">
             <HotelIcon className="text-[#33332D]/15 mx-auto mb-3" size={40} />
             <p className="text-[#33332D]/50 mb-6">אין לך כרגע הזמנות פעילות.</p>

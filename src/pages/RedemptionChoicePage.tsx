@@ -35,7 +35,7 @@ export default function RedemptionChoicePage() {
         const allowImm = data.allow_immediate ?? true;
         const allowReg = data.allow_regular ?? true;
         // אם רק אפשרות אחת פעילה — דילוג ישיר לתשלום
-        if (allowImm && !allowReg) { navigate('/payment', { state: { planId, redemptionType: 'immediate' }, replace: true }); return; }
+        if (allowImm && !allowReg) { navigate('/availability-check', { state: { planId }, replace: true }); return; }
         if (allowReg && !allowImm) { navigate('/payment', { state: { planId, redemptionType: 'on_completion' }, replace: true }); return; }
         setPlan(data as PlanLite);
       }
@@ -43,8 +43,10 @@ export default function RedemptionChoicePage() {
     })();
   }, [planId]);
 
+  // מימוש מיידי עובר קודם בשאלה "יש העדפה למקום ותאריך?" — כדי לבדוק זמינות לפני שמשלמים את כל הסכום
   const goToPayment = (redemptionType: 'on_completion' | 'immediate') => {
-    navigate('/payment', { state: { planId, redemptionType } });
+    if (redemptionType === 'immediate') navigate('/availability-check', { state: { planId } });
+    else navigate('/payment', { state: { planId, redemptionType } });
   };
 
   const total = plan ? plan.monthly_amount * plan.required_successful_payments : 0;
