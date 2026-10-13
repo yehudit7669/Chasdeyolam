@@ -210,7 +210,7 @@ async function syncSubscription(
         subscription_id: sub.id,
         user_id: sub.user_id,
         performed_by: null,
-        action: nedarimStatus === "frozen" ? "admin_disabled" : nedarimStatus === "canceled" ? "admin_canceled" : "admin_enabled",
+        action: nedarimStatus === "frozen" ? "admin_disabled" : nedarimStatus === "canceled" ? "admin_deleted" : "admin_enabled",
         old_status: sub.status,
         new_status: nedarimStatus,
         nedarim_keva_id: sub.keva_id,

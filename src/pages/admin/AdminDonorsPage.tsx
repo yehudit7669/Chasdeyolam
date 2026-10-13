@@ -6,6 +6,8 @@ import { Search, Settings2, Pause, Play, Trash2, X, RefreshCw, CheckCircle, XCir
 import { Toast } from '../../components/admin/Toast';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../contexts/AuthContext';
+import { DonorDetailsDrawer } from '../../components/admin/DonorDetailsDrawer';
+import { JourneyRequest, REWARD_LABEL, rewardStage, isDonorFinished } from '../../lib/donorJourney';
 
 interface DonorRow {
   user_id: string;
@@ -14,6 +16,8 @@ interface DonorRow {
   phone: string | null;
   created_at: string;
   subscription_id: string;
+  plan_id: string;
+  is_eligible: boolean;
   subscription_status: string;
   subscription_source: string;
   successful_payments_count: number;
@@ -53,6 +57,28 @@ interface SyncStats {
   details: SyncDetail[];
 }
 
+const STATUS_HE: Record<string, string> = { active: 'פעיל', frozen: 'מוקפא', canceled: 'בוטל', completed: 'הושלם' };
+
+// מתרגם את סיבת הסנכרון (באנגלית, מהשרת) להסבר שמנהל מבין
+const explainSync = (d: SyncDetail): string => {
+  const r = d.reason || '';
+  if (d.classification === 'error') {
+    if (r.startsWith('unexpected GetKevaId response')) return 'נדרים פלוס לא מצא את הוראת הקבע — כנראה נמחקה או בוטלה ישירות בנדרים. כדאי לבדוק בפאנל של נדרים.';
+    if (r.startsWith('DB update failed')) return 'נדרים ענה, אבל השמירה במערכת נכשלה: ' + r.replace('DB update failed: ', '');
+    if (/timeout|abort|HTTP|fetch/i.test(r)) return 'לא הייתה תקשורת עם נדרים פלוס (תקלה זמנית). אפשר לנסות שוב.';
+    return 'שגיאה: ' + r;
+  }
+  if (d.classification === 'synced') {
+    const parts: string[] = [];
+    const st = r.match(/status (\w+)→(\w+)/);
+    if (st) parts.push(`הסטטוס השתנה: ${STATUS_HE[st[1]] ?? st[1]} ← ${STATUS_HE[st[2]] ?? st[2]}`);
+    const nd = r.match(/nextDate ([\d-]+|null)→([\d-]+|null)/);
+    if (nd) parts.push(`תאריך החיוב הבא עודכן ל-${nd[2] === 'null' ? '—' : new Date(nd[2]).toLocaleDateString('he-IL')}`);
+    return parts.join(' · ') || 'עודכן';
+  }
+  return 'הכל תקין — אין שינוי מול נדרים';
+};
+
 export const AdminDonorsPage = () => {
   const [donors, setDonors] = useState<DonorRow[]>([]);
   const [filtered, setFiltered] = useState<DonorRow[]>([]);
@@ -65,6 +91,10 @@ export const AdminDonorsPage = () => {
   const [syncError, setSyncError] = useState<string | null>(null);
   const { toast, showToast, hideToast } = useToast();
   const { canEdit } = useAuth();
+  const [detailsDonor, setDetailsDonor] = useState<DonorRow | null>(null);
+  // בקשות הזמנה + צ'קליסטים — כדי לדעת מי כבר קיבל את התמורה
+  const [requests, setRequests] = useState<JourneyRequest[]>([]);
+  const [checklists, setChecklists] = useState<Record<string, Record<string, boolean>>>({});
 
   useEffect(() => { loadDonors(); }, []);
   useEffect(() => { filterDonors(); }, [donors, searchTerm, statusFilter]);
@@ -75,6 +105,8 @@ export const AdminDonorsPage = () => {
         .from('subscriptions')
         .select(`
           id,
+          plan_id,
+          is_eligible,
           status,
           subscription_source,
           successful_payments_count,
@@ -95,6 +127,8 @@ export const AdminDonorsPage = () => {
         phone: s.profiles?.phone || null,
         created_at: s.profiles?.created_at || '',
         subscription_id: s.id,
+        plan_id: s.plan_id,
+        is_eligible: !!s.is_eligible,
         subscription_status: s.status,
         subscription_source: s.subscription_source || 'nedarim',
         successful_payments_count: s.successful_payments_count,
@@ -107,6 +141,16 @@ export const AdminDonorsPage = () => {
       }));
 
       setDonors(rows);
+
+      const { data: reqs } = await supabase.from('immediate_requests')
+        .select('id, user_id, plan_id, subscription_id, status, redemption_type, created_at').eq('archived', false);
+      setRequests((reqs ?? []) as JourneyRequest[]);
+      if (reqs?.length) {
+        const { data: tr } = await supabase.from('booking_admin_tracking').select('request_id, checklist').in('request_id', reqs.map((r) => r.id));
+        const cl: Record<string, Record<string, boolean>> = {};
+        for (const t of tr ?? []) cl[t.request_id] = t.checklist ?? {};
+        setChecklists(cl);
+      }
     } catch (err) {
       console.error(err);
       showToast('שגיאה בטעינת תורמים', 'error');
@@ -249,6 +293,12 @@ export const AdminDonorsPage = () => {
     return <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600">נדרים</span>;
   };
 
+  const asJourney = (d: DonorRow) => ({ id: d.subscription_id, user_id: d.user_id, plan_id: d.plan_id, status: d.subscription_status, is_eligible: d.is_eligible });
+  const finishedUsers = new Set(
+    Array.from(new Set(donors.map((d) => d.user_id)))
+      .filter((uid) => isDonorFinished(donors.filter((d) => d.user_id === uid).map(asJourney), requests, checklists))
+  );
+
   if (loading) {
     return (
       <AdminLayout>
@@ -265,7 +315,7 @@ export const AdminDonorsPage = () => {
       <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-[#0B3C5D]">תורמים</h1>
-          <p className="text-gray-600 mt-1">כל מי שיש לו מנוי קיים או היסטורי ({donors.length} רשומות)</p>
+          <p className="text-gray-600 mt-1">כל מי שיש לו מנוי קיים או היסטורי ({donors.length} רשומות) · לחיצה על שם פותחת את כל הפרטים</p>
         </div>
 
         {/* Nedarim sync tool */}
@@ -317,43 +367,58 @@ export const AdminDonorsPage = () => {
               </div>
             )}
 
-            {/* Per-subscription detail table */}
-            {lastSync && lastSync.details.length > 0 && (
-              <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-2 py-1.5 text-right text-gray-500 font-medium">KevaId</th>
-                      <th className="px-2 py-1.5 text-right text-gray-500 font-medium">לפני</th>
-                      <th className="px-2 py-1.5 text-right text-gray-500 font-medium">אחרי</th>
-                      <th className="px-2 py-1.5 text-right text-gray-500 font-medium">תוצאה</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {lastSync.details.map((d) => {
-                      const cls = d.classification === 'synced'
-                        ? 'text-blue-700 bg-blue-50'
-                        : d.classification === 'error'
-                        ? 'text-red-700 bg-red-50'
-                        : 'text-gray-500';
-                      const label = d.classification === 'synced' ? 'עודכן' : d.classification === 'error' ? 'שגיאה' : 'ללא שינוי';
-                      const statusLabel = (s: string | null) => s === 'active' ? 'פעיל' : s === 'frozen' ? 'מוקפא' : s === 'canceled' ? 'בוטל' : s ?? '—';
-                      return (
-                        <tr key={d.subscription_id} className="bg-white" title={d.reason}>
-                          <td className="px-2 py-1.5 font-mono text-gray-600">{d.keva_id}</td>
-                          <td className="px-2 py-1.5 text-gray-600">{statusLabel(d.old_status)}</td>
-                          <td className="px-2 py-1.5 text-gray-700 font-medium">{statusLabel(d.new_status)}</td>
-                          <td className={`px-2 py-1.5 font-semibold rounded-sm ${cls}`}>{label}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         )}
       </div>
+
+      {/* תוצאות הסנכרון — שם התורם + הסבר, שגיאות קודם */}
+      {lastSync && lastSync.details.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
+            <span className="text-sm font-bold text-[#0B3C5D]">תוצאות הסנכרון האחרון</span>
+            <span className="text-xs text-gray-500">
+              הסנכרון בודק רק הוראות קבע. תשלומים חד-פעמיים (מימוש מיידי) לא נבדקים כאן — הם מופיעים בדף התשלומים.
+            </span>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-xs text-gray-500">
+              <tr>
+                <th className="px-4 py-2 text-right font-medium">תורם</th>
+                <th className="px-4 py-2 text-right font-medium">תוכנית</th>
+                <th className="px-4 py-2 text-right font-medium">תוצאה</th>
+                <th className="px-4 py-2 text-right font-medium">מה זה אומר</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {[...lastSync.details]
+                .sort((a, b) => ({ error: 0, synced: 1, unchanged: 2 }[a.classification] - { error: 0, synced: 1, unchanged: 2 }[b.classification]))
+                .map((d) => {
+                  const donor = donors.find((x) => x.subscription_id === d.subscription_id);
+                  const badge = d.classification === 'error'
+                    ? <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">שגיאה</span>
+                    : d.classification === 'synced'
+                    ? <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">עודכן</span>
+                    : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">תקין</span>;
+                  return (
+                    <tr key={d.subscription_id} className={d.classification === 'error' ? 'bg-red-50/40' : ''}>
+                      <td className="px-4 py-2.5">
+                        {donor ? (
+                          <button onClick={() => setDetailsDonor(donor)} className="font-medium text-gray-900 hover:underline text-right">
+                            {donor.full_name || donor.email}
+                          </button>
+                        ) : <span className="text-gray-400">לא נמצא</span>}
+                        <div className="text-[11px] text-gray-400 font-mono">KevaId {d.keva_id}</div>
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-700">{donor?.plan_name ?? '—'}</td>
+                      <td className="px-4 py-2.5">{badge}</td>
+                      <td className="px-4 py-2.5 text-gray-700">{explainSync(d)}</td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -390,6 +455,7 @@ export const AdminDonorsPage = () => {
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">סטטוס</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">מקור</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תשלומים</th>
+              <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תמורה</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">התחלה</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">תנאי שימוש</th>
               <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">הוראת קבע</th>
@@ -398,19 +464,29 @@ export const AdminDonorsPage = () => {
           <tbody className="divide-y divide-gray-200">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-6 py-10 text-center text-gray-500">אין תורמים להצגה</td>
+                <td colSpan={9} className="px-6 py-10 text-center text-gray-500">אין תורמים להצגה</td>
               </tr>
             ) : (
               filtered.map((d) => (
                 <tr key={d.subscription_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
-                    <div className="font-medium text-sm text-gray-900">{d.full_name || <span className="italic text-gray-400">ללא שם</span>}</div>
-                    <div className="text-xs text-gray-500">{d.email}</div>
+                    <button onClick={() => setDetailsDonor(d)} className="text-right group">
+                      <div className="font-medium text-sm text-gray-900 group-hover:underline">{d.full_name || <span className="italic text-gray-400">ללא שם</span>}</div>
+                      <div className="text-xs text-gray-500">{d.email}</div>
+                    </button>
+                    {finishedUsers.has(d.user_id) && (
+                      <div className="mt-1 inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">🏁 הסתיים בהצלחה</div>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">{d.plan_name || '—'}</td>
                   <td className="px-6 py-4">{statusBadge(d.subscription_status)}</td>
                   <td className="px-6 py-4">{sourceBadge(d.subscription_source)}</td>
                   <td className="px-6 py-4 text-sm font-semibold text-gray-900">{d.successful_payments_count}</td>
+                  <td className="px-6 py-4">
+                    {(() => { const st = rewardStage(asJourney(d), requests, checklists); return (
+                      <span className={`text-xs font-semibold px-2 py-1 rounded-full whitespace-nowrap ${REWARD_LABEL[st].cls}`}>{REWARD_LABEL[st].label}</span>
+                    ); })()}
+                  </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {new Date(d.started_at).toLocaleDateString('he-IL')}
                   </td>
@@ -636,6 +712,8 @@ export const AdminDonorsPage = () => {
           </div>
         </div>
       )}
+
+      {detailsDonor && <DonorDetailsDrawer userId={detailsDonor.user_id} onClose={() => setDetailsDonor(null)} />}
 
       {toast.isOpen && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </AdminLayout>

@@ -16,6 +16,9 @@ export interface AvailabilityCheck {
   date_from: string;
   date_to: string;
   user_note: string | null;
+  guest_names: string | null;
+  guest_address: string | null;
+  guest_email: string | null;
   status: 'pending' | 'available' | 'unavailable' | 'used' | 'cancelled';
   approved_hotel_id: string | null;
   approved_date: string | null;

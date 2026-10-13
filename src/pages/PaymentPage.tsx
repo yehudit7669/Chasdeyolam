@@ -54,14 +54,21 @@ export default function PaymentPage() {
   // מספר תשלומים מופחת — משמש בזרימת "החלפת תוכנית" (plan_change_requests) לאחר זיכוי חודשים
   const overrideMonths: number | undefined = location.state?.overrideMonths;
   const effectiveMonths = overrideMonths ?? plan?.required_successful_payments ?? 0;
-  // תווית סוג התשלום לפי המסלול (מיידי = עסקה בתשלומים, רגיל = הוראת קבע)
-  const paymentTypeLabel = isImmediateRedemption ? 'תשלומים — מימוש מיידי' : p.standingOrder;
-  const paymentTypeLabelShort = isImmediateRedemption ? 'עסקה בתשלומים' : p.standingOrderType;
+  // מימוש מיידי: תפיסת מסגרת בתשלומים (ברירת מחדל) או תשלום אחד מלא עכשיו
+  const [fullPayment, setFullPayment] = useState(false);
+  const payInFull = isImmediateRedemption && fullPayment;
+  // תווית סוג התשלום לפי המסלול (מיידי = עסקה בתשלומים / תשלום אחד, רגיל = הוראת קבע)
+  const paymentTypeLabel = isImmediateRedemption
+    ? (payInFull ? 'תשלום אחד מלא — מימוש מיידי' : 'תשלומים (תפיסת מסגרת) — מימוש מיידי')
+    : p.standingOrder;
+  const paymentTypeLabelShort = isImmediateRedemption ? (payInFull ? 'תשלום אחד' : 'עסקה בתשלומים') : p.standingOrderType;
   const immediateHandled = useRef(false);
   // בדיקת זמינות שאושרה מראש (מימוש מיידי עם העדפת מקום/תאריך) — אם הגיעו מדף הבדיקה
   const availabilityCheckId: string | undefined = location.state?.availabilityCheckId;
   const [availCheck, setAvailCheck] = useState<AvailabilityCheck | null>(null);
   const [availHotelName, setAvailHotelName] = useState('');
+  // בקשת בדיקת זמינות שעוד לא נענתה — מזהירים לפני שמשלמים בלעדיה
+  const [pendingCheck, setPendingCheck] = useState(false);
 
   // כשתשלום מיידי מצליח — יוצרים בקשת מימוש מיידי + התראה למנהל
   useEffect(() => {
@@ -84,6 +91,9 @@ export default function PaymentPage() {
             selected_date: preChecked.approved_date,
             selected_end_date: preChecked.approved_end_date,
             user_note: preChecked.user_note,
+            guest_names: preChecked.guest_names,
+            guest_address: preChecked.guest_address,
+            guest_email: preChecked.guest_email,
           } : {}),
         }).select('id').single();
         if (reqErr) {
@@ -123,11 +133,23 @@ export default function PaymentPage() {
   }, [user, planId]);
 
   const loadAvailabilityCheck = async () => {
-    if (!availabilityCheckId) return;
-    const { data } = await supabase.from('availability_checks').select('*').eq('id', availabilityCheckId).maybeSingle();
-    const c = data as AvailabilityCheck | null;
-    // האישור פג (48 שעות) או לא בתוקף — חוזרים לדף הבדיקה, שם מוסבר מה לעשות
-    if (!c || !isPayable(c)) { navigate(`/availability-check?plan=${planId}`, { replace: true }); return; }
+    if (!user || redemptionType !== 'immediate') return;
+    let c: AvailabilityCheck | null = null;
+    if (availabilityCheckId) {
+      const { data } = await supabase.from('availability_checks').select('*').eq('id', availabilityCheckId).maybeSingle();
+      c = data as AvailabilityCheck | null;
+      // האישור פג (48 שעות) או לא בתוקף — חוזרים לדף הבדיקה, שם מוסבר מה לעשות
+      if (!c || !isPayable(c)) { navigate(`/availability-check?plan=${planId}`, { replace: true }); return; }
+    } else {
+      // הגיע לתשלום בדרך אחרת (רענון, דף התוכניות) — אם יש לו אישור זמינות בתוקף לתוכנית הזו,
+      // מקשרים אותו בכל זאת, כדי שהמקום והתאריכים שאושרו ייכנסו להזמנה
+      const { data } = await supabase.from('availability_checks').select('*')
+        .eq('user_id', user.id).eq('plan_id', planId).in('status', ['available', 'pending'])
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      c = data as AvailabilityCheck | null;
+      if (c?.status === 'pending') { setPendingCheck(true); return; }
+      if (!c || !isPayable(c)) return;
+    }
     setAvailCheck(c);
     if (c.approved_hotel_id) {
       const { data: h } = await supabase.from('hotels').select('name_he').eq('id', c.approved_hotel_id).maybeSingle();
@@ -250,7 +272,8 @@ export default function PaymentPage() {
         Phone: phone,
         Mail: mail,
         Amount: String(isImmediate ? plan.monthly_amount * months : plan.monthly_amount),
-        Tashlumim: String(months),
+        // תשלום מלא = עסקה אחת בלי חלוקה; אחרת הסכום מתחלק למספר החודשים של התוכנית
+        Tashlumim: isImmediate && fullPayment ? '1' : String(months),
         Groupe: p.nedarimGroup,
         Comment: '',
         Param1: user.id,
@@ -263,7 +286,7 @@ export default function PaymentPage() {
 
     setPageState('paying');
     postNedarim(payload);
-  }, [plan, user, profile, postNedarim]);
+  }, [plan, user, profile, postNedarim, fullPayment]);
 
   // קישור דף התרמה לפי המסלול (מיידי / רגיל)
   const nedarimUrl = plan ? (redemptionType === 'immediate' ? plan.nedarim_url_immediate : plan.nedarim_url_regular) : null;
@@ -550,6 +573,19 @@ export default function PaymentPage() {
                 <div className="p-8">
                   <h1 className="text-2xl font-black text-[#0A192F] mb-6">{p.paymentDetails}</h1>
 
+                  {pendingCheck && (
+                    <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 mb-4 text-sm">
+                      <div className="font-bold text-amber-800 mb-1">בקשת בדיקת הזמינות שלך עוד לא נענתה</div>
+                      <p className="text-amber-800/80 leading-relaxed">
+                        אם תשלם עכשיו, ההזמנה לא תכלול את המקום והתאריכים שביקשת — תבחר מקום אחרי התשלום מתוך מה שפנוי.
+                      </p>
+                      <button onClick={() => navigate(`/availability-check?plan=${planId}`)}
+                        className="mt-2 text-sm font-semibold text-amber-900 underline underline-offset-2">
+                        חזרה לבקשת הבדיקה
+                      </button>
+                    </div>
+                  )}
+
                   {/* זמינות שאושרה מראש */}
                   {availCheck && (
                     <div className="rounded-2xl border border-[#626D58]/30 bg-[#626D58]/5 p-4 mb-4 text-sm">
@@ -581,17 +617,41 @@ export default function PaymentPage() {
                           <div className="font-bold">{paymentTypeLabel}</div>
                         </div>
                         <div>
-                          <div className="text-white/40 text-xs mb-0.5">{p.monthlyPayment}</div>
-                          <div className="font-bold text-[#D4B483]">₪{plan.monthly_amount.toLocaleString()}</div>
+                          <div className="text-white/40 text-xs mb-0.5">{payInFull ? 'סכום לתשלום' : p.monthlyPayment}</div>
+                          <div className="font-bold text-[#D4B483]">₪{(payInFull ? totalAmount : plan.monthly_amount).toLocaleString()}</div>
                         </div>
                         <div>
                           <div className="text-white/40 text-xs mb-0.5">{p.numPayments}</div>
-                          <div className="font-bold">{effectiveMonths} {p.months}</div>
+                          <div className="font-bold">{payInFull ? 'תשלום אחד' : `${effectiveMonths} ${p.months}`}</div>
                         </div>
                         <div>
                           <div className="text-white/40 text-xs mb-0.5">{p.totalCommitment}</div>
                           <div className="font-bold">₪{totalAmount.toLocaleString()}</div>
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* מימוש מיידי — איך משלמים */}
+                  {isImmediateRedemption && plan && (
+                    <div className="mb-6">
+                      <div className="text-sm font-semibold text-[#0A192F] mb-2">איך תרצו לשלם?</div>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {([
+                          [false, 'תשלומים (תפיסת מסגרת)', `נתפסת מסגרת בגובה ₪${totalAmount.toLocaleString()}, והסכום יורד ב-${effectiveMonths} תשלומים חודשיים של ₪${plan.monthly_amount.toLocaleString()}`],
+                          [true, 'תשלום אחד מלא', `₪${totalAmount.toLocaleString()} בחיוב אחד עכשיו`],
+                        ] as const).map(([full, title, desc]) => (
+                          <button key={title} type="button" onClick={() => setFullPayment(full)}
+                            className={`text-right p-4 rounded-2xl border-2 transition-all ${fullPayment === full ? 'border-[#626D58] bg-[#626D58]/5' : 'border-[#E5E1D8]/70 hover:border-[#626D58]/40'}`}>
+                            <div className="flex items-center gap-2 font-bold text-[#0A192F] text-sm">
+                              <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${fullPayment === full ? 'border-[#626D58]' : 'border-[#33332D]/25'}`}>
+                                {fullPayment === full && <span className="w-2 h-2 rounded-full bg-[#626D58]" />}
+                              </span>
+                              {title}
+                            </div>
+                            <p className="text-xs text-[#33332D]/55 mt-1.5 leading-relaxed">{desc}</p>
+                          </button>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -701,7 +761,7 @@ export default function PaymentPage() {
                       <div className="rounded-2xl bg-[#F9F8F4] border border-[#E5E1D8]/60 p-4 flex flex-wrap gap-x-6 gap-y-2 text-xs mb-1">
                         <span className="font-bold text-[#0A192F]">{plan.name_he}</span>
                         <span className="text-[#33332D]/50">{paymentTypeLabel}</span>
-                        <span className="text-[#626D58] font-semibold">₪{plan.monthly_amount.toLocaleString()} × {effectiveMonths} {p.months}</span>
+                        <span className="text-[#626D58] font-semibold">{payInFull ? 'תשלום אחד' : `₪${plan.monthly_amount.toLocaleString()} × ${effectiveMonths} ${p.months}`}</span>
                         <span className="text-[#B08D57] font-bold">{p.bankTotalLabel} ₪{totalAmount.toLocaleString()}</span>
                       </div>
                     </div>
@@ -777,7 +837,7 @@ export default function PaymentPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-white/50">{p.numPayments}</span>
-                    <span className="font-semibold">{effectiveMonths}</span>
+                    <span className="font-semibold">{payInFull ? 1 : effectiveMonths}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-white/50">{p.paymentType}</span>

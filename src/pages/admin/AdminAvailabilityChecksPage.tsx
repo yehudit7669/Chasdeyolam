@@ -7,7 +7,7 @@ import {
 } from '../../lib/availabilityChecks';
 import {
   CalendarSearch, CheckCircle, XCircle, Loader2, Mail, Phone, MapPin, Calendar,
-  MessageSquare, X, Send, RotateCcw, Clock,
+  MessageSquare, X, Send, RotateCcw, Clock, BadgeCheck, Trash2,
 } from 'lucide-react';
 
 type Tab = 'pending' | 'waitingPayment' | 'closed' | 'history';
@@ -133,6 +133,65 @@ export const AdminAvailabilityChecksPage = () => {
     await load();
   };
 
+  // התשלום עבר אבל לא נקלט אוטומטית (לא חזר לאתר / נדרים לא דיווח) — המנהל מאשר ידנית.
+  // יוצרים את ההזמנה בלוח ההזמנות עם המקום והתאריכים שאושרו, בדיוק כמו בתשלום רגיל.
+  const markPaid = async (c: AvailabilityCheck) => {
+    if (!confirm(`לסמן ש-${c.user_full_name || 'הלקוח'} שילם?
+ההזמנה תעבור ללוח ההזמנות עם ${hotels[c.approved_hotel_id ?? c.hotel_id] ?? 'המקום'} והתאריכים שאישרת.`)) return;
+    setBusyId(c.id);
+    const approved = {
+      selected_hotel_id: c.approved_hotel_id ?? c.hotel_id,
+      selected_date: c.approved_date,
+      selected_end_date: c.approved_end_date,
+      user_note: c.user_note,
+      guest_names: c.guest_names,
+      guest_address: c.guest_address,
+      guest_email: c.guest_email,
+    };
+    let requestId = c.used_request_id;
+    if (!requestId) {
+      // אם הלקוח שילם בלי שהבדיקה קושרה — כבר נוצרה לו הזמנה באותה תוכנית. מקשרים אליה
+      // ומעדכנים בה את המקום והתאריכים שאושרו, במקום ליצור הזמנה כפולה.
+      const { data: existing } = await supabase.from('immediate_requests').select('id, status')
+        .eq('user_id', c.user_id).eq('plan_id', c.plan_id).eq('archived', false)
+        .in('status', ['pending_review', 'booking_open', 'awaiting_admin'])
+        .gte('created_at', c.created_at).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (existing) {
+        const { error } = await supabase.from('immediate_requests')
+          .update({ ...approved, status: 'awaiting_admin', updated_at: new Date().toISOString() }).eq('id', existing.id);
+        if (error) { setBusyId(null); showToast('שגיאה בעדכון ההזמנה: ' + error.message); return; }
+        requestId = existing.id;
+      }
+    }
+    if (!requestId) {
+      const { data: req, error } = await supabase.from('immediate_requests').insert({
+        user_id: c.user_id,
+        plan_id: c.plan_id,
+        status: 'awaiting_admin',
+        plan_name_he: c.plan_name_he,
+        user_full_name: c.user_full_name,
+        ...approved,
+      }).select('id').single();
+      if (error) { setBusyId(null); showToast('שגיאה ביצירת ההזמנה: ' + error.message); return; }
+      requestId = req.id;
+    }
+    const { error } = await supabase.from('availability_checks').update({ status: 'used', used_request_id: requestId }).eq('id', c.id);
+    setBusyId(null);
+    if (error) { showToast('שגיאה: ' + error.message); return; }
+    showToast('✓ סומן כשולם — ההזמנה עברה ללוח ההזמנות');
+    await load();
+  };
+
+  const removeCheck = async (c: AvailabilityCheck) => {
+    if (!confirm(`למחוק את הבקשה של ${c.user_full_name || 'הלקוח'}? היא תיעלם גם אצל הלקוח. אין אפשרות לשחזר.`)) return;
+    setBusyId(c.id);
+    const { error } = await supabase.from('availability_checks').delete().eq('id', c.id);
+    setBusyId(null);
+    if (error) { showToast('שגיאה במחיקה: ' + error.message); return; }
+    showToast('הבקשה נמחקה');
+    await load();
+  };
+
   const counts: Record<Tab, number> = { pending: 0, waitingPayment: 0, closed: 0, history: 0 };
   for (const c of checks) counts[tabOf(c)]++;
   const visible = checks.filter((c) => tabOf(c) === tab);
@@ -218,6 +277,13 @@ export const AdminAvailabilityChecksPage = () => {
                         </div>
                         <div className="flex items-center gap-2 text-[#33332D]/70"><Calendar size={13} className="text-[#626D58]" />{fmtRequestedDates(c)}</div>
                         {c.user_note && <div className="flex items-start gap-2 text-[#33332D]/60"><MessageSquare size={13} className="text-[#626D58] mt-0.5" />{c.user_note}</div>}
+                        {c.guest_names && (
+                          <div className="pt-1 mt-1 border-t border-[#E5E1D8]/60 text-[#33332D]/70 space-y-0.5">
+                            <div><b className="font-semibold">אורחים:</b> {c.guest_names}</div>
+                            {c.guest_address && <div><b className="font-semibold">כתובת:</b> {c.guest_address}</div>}
+                            {c.guest_email && <div><b className="font-semibold">מייל להזמנה:</b> <span dir="ltr">{c.guest_email}</span></div>}
+                          </div>
+                        )}
                       </div>
 
                       {c.status !== 'pending' && c.responded_at && (
@@ -250,10 +316,22 @@ export const AdminAvailabilityChecksPage = () => {
                           </button>
                         </>
                       )}
+                      {c.status === 'available' && (
+                        <button onClick={() => markPaid(c)} disabled={busy}
+                          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#626D58] text-white text-sm font-semibold hover:bg-[#626D58]/90 transition-all disabled:opacity-50">
+                          {busy ? <Loader2 size={14} className="animate-spin" /> : <BadgeCheck size={14} />} סמן כשולם
+                        </button>
+                      )}
                       {c.status === 'available' && isExpired(c) && (
                         <button onClick={() => renew(c)} disabled={busy}
                           className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-[#E5E1D8] text-[#33332D]/70 text-sm font-semibold hover:bg-[#F7F5F0] transition-all disabled:opacity-50">
                           {busy ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />} חדש ל-{AVAILABILITY_VALID_HOURS} שעות
+                        </button>
+                      )}
+                      {c.status !== 'used' && (
+                        <button onClick={() => removeCheck(c)} disabled={busy}
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[#33332D]/40 text-xs font-semibold hover:text-red-600 hover:bg-red-50 transition-all disabled:opacity-50">
+                          <Trash2 size={13} /> מחק
                         </button>
                       )}
                     </div>

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { HotelNameWithDetails, HOTEL_PACKAGE_COLUMNS, HotelPackage } from '../components/HotelPackageDetails';
+import { GuestDetails, GuestDetailsFields, emptyGuestDetails, validateGuestDetails, guestColumns } from '../components/GuestDetailsFields';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { createNotification } from '../hooks/useNotifications';
@@ -46,6 +47,7 @@ export default function AvailabilityCheckPage() {
   const [dateTo, setDateTo] = useState('');
   const [phone, setPhone] = useState('');
   const [note, setNote] = useState('');
+  const [guest, setGuest] = useState<GuestDetails>(emptyGuestDetails());
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -92,6 +94,10 @@ export default function AvailabilityCheckPage() {
       setDateFrom(prefill.date_from >= todayKey() ? prefill.date_from : '');
       setDateTo(prefill.date_to >= todayKey() ? prefill.date_to : '');
       setNote(prefill.user_note ?? '');
+      setGuest({
+        names: prefill.guest_names ?? '', address: prefill.guest_address ?? '',
+        useAccountEmail: !prefill.guest_email || prefill.guest_email === user?.email, otherEmail: prefill.guest_email ?? '',
+      });
     }
     setFormError('');
     setView('form');
@@ -105,6 +111,8 @@ export default function AvailabilityCheckPage() {
     if (dateFrom < todayKey()) return setFormError('התאריך כבר עבר');
     if (dateTo < dateFrom) return setFormError('תאריך הסיום לפני תאריך ההתחלה');
     if (phone.replace(/\D/g, '').length < 9) return setFormError('נא להזין מספר טלפון כדי שנוכל לחזור אליך');
+    const guestError = validateGuestDetails(guest, user.email);
+    if (guestError) return setFormError(guestError);
 
     setSubmitting(true);
     const row = {
@@ -120,6 +128,7 @@ export default function AvailabilityCheckPage() {
       date_from: dateFrom,
       date_to: dateTo,
       user_note: note.trim() || null,
+      ...guestColumns(guest, user.email),
     };
     const { data, error } = await supabase.from('availability_checks').insert(row).select('*').single();
     if (error || !data) {
@@ -264,7 +273,12 @@ export default function AvailabilityCheckPage() {
       </section>
 
       <section>
-        <h3 className="font-bold text-[#0A192F] mb-3">3. איך לחזור אליכם?</h3>
+        <h3 className="font-bold text-[#0A192F] mb-3">3. מי מגיע?</h3>
+        <GuestDetailsFields value={guest} onChange={setGuest} accountEmail={user?.email} />
+      </section>
+
+      <section>
+        <h3 className="font-bold text-[#0A192F] mb-3">4. איך לחזור אליכם?</h3>
         <label className="block mb-3">
           <span className="block text-xs text-[#33332D]/55 mb-1">טלפון</span>
           <div className="relative">

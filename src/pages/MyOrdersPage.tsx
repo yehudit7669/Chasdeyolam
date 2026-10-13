@@ -8,6 +8,7 @@ import { isDayAllowed, formatBookableDays, effectiveBookableDays } from '../lib/
 import heroHotelImg from '../assets/hero-hotel.jpg';
 import { AvailabilityCheck, isExpired, isPayable, fmtRequestedDates } from '../lib/availabilityChecks';
 import { HotelNameWithDetails, HOTEL_PACKAGE_COLUMNS, HotelPackage } from '../components/HotelPackageDetails';
+import { GuestDetails, GuestDetailsFields, emptyGuestDetails, validateGuestDetails, guestColumns } from '../components/GuestDetailsFields';
 import {
   MapPin, Hotel as HotelIcon, Moon, CheckCircle, Loader2, Star,
   ChevronRight, ChevronLeft, Clock, AlertTriangle, Calendar, Trash2,
@@ -46,6 +47,8 @@ export default function MyOrdersPage() {
   const [selHotel, setSelHotel] = useState<Record<string, string | null>>({});
   const [selDate, setSelDate] = useState<Record<string, string | null>>({});
   const [noteBy, setNoteBy] = useState<Record<string, string>>({});
+  const [guestBy, setGuestBy] = useState<Record<string, GuestDetails>>({});
+  const [guestErrorBy, setGuestErrorBy] = useState<Record<string, string>>({});
   const [calBy, setCalBy] = useState<Record<string, Date>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [changeMode, setChangeMode] = useState<Record<string, boolean>>({});
@@ -172,6 +175,10 @@ export default function MyOrdersPage() {
   const submit = async (req: Req) => {
     const hotelId = selHotel[req.id]; const dateKey = selDate[req.id];
     if (!hotelId || !dateKey || !user) return;
+    const guest = guestBy[req.id] ?? emptyGuestDetails();
+    const guestError = validateGuestDetails(guest, user.email);
+    setGuestErrorBy((p) => ({ ...p, [req.id]: guestError ?? '' }));
+    if (guestError) return;
     setSubmittingId(req.id);
     const hotel = (hotelsByReq[req.id] ?? []).find(h => h.id === hotelId);
     const nights = hotel?.bookable_nights ?? 1;
@@ -180,6 +187,7 @@ export default function MyOrdersPage() {
     const { data: updated, error } = await supabase.from('immediate_requests').update({
       selected_hotel_id: hotelId, selected_date: dateKey, selected_end_date: toKey(co),
       user_note: noteBy[req.id] || null, status: 'awaiting_admin', updated_at: new Date().toISOString(),
+      ...guestColumns(guest, user.email),
     }).eq('id', req.id).select('id');
     if (error) { setSubmittingId(null); alert('שגיאה: ' + error.message); return; }
     if (!updated || updated.length === 0) { setSubmittingId(null); alert('לא ניתן היה לשמור (בעיית הרשאה). פנה לתמיכה.'); return; }
@@ -288,6 +296,13 @@ export default function MyOrdersPage() {
                     <Star size={13} className="inline text-[#626D58] ms-1" fill="currentColor" />
                     {checkInD.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })} → {checkOutD.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })} · {nights} {nights === 1 ? 'לילה' : 'לילות'}
                   </div>
+                  {mode === 'book' && (
+                    <div className="mb-3">
+                      <GuestDetailsFields value={guestBy[req.id] ?? emptyGuestDetails()}
+                        onChange={(v) => setGuestBy((p) => ({ ...p, [req.id]: v }))} accountEmail={user?.email} />
+                      {guestErrorBy[req.id] && <p className="text-xs text-red-600 mt-2">{guestErrorBy[req.id]}</p>}
+                    </div>
+                  )}
                   <textarea value={noteBy[req.id] ?? ''} onChange={(e) => setNoteBy((p) => ({ ...p, [req.id]: e.target.value }))} rows={3} placeholder="הערה (אופציונלי): בקשות מיוחדות, מספר אורחים..."
                     className="w-full border border-[#E5E1D8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A192F] resize-none mb-3" />
                   <button onClick={() => mode === 'change' ? submitChange(req) : submit(req)} disabled={submittingId === req.id}

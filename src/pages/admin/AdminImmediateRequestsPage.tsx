@@ -5,7 +5,7 @@ import { createNotification } from '../../hooks/useNotifications';
 import {
   Zap, Clock, CheckCircle, XCircle, Loader2, Calendar, MapPin,
   MessageSquare, X, Send, Sparkles, AlertTriangle, Trash2, Mail, Phone,
-  ArrowLeftCircle, ListChecks,
+  ArrowLeftCircle, ListChecks, BadgeCheck,
 } from 'lucide-react';
 
 interface ImmediateRequest {
@@ -28,6 +28,9 @@ interface ImmediateRequest {
   created_at: string;
   redemption_type: string | null;
   subscription_id: string | null;
+  guest_names: string | null;
+  guest_address: string | null;
+  guest_email: string | null;
 }
 
 const STATUS_META: Record<string, { label: string; color: string; icon: any }> = {
@@ -136,6 +139,20 @@ export const AdminImmediateRequestsPage = () => {
     if (draft === undefined || draft === (tracking[reqId]?.internal_note ?? '')) return;
     saveTracking(reqId, { internal_note: draft.trim() || null });
     showToast('ההערה נשמרה');
+  };
+
+  // הלקוח סגר איתך מחוץ למערכת (טלפון וכו') — מסמנים שההזמנה הושלמה, בלי לשלוח לו הודעה
+  const markCompleted = async (req: ImmediateRequest) => {
+    if (!confirm(`לסמן שההזמנה של ${profiles[req.user_id]?.full_name || req.user_full_name || 'הלקוח'} נבחרה והסתיימה?
+היא תעבור ל"הושלם", וכל הצ'קליסט יסומן.`)) return;
+    setBusyId(req.id);
+    const { error } = await supabase.from('immediate_requests')
+      .update({ status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', req.id);
+    if (error) { setBusyId(null); showToast('שגיאה: ' + error.message); return; }
+    await saveTracking(req.id, { checklist: Object.fromEntries(CHECKLIST.map((c) => [c.key, true])) });
+    await load();
+    setBusyId(null);
+    showToast('✓ סומן כהושלם');
   };
 
   const isChecklistDone = (reqId: string) => CHECKLIST.every((c) => tracking[reqId]?.checklist?.[c.key]);
@@ -377,6 +394,13 @@ export const AdminImmediateRequestsPage = () => {
                               <span>{req.user_note}</span>
                             </div>
                           )}
+                          {req.guest_names && (
+                            <div className="pt-1.5 mt-1 border-t border-[#E5E1D8]/60 text-sm text-[#33332D]/70 space-y-0.5">
+                              <div><b className="font-semibold">אורחים:</b> {req.guest_names}</div>
+                              {req.guest_address && <div><b className="font-semibold">כתובת:</b> {req.guest_address}</div>}
+                              {req.guest_email && <div><b className="font-semibold">מייל להזמנה:</b> <span dir="ltr">{req.guest_email}</span></div>}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -474,9 +498,15 @@ export const AdminImmediateRequestsPage = () => {
                         </>
                       )}
                       {req.status === 'booking_open' && (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-blue-600 font-semibold px-3 py-2">
-                          <Clock size={13} /> ממתין שהמשתמש יבחר
-                        </span>
+                        <>
+                          <span className="inline-flex items-center gap-1.5 text-xs text-blue-600 font-semibold px-3 py-2">
+                            <Clock size={13} /> ממתין שהמשתמש יבחר
+                          </span>
+                          <button onClick={() => markCompleted(req)} disabled={busy}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-[#626D58]/40 text-[#626D58] text-sm font-semibold hover:bg-[#626D58]/5 transition-all disabled:opacity-50">
+                            {busy ? <Loader2 size={14} className="animate-spin" /> : <BadgeCheck size={14} />} נבחר והסתיים
+                          </button>
+                        </>
                       )}
                       {req.status === 'awaiting_admin' && (
                         <>
