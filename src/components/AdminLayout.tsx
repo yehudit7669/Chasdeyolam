@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Users, CreditCard, Hotel,
   MessageSquare, Settings, LogOut, Menu, X,
   CircleUser as UserCircle, Building2, HeartHandshake, Wrench, Images, Repeat,
-  BedDouble, Wallet, ClipboardList, Hourglass, CalendarSearch,
+  BedDouble, Wallet, ClipboardList, Hourglass, CalendarSearch, TrendingUp,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 
@@ -48,6 +48,7 @@ const ADMIN_AREAS: AdminArea[] = [
           { path: '/admin/availability-checks', icon: CalendarSearch, label: 'בדיקות זמינות לפני תשלום' },
           { path: '/admin/immediate-requests', icon: ClipboardList, label: 'לוח הזמנות' },
           { path: '/admin/approaching', icon: Hourglass, label: 'מתקרבים לזכאות' },
+          { path: '/admin/profit', icon: TrendingUp, label: 'רווחיות' },
         ],
       },
     ],

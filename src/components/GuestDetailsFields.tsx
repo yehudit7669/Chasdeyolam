@@ -1,14 +1,16 @@
-import { Mail, MapPin, Users } from 'lucide-react';
+import { Mail, MapPin, Users, Sparkles } from 'lucide-react';
 
-// פרטי אורחים בהזמנת מלון: שמות, כתובת ומייל. במייל אפשר לבחור את המייל שאיתו נרשם.
+// פרטי אורחים בהזמנת מלון: שמות, כתובת ומייל (אפשר לבחור את המייל שאיתו נרשם),
+// ובקשת שדרוג לא מחייבת.
 export interface GuestDetails {
   names: string;
   address: string;
   useAccountEmail: boolean;
   otherEmail: string;
+  upgrade: string;
 }
 
-export const emptyGuestDetails = (): GuestDetails => ({ names: '', address: '', useAccountEmail: true, otherEmail: '' });
+export const emptyGuestDetails = (): GuestDetails => ({ names: '', address: '', useAccountEmail: true, otherEmail: '', upgrade: '' });
 
 export const guestEmailOf = (g: GuestDetails, accountEmail: string | null | undefined) =>
   (g.useAccountEmail && accountEmail ? accountEmail : g.otherEmail).trim();
@@ -27,6 +29,7 @@ export const guestColumns = (g: GuestDetails, accountEmail: string | null | unde
   guest_names: g.names.trim(),
   guest_address: g.address.trim(),
   guest_email: guestEmailOf(g, accountEmail),
+  upgrade_request: g.upgrade.trim() || null,
 });
 
 const inputCls = 'w-full border border-[#E5E1D8] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0A192F]';
@@ -68,6 +71,12 @@ export function GuestDetailsFields({ value, onChange, accountEmail }: {
           )}
         </div>
       </div>
+      <label className="block">
+        <span className="flex items-center gap-1.5 text-xs text-[#33332D]/55 mb-1"><Sparkles size={12} /> בקשת שדרוג <span className="text-[#33332D]/35">(לא חובה)</span></span>
+        <textarea rows={2} value={value.upgrade} onChange={(e) => set({ upgrade: e.target.value })}
+          placeholder="לדוגמה: חדר עם נוף, מיטה זוגית, קומה גבוהה" className={`${inputCls} resize-none`} />
+        <span className="block text-[11px] text-[#33332D]/45 mt-1">נעשה מאמץ להיענות לבקשה, אך איננו מתחייבים לשדרוג.</span>
+      </label>
     </div>
   );
 }

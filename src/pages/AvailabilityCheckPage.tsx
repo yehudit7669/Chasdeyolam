@@ -97,6 +97,7 @@ export default function AvailabilityCheckPage() {
       setGuest({
         names: prefill.guest_names ?? '', address: prefill.guest_address ?? '',
         useAccountEmail: !prefill.guest_email || prefill.guest_email === user?.email, otherEmail: prefill.guest_email ?? '',
+        upgrade: prefill.upgrade_request ?? '',
       });
     }
     setFormError('');

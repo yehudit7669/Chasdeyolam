@@ -92,6 +92,8 @@ export const AdminHotelsPage = () => {
     isOpen: boolean; hotelId: string; currentStatus: boolean; action: 'toggle' | 'delete';
   }>({ isOpen: false, hotelId: '', currentStatus: false, action: 'toggle' });
   const [currentImageIndex, setCurrentImageIndex] = useState<Record<string, number>>({});
+  // "המחיר הרגיל" — כמה עולה לנו הזמנה בכל מלון (טבלת hotel_costs, מנהל בלבד)
+  const [hotelCosts, setHotelCosts] = useState<Record<string, number | null>>({});
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [urlInput, setUrlInput] = useState('');
   const [dragOver, setDragOver] = useState(false);
@@ -103,7 +105,7 @@ export const AdminHotelsPage = () => {
     name_he: '', name_en: '', city_he: '', city_en: '',
     description_he: '', description_en: '',
     base_rooms: '2', extra_room_price: '0', change_deadline_days: '7',
-    room_type: '', meals: '', package_includes: '',
+    room_type: '', meals: '', package_includes: '', default_cost: '',
   });
 
   // --- זמינות (per הרחבת מלון) ---
@@ -169,6 +171,12 @@ export const AdminHotelsPage = () => {
         images: (hotel.images || []).sort((a: HotelImage, b: HotelImage) => a.display_order - b.display_order),
       }));
       setHotels(sorted);
+      if (sorted.length) {
+        const { data: costs } = await supabase.from('hotel_costs').select('hotel_id, default_cost').in('hotel_id', sorted.map((h: Hotel) => h.id));
+        const cmap: Record<string, number | null> = {};
+        for (const c of costs ?? []) cmap[c.hotel_id] = c.default_cost;
+        setHotelCosts(cmap);
+      }
       const initialIndexes: Record<string, number> = {};
       sorted.forEach((hotel: Hotel) => { initialIndexes[hotel.id] = 0; });
       setCurrentImageIndex(initialIndexes);
@@ -194,6 +202,7 @@ export const AdminHotelsPage = () => {
         extra_room_price: hotel.extra_room_price.toString(),
         change_deadline_days: hotel.change_deadline_days.toString(),
         room_type: hotel.room_type ?? '', meals: hotel.meals ?? '', package_includes: hotel.package_includes ?? '',
+        default_cost: hotelCosts[hotel.id] != null ? String(hotelCosts[hotel.id]) : '',
       });
       const existing: PendingImage[] = (hotel.images || []).map((img) => ({
         id: img.id, type: 'url', url: img.image_url, previewUrl: img.image_url, uploading: false,
@@ -205,7 +214,7 @@ export const AdminHotelsPage = () => {
         name_he: '', name_en: '', city_he: '', city_en: '',
         description_he: '', description_en: '',
         base_rooms: '2', extra_room_price: '0', change_deadline_days: '7',
-        room_type: '', meals: '', package_includes: '',
+        room_type: '', meals: '', package_includes: '', default_cost: '',
       });
       setPendingImages([]);
     }
@@ -348,6 +357,11 @@ export const AdminHotelsPage = () => {
         const { error: imageError } = await supabase.from('hotel_images').insert(imageRecords);
         if (imageError) throw imageError;
       }
+
+      const cost = formData.default_cost.trim() === '' ? null : Number(formData.default_cost);
+      const { error: costError } = await supabase.from('hotel_costs')
+        .upsert({ hotel_id: hotelId, default_cost: cost, updated_at: new Date().toISOString() });
+      if (costError) throw costError;
 
       showToast(editingHotel ? 'המלון עודכן בהצלחה' : 'המלון נוסף לתוכנית בהצלחה', 'success');
       handleCloseModal();
@@ -788,6 +802,15 @@ export const AdminHotelsPage = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">תיאור בעברית</label>
             <textarea value={formData.description_he} onChange={(e) => setFormData({ ...formData, description_he: e.target.value })}
               rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+          </div>
+
+          {/* העלות שלנו — לחישוב רווחיות. נשמר בטבלה נפרדת שהלקוח לא יכול לקרוא */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <label className="block text-sm font-semibold text-gray-800 mb-1">העלות שלנו להזמנה (מחיר רגיל) ₪</label>
+            <input type="number" min="0" step="1" value={formData.default_cost} placeholder="לדוגמה: 2000"
+              onChange={(e) => setFormData({ ...formData, default_cost: e.target.value })}
+              className="w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            <p className="text-xs text-gray-500 mt-1">גלוי רק למנהל. בכל הזמנה אפשר לבחור את המחיר הזה או להזין מחיר אחר.</p>
           </div>
 
           {/* מה מקבלים — מוצג ללקוח בכפתור "עוד" ליד שם המלון */}

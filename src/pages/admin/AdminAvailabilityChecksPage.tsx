@@ -147,6 +147,7 @@ export const AdminAvailabilityChecksPage = () => {
       guest_names: c.guest_names,
       guest_address: c.guest_address,
       guest_email: c.guest_email,
+      upgrade_request: c.upgrade_request,
     };
     let requestId = c.used_request_id;
     if (!requestId) {
@@ -282,6 +283,7 @@ export const AdminAvailabilityChecksPage = () => {
                             <div><b className="font-semibold">אורחים:</b> {c.guest_names}</div>
                             {c.guest_address && <div><b className="font-semibold">כתובת:</b> {c.guest_address}</div>}
                             {c.guest_email && <div><b className="font-semibold">מייל להזמנה:</b> <span dir="ltr">{c.guest_email}</span></div>}
+                            {c.upgrade_request && <div className="text-[#B08D57]"><b className="font-semibold">בקשת שדרוג (לא מחייבת):</b> {c.upgrade_request}</div>}
                           </div>
                         )}
                       </div>

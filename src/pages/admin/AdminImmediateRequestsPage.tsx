@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { createNotification } from '../../hooks/useNotifications';
+import { CostMode, bookingCost, planTotal, shekel } from '../../lib/bookingCosts';
 import {
   Zap, Clock, CheckCircle, XCircle, Loader2, Calendar, MapPin,
   MessageSquare, X, Send, Sparkles, AlertTriangle, Trash2, Mail, Phone,
@@ -31,6 +32,7 @@ interface ImmediateRequest {
   guest_names: string | null;
   guest_address: string | null;
   guest_email: string | null;
+  upgrade_request: string | null;
 }
 
 const STATUS_META: Record<string, { label: string; color: string; icon: any }> = {
@@ -61,7 +63,11 @@ const CHECKLIST: { key: string; label: string }[] = [
 interface Tracking {
   checklist: Record<string, boolean>;
   internal_note: string | null;
+  cost_mode: CostMode;
+  custom_cost: number | null;
 }
+
+const EMPTY_TRACKING: Tracking = { checklist: {}, internal_note: null, cost_mode: 'default', custom_cost: null };
 
 type Tab = 'action' | 'waiting' | 'inProgress' | 'done';
 
@@ -80,6 +86,10 @@ export const AdminImmediateRequestsPage = () => {
   const [tab, setTab] = useState<Tab>('action');
   const [tracking, setTracking] = useState<Record<string, Tracking>>({});
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  // לחישוב רווח: המחיר הרגיל של כל מלון, וסכום כל תוכנית (חודשי × מספר תשלומים)
+  const [hotelCosts, setHotelCosts] = useState<Record<string, number | null>>({});
+  const [planTotals, setPlanTotals] = useState<Record<string, number | null>>({});
+  const [costDrafts, setCostDrafts] = useState<Record<string, string>>({});
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2500); };
 
@@ -106,21 +116,37 @@ export const AdminImmediateRequestsPage = () => {
     }
 
     if (reqs.length) {
-      const { data: tr } = await supabase.from('booking_admin_tracking')
-        .select('request_id, checklist, internal_note').in('request_id', reqs.map((r) => r.id));
+      const hotelIds = Array.from(new Set(reqs.map((r) => r.selected_hotel_id).filter(Boolean))) as string[];
+      const planIds = Array.from(new Set(reqs.map((r) => r.plan_id).filter(Boolean))) as string[];
+      const [{ data: tr }, { data: costs }, { data: plans }] = await Promise.all([
+        supabase.from('booking_admin_tracking')
+          .select('request_id, checklist, internal_note, cost_mode, custom_cost').in('request_id', reqs.map((r) => r.id)),
+        hotelIds.length ? supabase.from('hotel_costs').select('hotel_id, default_cost').in('hotel_id', hotelIds) : Promise.resolve({ data: [] }),
+        planIds.length ? supabase.from('plans').select('id, monthly_amount, required_successful_payments').in('id', planIds) : Promise.resolve({ data: [] }),
+      ]);
       const tmap: Record<string, Tracking> = {};
-      for (const t of tr ?? []) tmap[t.request_id] = { checklist: t.checklist ?? {}, internal_note: t.internal_note };
+      for (const t of tr ?? []) tmap[t.request_id] = {
+        checklist: t.checklist ?? {}, internal_note: t.internal_note,
+        cost_mode: (t.cost_mode as CostMode) ?? 'default', custom_cost: t.custom_cost != null ? Number(t.custom_cost) : null,
+      };
       setTracking(tmap);
+      const cmap: Record<string, number | null> = {};
+      for (const c of (costs ?? []) as { hotel_id: string; default_cost: number | null }[]) cmap[c.hotel_id] = c.default_cost != null ? Number(c.default_cost) : null;
+      setHotelCosts(cmap);
+      const pmap: Record<string, number | null> = {};
+      for (const p of (plans ?? []) as { id: string; monthly_amount: number; required_successful_payments: number }[]) pmap[p.id] = planTotal(p);
+      setPlanTotals(pmap);
     }
     setLoading(false);
   };
 
   const saveTracking = async (reqId: string, patch: Partial<Tracking>) => {
-    const current = tracking[reqId] ?? { checklist: {}, internal_note: null };
+    const current = tracking[reqId] ?? EMPTY_TRACKING;
     const next = { ...current, ...patch };
     setTracking((prev) => ({ ...prev, [reqId]: next }));
     const { error } = await supabase.from('booking_admin_tracking').upsert({
       request_id: reqId, checklist: next.checklist, internal_note: next.internal_note,
+      cost_mode: next.cost_mode, custom_cost: next.custom_cost,
     });
     if (error) {
       setTracking((prev) => ({ ...prev, [reqId]: current }));
@@ -399,6 +425,7 @@ export const AdminImmediateRequestsPage = () => {
                               <div><b className="font-semibold">אורחים:</b> {req.guest_names}</div>
                               {req.guest_address && <div><b className="font-semibold">כתובת:</b> {req.guest_address}</div>}
                               {req.guest_email && <div><b className="font-semibold">מייל להזמנה:</b> <span dir="ltr">{req.guest_email}</span></div>}
+                              {req.upgrade_request && <div className="text-[#B08D57]"><b className="font-semibold">בקשת שדרוג (לא מחייבת):</b> {req.upgrade_request}</div>}
                             </div>
                           )}
                         </div>
@@ -444,6 +471,42 @@ export const AdminImmediateRequestsPage = () => {
                             placeholder="הערה פנימית (לדוגמה: דיברתי עם המלון, מחכה לאישור עד יום ג׳)"
                             className="mt-2 w-full border border-[#E5E1D8] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#0A192F] resize-y"
                           />
+                          {req.selected_hotel_id && (() => {
+                            const t = tracking[req.id] ?? EMPTY_TRACKING;
+                            const defCost = hotelCosts[req.selected_hotel_id] ?? null;
+                            const cost = bookingCost(t, defCost);
+                            const revenue = req.plan_id ? planTotals[req.plan_id] ?? null : null;
+                            const profit = cost != null && revenue != null ? revenue - cost : null;
+                            return (
+                              <div className="mt-3 pt-3 border-t border-dashed border-[#E5E1D8] flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                                <span className="text-xs font-bold text-[#33332D]/60">כמה עלה לנו:</span>
+                                <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                  <input type="radio" className="accent-[#626D58]" checked={t.cost_mode === 'default'}
+                                    onChange={() => saveTracking(req.id, { cost_mode: 'default' })} />
+                                  מחיר רגיל {defCost != null ? shekel(defCost) : <span className="text-amber-600 text-xs">(לא הוגדר למלון)</span>}
+                                </label>
+                                <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                  <input type="radio" className="accent-[#626D58]" checked={t.cost_mode === 'custom'}
+                                    onChange={() => saveTracking(req.id, { cost_mode: 'custom' })} />
+                                  מחיר אחר
+                                </label>
+                                {t.cost_mode === 'custom' && (
+                                  <input type="number" min="0" dir="ltr" placeholder="₪"
+                                    value={costDrafts[req.id] ?? (t.custom_cost != null ? String(t.custom_cost) : '')}
+                                    onChange={(e) => setCostDrafts((p) => ({ ...p, [req.id]: e.target.value }))}
+                                    onBlur={() => {
+                                      const d = costDrafts[req.id];
+                                      if (d === undefined) return;
+                                      saveTracking(req.id, { custom_cost: d.trim() === '' ? null : Number(d) });
+                                    }}
+                                    className="w-28 border border-[#E5E1D8] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[#0A192F]" />
+                                )}
+                                <span className="ms-auto text-xs text-[#33332D]/60">
+                                  שילם {shekel(revenue)} · עלה {shekel(cost)} · <b className={profit != null && profit < 0 ? 'text-red-600' : 'text-[#626D58]'}>רווח {shekel(profit)}</b>
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
 
