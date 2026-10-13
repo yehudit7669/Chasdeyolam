@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { createNotification } from '../../hooks/useNotifications';
-import { CostMode, bookingCost, planTotal, shekel } from '../../lib/bookingCosts';
+import { CostMode, bookingCost, bookingRevenue, planTotal, shekel } from '../../lib/bookingCosts';
 import {
   Zap, Clock, CheckCircle, XCircle, Loader2, Calendar, MapPin,
   MessageSquare, X, Send, Sparkles, AlertTriangle, Trash2, Mail, Phone,
@@ -65,9 +65,10 @@ interface Tracking {
   internal_note: string | null;
   cost_mode: CostMode;
   custom_cost: number | null;
+  actual_paid: number | null;
 }
 
-const EMPTY_TRACKING: Tracking = { checklist: {}, internal_note: null, cost_mode: 'default', custom_cost: null };
+const EMPTY_TRACKING: Tracking = { checklist: {}, internal_note: null, cost_mode: 'default', custom_cost: null, actual_paid: null };
 
 type Tab = 'action' | 'waiting' | 'inProgress' | 'done';
 
@@ -90,6 +91,7 @@ export const AdminImmediateRequestsPage = () => {
   const [hotelCosts, setHotelCosts] = useState<Record<string, number | null>>({});
   const [planTotals, setPlanTotals] = useState<Record<string, number | null>>({});
   const [costDrafts, setCostDrafts] = useState<Record<string, string>>({});
+  const [paidDrafts, setPaidDrafts] = useState<Record<string, string>>({});
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2500); };
 
@@ -120,7 +122,7 @@ export const AdminImmediateRequestsPage = () => {
       const planIds = Array.from(new Set(reqs.map((r) => r.plan_id).filter(Boolean))) as string[];
       const [{ data: tr }, { data: costs }, { data: plans }] = await Promise.all([
         supabase.from('booking_admin_tracking')
-          .select('request_id, checklist, internal_note, cost_mode, custom_cost').in('request_id', reqs.map((r) => r.id)),
+          .select('request_id, checklist, internal_note, cost_mode, custom_cost, actual_paid').in('request_id', reqs.map((r) => r.id)),
         hotelIds.length ? supabase.from('hotel_costs').select('hotel_id, default_cost').in('hotel_id', hotelIds) : Promise.resolve({ data: [] }),
         planIds.length ? supabase.from('plans').select('id, monthly_amount, required_successful_payments').in('id', planIds) : Promise.resolve({ data: [] }),
       ]);
@@ -128,6 +130,7 @@ export const AdminImmediateRequestsPage = () => {
       for (const t of tr ?? []) tmap[t.request_id] = {
         checklist: t.checklist ?? {}, internal_note: t.internal_note,
         cost_mode: (t.cost_mode as CostMode) ?? 'default', custom_cost: t.custom_cost != null ? Number(t.custom_cost) : null,
+        actual_paid: t.actual_paid != null ? Number(t.actual_paid) : null,
       };
       setTracking(tmap);
       const cmap: Record<string, number | null> = {};
@@ -146,7 +149,7 @@ export const AdminImmediateRequestsPage = () => {
     setTracking((prev) => ({ ...prev, [reqId]: next }));
     const { error } = await supabase.from('booking_admin_tracking').upsert({
       request_id: reqId, checklist: next.checklist, internal_note: next.internal_note,
-      cost_mode: next.cost_mode, custom_cost: next.custom_cost,
+      cost_mode: next.cost_mode, custom_cost: next.custom_cost, actual_paid: next.actual_paid,
     });
     if (error) {
       setTracking((prev) => ({ ...prev, [reqId]: current }));
@@ -475,7 +478,8 @@ export const AdminImmediateRequestsPage = () => {
                             const t = tracking[req.id] ?? EMPTY_TRACKING;
                             const defCost = hotelCosts[req.selected_hotel_id] ?? null;
                             const cost = bookingCost(t, defCost);
-                            const revenue = req.plan_id ? planTotals[req.plan_id] ?? null : null;
+                            const listPrice = req.plan_id ? planTotals[req.plan_id] ?? null : null;
+                            const revenue = bookingRevenue(t, listPrice);
                             const profit = cost != null && revenue != null ? revenue - cost : null;
                             return (
                               <div className="mt-3 pt-3 border-t border-dashed border-[#E5E1D8] flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
@@ -501,6 +505,19 @@ export const AdminImmediateRequestsPage = () => {
                                     }}
                                     className="w-28 border border-[#E5E1D8] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[#0A192F]" />
                                 )}
+                                <label className="inline-flex items-center gap-1.5 text-xs text-[#33332D]/60">
+                                  שילם בפועל:
+                                  <input type="number" min="0" dir="ltr" placeholder={listPrice != null ? String(listPrice) : '₪'}
+                                    value={paidDrafts[req.id] ?? (t.actual_paid != null ? String(t.actual_paid) : '')}
+                                    onChange={(e) => setPaidDrafts((p) => ({ ...p, [req.id]: e.target.value }))}
+                                    onBlur={() => {
+                                      const d = paidDrafts[req.id];
+                                      if (d === undefined) return;
+                                      saveTracking(req.id, { actual_paid: d.trim() === '' ? null : Number(d) });
+                                    }}
+                                    title="ריק = לפי מחיר התוכנית"
+                                    className="w-24 border border-[#E5E1D8] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[#0A192F]" />
+                                </label>
                                 <span className="ms-auto text-xs text-[#33332D]/60">
                                   שילם {shekel(revenue)} · עלה {shekel(cost)} · <b className={profit != null && profit < 0 ? 'text-red-600' : 'text-[#626D58]'}>רווח {shekel(profit)}</b>
                                 </span>

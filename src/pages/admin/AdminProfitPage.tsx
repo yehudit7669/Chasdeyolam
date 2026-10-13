@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { TrendingUp, Loader2, AlertTriangle } from 'lucide-react';
-import { CostMode, bookingCost, planTotal, shekel } from '../../lib/bookingCosts';
+import { CostMode, bookingCost, bookingRevenue, planTotal, shekel } from '../../lib/bookingCosts';
 
 interface Row {
   id: string;
@@ -12,6 +12,7 @@ interface Row {
   date: string | null;
   status: string;
   revenue: number | null;
+  revenueIsActual: boolean;
   cost: number | null;
   costMode: CostMode;
 }
@@ -46,7 +47,7 @@ export const AdminProfitPage = () => {
         hotelIds.length ? supabase.from('hotels').select('id, name_he').in('id', hotelIds) : Promise.resolve({ data: [] }),
         hotelIds.length ? supabase.from('hotel_costs').select('hotel_id, default_cost').in('hotel_id', hotelIds) : Promise.resolve({ data: [] }),
         planIds.length ? supabase.from('plans').select('id, monthly_amount, required_successful_payments').in('id', planIds) : Promise.resolve({ data: [] }),
-        list.length ? supabase.from('booking_admin_tracking').select('request_id, cost_mode, custom_cost').in('request_id', list.map((r) => r.id)) : Promise.resolve({ data: [] }),
+        list.length ? supabase.from('booking_admin_tracking').select('request_id, cost_mode, custom_cost, actual_paid').in('request_id', list.map((r) => r.id)) : Promise.resolve({ data: [] }),
         userIds.length ? supabase.from('profiles').select('id, full_name').in('id', userIds) : Promise.resolve({ data: [] }),
       ]);
       const hotelName = Object.fromEntries(((hotelsRes.data ?? []) as { id: string; name_he: string }[]).map((h) => [h.id, h.name_he]));
@@ -54,8 +55,12 @@ export const AdminProfitPage = () => {
         .map((c) => [c.hotel_id, c.default_cost != null ? Number(c.default_cost) : null]));
       const total = Object.fromEntries(((plansRes.data ?? []) as { id: string; monthly_amount: number; required_successful_payments: number }[])
         .map((p) => [p.id, planTotal(p)]));
-      const track = Object.fromEntries(((trackRes.data ?? []) as { request_id: string; cost_mode: CostMode; custom_cost: number | null }[])
-        .map((t) => [t.request_id, { cost_mode: t.cost_mode, custom_cost: t.custom_cost != null ? Number(t.custom_cost) : null }]));
+      const track = Object.fromEntries(((trackRes.data ?? []) as { request_id: string; cost_mode: CostMode; custom_cost: number | null; actual_paid: number | null }[])
+        .map((t) => [t.request_id, {
+          cost_mode: t.cost_mode,
+          custom_cost: t.custom_cost != null ? Number(t.custom_cost) : null,
+          actual_paid: t.actual_paid != null ? Number(t.actual_paid) : null,
+        }]));
       const names = Object.fromEntries(((profRes.data ?? []) as { id: string; full_name: string | null }[]).map((p) => [p.id, p.full_name]));
 
       setRows(list.map((r) => ({
@@ -65,7 +70,8 @@ export const AdminProfitPage = () => {
         hotel: hotelName[r.selected_hotel_id as string] ?? '—',
         date: r.selected_date,
         status: r.status,
-        revenue: r.plan_id ? total[r.plan_id] ?? null : null,
+        revenue: bookingRevenue(track[r.id], r.plan_id ? total[r.plan_id] : null),
+        revenueIsActual: track[r.id]?.actual_paid != null,
         cost: bookingCost(track[r.id], hotelCost[r.selected_hotel_id as string]),
         costMode: track[r.id]?.cost_mode ?? 'default',
       })));
@@ -90,7 +96,7 @@ export const AdminProfitPage = () => {
             </div>
             <div>
               <h1 className="text-2xl font-black text-[#0A192F]">רווחיות הזמנות</h1>
-              <p className="text-sm text-[#33332D]/50">כמה הלקוח שילם (סכום התוכנית) פחות כמה עלה לנו המלון</p>
+              <p className="text-sm text-[#33332D]/50">כמה הלקוח שילם (בפועל, או לפי מחיר התוכנית) פחות כמה עלה לנו המלון</p>
             </div>
           </div>
           <select value={month} onChange={(e) => setMonth(e.target.value)}
@@ -153,7 +159,10 @@ export const AdminProfitPage = () => {
                       <td className="px-4 py-3 text-[#33332D]/75">{r.plan}</td>
                       <td className="px-4 py-3 text-[#33332D]/75">{r.hotel}</td>
                       <td className="px-4 py-3 text-[#33332D]/75 whitespace-nowrap">{r.date ? new Date(r.date).toLocaleDateString('he-IL') : '—'}</td>
-                      <td className="px-4 py-3 font-semibold">{shekel(r.revenue)}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold">{shekel(r.revenue)}</div>
+                        <div className="text-[11px] text-[#33332D]/40">{r.revenueIsActual ? 'בפועל' : 'לפי מחיר התוכנית'}</div>
+                      </td>
                       <td className="px-4 py-3">
                         {r.cost != null ? shekel(r.cost) : <span className="text-amber-600 text-xs">לא הוגדר</span>}
                         <div className="text-[11px] text-[#33332D]/40">{r.costMode === 'custom' ? 'מחיר אחר' : 'מחיר רגיל'}</div>
