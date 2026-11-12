@@ -3,4 +3,5 @@
 /api/nedarim/payment-callback/* https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1/nedarim-payment-callback/:splat 200
 /api/nedarim/payment-callback https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1/nedarim-payment-callback 200
 /api/shulchani/logs https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1/shulchani-logs 200
+/shulchani/* /shulchani/not-found.json 404
 /* /index.html 200
