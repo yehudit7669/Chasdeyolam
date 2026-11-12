@@ -40,6 +40,16 @@
   [redirects.headers]
     X-Forwarded-Host = "chasdeyolam.com"
 
+# Proxy /api/shulchani/logs → Supabase Edge Function (error logs from the "Shulchani" desktop app)
+[[redirects]]
+  from = "/api/shulchani/logs"
+  to = "https://iuwdfxgkwpdhnvveucwz.supabase.co/functions/v1/shulchani-logs"
+  status = 200
+  force = true
+
+  [redirects.headers]
+    X-Forwarded-Host = "chasdeyolam.com"
+
 # SPA fallback — must be last
 [[redirects]]
   from = "/*"

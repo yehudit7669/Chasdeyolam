@@ -17,6 +17,7 @@ import { AdminPlanChangeRequestsPage } from './AdminPlanChangeRequestsPage';
 import { AdminApproachingEligibilityPage } from './AdminApproachingEligibilityPage';
 import { AdminAvailabilityChecksPage } from './AdminAvailabilityChecksPage';
 import { AdminProfitPage } from './AdminProfitPage';
+import { AdminShulchaniLogsPage } from './AdminShulchaniLogsPage';
 
 export const AdminDashboard = () => {
   return (
@@ -39,6 +40,7 @@ export const AdminDashboard = () => {
       <Route path="/approaching" element={<AdminApproachingEligibilityPage />} />
       <Route path="/availability-checks" element={<AdminAvailabilityChecksPage />} />
       <Route path="/profit" element={<AdminProfitPage />} />
+      <Route path="/shulchani-logs" element={<AdminShulchaniLogsPage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   );

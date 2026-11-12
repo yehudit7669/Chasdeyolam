@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Users, CreditCard, Hotel,
   MessageSquare, Settings, LogOut, Menu, X,
   CircleUser as UserCircle, Building2, HeartHandshake, Wrench, Images, Repeat,
-  BedDouble, Wallet, ClipboardList, Hourglass, CalendarSearch, TrendingUp,
+  BedDouble, Wallet, ClipboardList, Hourglass, CalendarSearch, TrendingUp, Terminal,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 
@@ -106,6 +106,7 @@ const ADMIN_AREAS: AdminArea[] = [
         title: 'מערכת',
         items: [
           { path: '/admin/settings', icon: Settings, label: 'הגדרות' },
+          { path: '/admin/shulchani-logs', icon: Terminal, label: 'לוגים שולחני' },
         ],
       },
     ],
