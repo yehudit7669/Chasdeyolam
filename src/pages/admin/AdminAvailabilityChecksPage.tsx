@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { createNotification } from '../../hooks/useNotifications';
+import { SelectedExtrasSummary } from '../../components/ExtrasPicker';
+import { parseSelectedExtras } from '../../lib/hotelExtras';
 import {
   AvailabilityCheck, AVAILABILITY_VALID_HOURS, isExpired, fmtRequestedDates, fmtDay, fmtExpiry,
 } from '../../lib/availabilityChecks';
@@ -148,6 +150,7 @@ export const AdminAvailabilityChecksPage = () => {
       guest_address: c.guest_address,
       guest_email: c.guest_email,
       upgrade_request: c.upgrade_request,
+      selected_extras: c.selected_extras,
     };
     let requestId = c.used_request_id;
     if (!requestId) {
@@ -284,6 +287,7 @@ export const AdminAvailabilityChecksPage = () => {
                             {c.guest_address && <div><b className="font-semibold">כתובת:</b> {c.guest_address}</div>}
                             {c.guest_email && <div><b className="font-semibold">מייל להזמנה:</b> <span dir="ltr">{c.guest_email}</span></div>}
                             {c.upgrade_request && <div className="text-[#B08D57]"><b className="font-semibold">בקשת שדרוג (לא מחייבת):</b> {c.upgrade_request}</div>}
+                            <SelectedExtrasSummary extras={parseSelectedExtras(c.selected_extras)} />
                           </div>
                         )}
                       </div>

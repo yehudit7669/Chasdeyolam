@@ -9,6 +9,8 @@ import heroHotelImg from '../assets/hero-hotel.jpg';
 import { AvailabilityCheck, isExpired, isPayable, fmtRequestedDates } from '../lib/availabilityChecks';
 import { HotelNameWithDetails, HOTEL_PACKAGE_COLUMNS, HotelPackage } from '../components/HotelPackageDetails';
 import { GuestDetails, GuestDetailsFields, emptyGuestDetails, validateGuestDetails, guestColumns } from '../components/GuestDetailsFields';
+import { ExtrasPicker } from '../components/ExtrasPicker';
+import { SelectedExtra, parseExtras, selectedExtrasColumn } from '../lib/hotelExtras';
 import {
   MapPin, Hotel as HotelIcon, Moon, CheckCircle, Loader2, Star,
   ChevronRight, ChevronLeft, Clock, AlertTriangle, Calendar, Trash2,
@@ -49,6 +51,7 @@ export default function MyOrdersPage() {
   const [noteBy, setNoteBy] = useState<Record<string, string>>({});
   const [guestBy, setGuestBy] = useState<Record<string, GuestDetails>>({});
   const [guestErrorBy, setGuestErrorBy] = useState<Record<string, string>>({});
+  const [extrasBy, setExtrasBy] = useState<Record<string, SelectedExtra[]>>({});
   const [calBy, setCalBy] = useState<Record<string, Date>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [changeMode, setChangeMode] = useState<Record<string, boolean>>({});
@@ -166,6 +169,7 @@ export default function MyOrdersPage() {
     const isOpen = selHotel[reqId] === hotelId;
     setSelHotel((p) => ({ ...p, [reqId]: isOpen ? null : hotelId }));
     setSelDate((p) => ({ ...p, [reqId]: null }));
+    setExtrasBy((p) => ({ ...p, [reqId]: [] })); // תוספות שייכות למלון — מתאפסות כשמחליפים מלון
     if (!isOpen) {
       const ds = allowedDates(reqId, hotelId);
       if (ds.length) { const d = parseDate(ds[0]); setCalBy((p) => ({ ...p, [reqId]: new Date(d.getFullYear(), d.getMonth(), 1) })); }
@@ -188,6 +192,7 @@ export default function MyOrdersPage() {
       selected_hotel_id: hotelId, selected_date: dateKey, selected_end_date: toKey(co),
       user_note: noteBy[req.id] || null, status: 'awaiting_admin', updated_at: new Date().toISOString(),
       ...guestColumns(guest, user.email),
+      selected_extras: selectedExtrasColumn(extrasBy[req.id] ?? []),
     }).eq('id', req.id).select('id');
     if (error) { setSubmittingId(null); alert('שגיאה: ' + error.message); return; }
     if (!updated || updated.length === 0) { setSubmittingId(null); alert('לא ניתן היה לשמור (בעיית הרשאה). פנה לתמיכה.'); return; }
@@ -301,6 +306,10 @@ export default function MyOrdersPage() {
                       <GuestDetailsFields value={guestBy[req.id] ?? emptyGuestDetails()}
                         onChange={(v) => setGuestBy((p) => ({ ...p, [req.id]: v }))} accountEmail={user?.email} />
                       {guestErrorBy[req.id] && <p className="text-xs text-red-600 mt-2">{guestErrorBy[req.id]}</p>}
+                      <div className="mt-3">
+                        <ExtrasPicker extras={parseExtras(selH?.extras)} value={extrasBy[req.id] ?? []}
+                          onChange={(v) => setExtrasBy((p) => ({ ...p, [req.id]: v }))} />
+                      </div>
                     </div>
                   )}
                   <textarea value={noteBy[req.id] ?? ''} onChange={(e) => setNoteBy((p) => ({ ...p, [req.id]: e.target.value }))} rows={3} placeholder="הערה (אופציונלי): בקשות מיוחדות, מספר אורחים..."

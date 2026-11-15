@@ -1,5 +1,6 @@
 import { ReactNode, useState } from 'react';
-import { BedDouble, UtensilsCrossed, Moon, Check } from 'lucide-react';
+import { BedDouble, UtensilsCrossed, Moon, Check, PlusCircle } from 'lucide-react';
+import { parseExtras, fmtShekel } from '../lib/hotelExtras';
 
 // "מה מקבלים" במלון — נערך בניהול האתר ← מלונות, מוצג ללקוח בכפתור "עוד" ליד שם המלון
 export interface HotelPackage {
@@ -7,13 +8,14 @@ export interface HotelPackage {
   meals?: string | null;
   package_includes?: string | null;
   bookable_nights?: number | null;
+  extras?: unknown;
 }
 
 // העמודות שצריך לבחור מ-hotels כדי להציג את הפירוט
-export const HOTEL_PACKAGE_COLUMNS = 'room_type, meals, package_includes, bookable_nights';
+export const HOTEL_PACKAGE_COLUMNS = 'room_type, meals, package_includes, bookable_nights, extras';
 
 export const hasPackageDetails = (h: HotelPackage) =>
-  !!(h.room_type?.trim() || h.meals?.trim() || h.package_includes?.trim());
+  !!(h.room_type?.trim() || h.meals?.trim() || h.package_includes?.trim() || parseExtras(h.extras).length);
 
 export function HotelPackagePanel({ hotel }: { hotel: HotelPackage }) {
   const includes = (hotel.package_includes ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
@@ -29,6 +31,14 @@ export function HotelPackagePanel({ hotel }: { hotel: HotelPackage }) {
       {includes.map((line, i) => (
         <div key={i} className={row}><Check size={14} className={icon} /><span>{line}</span></div>
       ))}
+      {parseExtras(hotel.extras).length > 0 && (
+        <div className="pt-1.5 mt-1 border-t border-[#E5E1D8]/70">
+          <div className={`${row} font-semibold text-[#0A192F] mb-1`}><PlusCircle size={14} className={icon} /><span>תוספות בתשלום</span></div>
+          {parseExtras(hotel.extras).map((e) => (
+            <div key={e.label} className="flex justify-between gap-4 ps-6"><span>{e.label}</span><span className="font-semibold">{fmtShekel(e.price)}</span></div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

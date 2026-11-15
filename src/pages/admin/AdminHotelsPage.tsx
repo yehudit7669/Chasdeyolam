@@ -14,6 +14,7 @@ import { Toast } from '../../components/admin/Toast';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { DAY_NAMES, formatBookableDays } from '../../lib/stayType';
+import { parseExtras } from '../../lib/hotelExtras';
 
 interface Plan {
   id: string;
@@ -52,6 +53,7 @@ interface Hotel {
   room_type: string | null;
   meals: string | null;
   package_includes: string | null;
+  extras: unknown;
   images?: HotelImage[];
 }
 
@@ -107,6 +109,8 @@ export const AdminHotelsPage = () => {
     base_rooms: '2', extra_room_price: '0', change_deadline_days: '7',
     room_type: '', meals: '', package_includes: '', default_cost: '',
   });
+  // תוספות בתשלום (ילד נוסף, שדרוג...) — שורות שם + מחיר. מחיר נשמר כטקסט בזמן עריכה
+  const [extrasDraft, setExtrasDraft] = useState<{ label: string; price: string }[]>([]);
 
   // --- זמינות (per הרחבת מלון) ---
   const [avail, setAvail] = useState<Availability[]>([]);
@@ -204,6 +208,7 @@ export const AdminHotelsPage = () => {
         room_type: hotel.room_type ?? '', meals: hotel.meals ?? '', package_includes: hotel.package_includes ?? '',
         default_cost: hotelCosts[hotel.id] != null ? String(hotelCosts[hotel.id]) : '',
       });
+      setExtrasDraft(parseExtras(hotel.extras).map((e) => ({ label: e.label, price: String(e.price) })));
       const existing: PendingImage[] = (hotel.images || []).map((img) => ({
         id: img.id, type: 'url', url: img.image_url, previewUrl: img.image_url, uploading: false,
       }));
@@ -216,6 +221,7 @@ export const AdminHotelsPage = () => {
         base_rooms: '2', extra_room_price: '0', change_deadline_days: '7',
         room_type: '', meals: '', package_includes: '', default_cost: '',
       });
+      setExtrasDraft([]);
       setPendingImages([]);
     }
     setUrlInput('');
@@ -337,6 +343,9 @@ export const AdminHotelsPage = () => {
         room_type: formData.room_type.trim() || null,
         meals: formData.meals.trim() || null,
         package_includes: formData.package_includes.trim() || null,
+        extras: extrasDraft
+          .filter((e) => e.label.trim())
+          .map((e) => ({ label: e.label.trim(), price: Number(e.price) || 0 })),
       };
 
       let hotelId: string;
@@ -839,6 +848,28 @@ export const AdminHotelsPage = () => {
                 placeholder={'כל שורה תוצג כסעיף נפרד. לדוגמה:\nכניסה לבריכה\nחניה חינם\nצ׳ק-אאוט מאוחר בשבת'}
                 onChange={(e) => setFormData({ ...formData, package_includes: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">תוספות בתשלום</label>
+              <p className="text-xs text-gray-500 mb-2">למשל ילד נוסף, שדרוג חדר, לילה נוסף. הלקוח רואה אותן ב"עוד" ויכול לסמן אותן בהזמנה.</p>
+              <div className="space-y-2">
+                {extrasDraft.map((ex, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input type="text" value={ex.label} placeholder="לדוגמה: ילד נוסף"
+                      onChange={(e) => setExtrasDraft((d) => d.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    <input type="number" min="0" value={ex.price} placeholder="₪"
+                      onChange={(e) => setExtrasDraft((d) => d.map((x, j) => (j === i ? { ...x, price: e.target.value } : x)))}
+                      className="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    <button type="button" onClick={() => setExtrasDraft((d) => d.filter((_, j) => j !== i))}
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50" title="הסר">
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={() => setExtrasDraft((d) => [...d, { label: '', price: '' }])}
+                className="mt-2 text-sm font-semibold text-blue-600 hover:text-blue-700">+ הוסף תוספת</button>
             </div>
           </div>
 

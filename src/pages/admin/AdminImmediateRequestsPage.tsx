@@ -3,6 +3,8 @@ import { AdminLayout } from '../../components/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { createNotification } from '../../hooks/useNotifications';
 import { CostMode, bookingCost, bookingRevenue, planTotal, shekel } from '../../lib/bookingCosts';
+import { SelectedExtrasSummary } from '../../components/ExtrasPicker';
+import { parseSelectedExtras } from '../../lib/hotelExtras';
 import {
   Zap, Clock, CheckCircle, XCircle, Loader2, Calendar, MapPin,
   MessageSquare, X, Send, Sparkles, AlertTriangle, Trash2, Mail, Phone,
@@ -33,6 +35,7 @@ interface ImmediateRequest {
   guest_address: string | null;
   guest_email: string | null;
   upgrade_request: string | null;
+  selected_extras: unknown;
 }
 
 const STATUS_META: Record<string, { label: string; color: string; icon: any }> = {
@@ -429,6 +432,7 @@ export const AdminImmediateRequestsPage = () => {
                               {req.guest_address && <div><b className="font-semibold">כתובת:</b> {req.guest_address}</div>}
                               {req.guest_email && <div><b className="font-semibold">מייל להזמנה:</b> <span dir="ltr">{req.guest_email}</span></div>}
                               {req.upgrade_request && <div className="text-[#B08D57]"><b className="font-semibold">בקשת שדרוג (לא מחייבת):</b> {req.upgrade_request}</div>}
+                              <SelectedExtrasSummary extras={parseSelectedExtras(req.selected_extras)} />
                             </div>
                           )}
                         </div>

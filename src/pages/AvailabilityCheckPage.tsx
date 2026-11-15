@@ -7,6 +7,8 @@ import {
 import { Layout } from '../components/Layout';
 import { HotelNameWithDetails, HOTEL_PACKAGE_COLUMNS, HotelPackage } from '../components/HotelPackageDetails';
 import { GuestDetails, GuestDetailsFields, emptyGuestDetails, validateGuestDetails, guestColumns } from '../components/GuestDetailsFields';
+import { ExtrasPicker } from '../components/ExtrasPicker';
+import { SelectedExtra, parseExtras, parseSelectedExtras, selectedExtrasColumn } from '../lib/hotelExtras';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { createNotification } from '../hooks/useNotifications';
@@ -48,6 +50,7 @@ export default function AvailabilityCheckPage() {
   const [phone, setPhone] = useState('');
   const [note, setNote] = useState('');
   const [guest, setGuest] = useState<GuestDetails>(emptyGuestDetails());
+  const [extras, setExtras] = useState<SelectedExtra[]>([]);
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -99,6 +102,7 @@ export default function AvailabilityCheckPage() {
         useAccountEmail: !prefill.guest_email || prefill.guest_email === user?.email, otherEmail: prefill.guest_email ?? '',
         upgrade: prefill.upgrade_request ?? '',
       });
+      setExtras(parseSelectedExtras(prefill.selected_extras));
     }
     setFormError('');
     setView('form');
@@ -130,6 +134,7 @@ export default function AvailabilityCheckPage() {
       date_to: dateTo,
       user_note: note.trim() || null,
       ...guestColumns(guest, user.email),
+      selected_extras: selectedExtrasColumn(extras),
     };
     const { data, error } = await supabase.from('availability_checks').insert(row).select('*').single();
     if (error || !data) {
@@ -233,7 +238,7 @@ export default function AvailabilityCheckPage() {
           <p className="text-sm text-[#33332D]/45 bg-[#F7F5F0] rounded-xl p-4">אין כרגע מקומות זמינים בתוכנית זו. אפשר לבחור "לא משנה לי" או ליצור איתנו קשר.</p>
         ) : (
           <div className="grid sm:grid-cols-2 gap-2">
-            {hotels.map((h) => hotelOption(h, hotelId === h.id, () => { setHotelId(h.id); if (altHotelId === h.id) setAltHotelId(''); }))}
+            {hotels.map((h) => hotelOption(h, hotelId === h.id, () => { if (h.id !== hotelId) setExtras([]); setHotelId(h.id); if (altHotelId === h.id) setAltHotelId(''); }))}
           </div>
         )}
       </section>
@@ -276,6 +281,9 @@ export default function AvailabilityCheckPage() {
       <section>
         <h3 className="font-bold text-[#0A192F] mb-3">3. מי מגיע?</h3>
         <GuestDetailsFields value={guest} onChange={setGuest} accountEmail={user?.email} />
+        <div className="mt-3">
+          <ExtrasPicker extras={parseExtras(hotels.find((h) => h.id === hotelId)?.extras)} value={extras} onChange={setExtras} />
+        </div>
       </section>
 
       <section>

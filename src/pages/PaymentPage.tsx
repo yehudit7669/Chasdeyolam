@@ -95,6 +95,7 @@ export default function PaymentPage() {
             guest_address: preChecked.guest_address,
             guest_email: preChecked.guest_email,
             upgrade_request: preChecked.upgrade_request,
+            selected_extras: preChecked.selected_extras,
           } : {}),
         }).select('id').single();
         if (reqErr) {
