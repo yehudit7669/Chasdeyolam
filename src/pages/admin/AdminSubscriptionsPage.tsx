@@ -22,6 +22,7 @@ interface Subscription {
   canceled_at: string | null;
   completed_at: string | null;
   keva_id: string | null;
+  subscription_source: string | null;
   profiles: {
     full_name: string;
     email: string;
@@ -29,7 +30,15 @@ interface Subscription {
   plans: {
     name_he: string;
     name_en: string;
+    monthly_amount: number;
+    required_successful_payments: number;
   };
+}
+
+// איך המנוי משלם — מחושב בפתיחת "פרטי מנוי"
+interface PaymentTrack {
+  label: string;
+  detail: string | null;
 }
 
 interface Payment {
@@ -57,6 +66,7 @@ export const AdminSubscriptionsPage = () => {
   const [plans, setPlans] = useState<any[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [kevaDetails, setKevaDetails] = useState<KevaDetails>({ loading: false, data: null, error: null });
+  const [paymentTrack, setPaymentTrack] = useState<PaymentTrack | null>(null);
   const [actionProcessing, setActionProcessing] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -79,7 +89,7 @@ export const AdminSubscriptionsPage = () => {
         .select(`
           *,
           profiles!subscriptions_user_id_fkey(full_name, email),
-          plans!subscriptions_plan_id_fkey(name_he, name_en)
+          plans!subscriptions_plan_id_fkey(name_he, name_en, monthly_amount, required_successful_payments)
         `)
         .order('started_at', { ascending: false });
 
@@ -106,9 +116,32 @@ export const AdminSubscriptionsPage = () => {
     }
   };
 
+  // מסלול רגיל = הוראת קבע חודשית (בנדרים או בנקאית). מימוש מיידי = עסקה אחת — בתשלומים
+  // (תפיסת מסגרת) או תשלום אחד מלא, לפי מספר התשלומים שנדרים דיווחו בעסקה.
+  const loadPaymentTrack = async (sub: Subscription): Promise<PaymentTrack> => {
+    if (sub.subscription_source === 'manual_bank') return { label: 'הוראת קבע בנקאית (חודשית)', detail: 'מסלול רגיל — חיוב חודשי מהבנק' };
+    if (sub.keva_id) return { label: 'הוראת קבע חודשית בנדרים פלוס', detail: 'מסלול רגיל — חיוב כל חודש, ובסוף התוכנית מקבלים את התמורה' };
+    const [{ data: req }, { data: cb }] = await Promise.all([
+      supabase.from('immediate_requests').select('redemption_type')
+        .eq('user_id', sub.user_id).eq('plan_id', sub.plan_id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('nedarim_donation_callbacks').select('tashloumim, amount')
+        .eq('subscription_id', sub.id).order('received_at', { ascending: true }).limit(1).maybeSingle(),
+    ]);
+    const n = Number(cb?.tashloumim ?? 0);
+    if (req?.redemption_type === 'immediate' || n > 0) {
+      const amount = cb?.amount ? `₪${Number(cb.amount).toLocaleString('he-IL')}` : null;
+      if (n === 1) return { label: 'מימוש מיידי — תשלום אחד מלא', detail: amount ? `${amount} בחיוב אחד` : null };
+      if (n > 1) return { label: 'מימוש מיידי — תשלומים (תפיסת מסגרת)', detail: amount ? `${amount} ב-${n} תשלומים` : `${n} תשלומים` };
+      return { label: 'מימוש מיידי', detail: 'לא התקבל עדיין דיווח עסקה מנדרים' };
+    }
+    return { label: 'לא ידוע', detail: 'אין הוראת קבע ואין דיווח עסקה מנדרים' };
+  };
+
   const handleViewDetails = async (subscription: Subscription) => {
     setSelectedSubscription(subscription);
     setKevaDetails({ loading: false, data: null, error: null });
+    setPaymentTrack(null);
+    loadPaymentTrack(subscription).then(setPaymentTrack).catch(() => setPaymentTrack({ label: 'לא ידוע', detail: null }));
 
     try {
       const { data, error } = await supabase
@@ -390,6 +423,26 @@ export const AdminSubscriptionsPage = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">תוכנית</label>
                 <p className="text-gray-900">{selectedSubscription.plans.name_he}</p>
+              </div>
+              <div className="col-span-2 rounded-lg bg-blue-50 border border-blue-100 px-4 py-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">אופן תשלום</label>
+                {paymentTrack ? (
+                  <>
+                    <p className="text-gray-900 font-semibold">{paymentTrack.label}</p>
+                    {paymentTrack.detail && <p className="text-sm text-gray-600">{paymentTrack.detail}</p>}
+                  </>
+                ) : <p className="text-sm text-gray-400">טוען...</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">סכום חודשי</label>
+                <p className="text-gray-900">₪{selectedSubscription.plans.monthly_amount?.toLocaleString('he-IL')}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">תשלומים בתוכנית · סה״כ</label>
+                <p className="text-gray-900">
+                  {selectedSubscription.plans.required_successful_payments} ·{' '}
+                  ₪{(selectedSubscription.plans.monthly_amount * selectedSubscription.plans.required_successful_payments).toLocaleString('he-IL')}
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">סטטוס</label>
